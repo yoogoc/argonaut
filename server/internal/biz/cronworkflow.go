@@ -18,15 +18,21 @@ import (
 type CronUsecase struct {
 	log     *slog.Logger
 	servers *pkgargo.Servers
+	cache   *pkgargo.Cache
 	authz   *AuthzUsecase
 }
 
-func NewCronUsecase(servers *pkgargo.Servers, authzUC *AuthzUsecase, logger *slog.Logger) *CronUsecase {
+func NewCronUsecase(servers *pkgargo.Servers, cache *pkgargo.Cache, authzUC *AuthzUsecase, logger *slog.Logger) *CronUsecase {
 	return &CronUsecase{
 		log:     logger.With("module", "biz/cronworkflow"),
 		servers: servers,
+		cache:   cache,
 		authz:   authzUC,
 	}
+}
+
+func (uc *CronUsecase) done(ctx context.Context, action authz.Action, cron *wfv1.CronWorkflow, detail any) {
+	uc.authz.Audit().Record(ctx, action, CronWorkflowResource(cron), AuditAllowed, cron.Namespace+"/"+cron.Name, detail, uc.authz.Revision())
 }
 
 func (uc *CronUsecase) argoContext(ctx context.Context) context.Context {
@@ -41,18 +47,18 @@ func (uc *CronUsecase) List(ctx context.Context, opts pkgargo.ListOptions) (*wfv
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return nil, err
 	}
-	list, err := uc.servers.ListCronWorkflows(uc.argoContext(ctx), opts)
+	all, err := uc.cache.ListCrons(ctx, uc.servers.NamespaceFor(opts.Namespace), opts.LabelSelector, opts.NamePattern)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]wfv1.CronWorkflow, 0, len(list.Items))
-	for i := range list.Items {
-		if uc.authz.Allow(ctx, authz.CronList, CronWorkflowResource(&list.Items[i])) {
-			items = append(items, list.Items[i])
+	items := make([]wfv1.CronWorkflow, 0, len(all))
+	for _, c := range all {
+		if uc.authz.Allow(ctx, authz.CronList, CronWorkflowResource(c)) {
+			items = append(items, *c)
 		}
 	}
 	window, next, remaining := pkgargo.Page(items, opts.ContinueToken, opts.Limit)
-	list.Items = window
+	list := &wfv1.CronWorkflowList{Items: window}
 	list.Continue = next
 	list.RemainingItemCount = &remaining
 	return list, nil
@@ -86,10 +92,19 @@ func (uc *CronUsecase) Create(ctx context.Context, namespace string, cron *wfv1.
 	if err := uc.authz.Require(ctx, authz.CronCreate, CronWorkflowResource(cron)); err != nil {
 		return nil, err
 	}
-	return uc.servers.CronWorkflow.CreateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CreateCronWorkflowRequest{
+	if cron.Spec.WorkflowSpec.WorkflowTemplateRef != nil {
+		if err := requireRefsReadable(ctx, uc.authz, ns, &cron.Spec.WorkflowSpec); err != nil {
+			return nil, err
+		}
+	}
+	created, err := uc.servers.CronWorkflow.CreateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CreateCronWorkflowRequest{
 		Namespace:    ns,
 		CronWorkflow: cron,
 	})
+	if err == nil {
+		uc.done(ctx, authz.CronCreate, created, nil)
+	}
+	return created, err
 }
 
 // Update requires rights on both the stored cron and the incoming one, so a cron cannot be
@@ -103,11 +118,16 @@ func (uc *CronUsecase) Update(ctx context.Context, namespace, name string, cron 
 	if err := uc.authz.Require(ctx, authz.CronUpdate, CronWorkflowResource(cron)); err != nil {
 		return nil, err
 	}
-	return uc.servers.CronWorkflow.UpdateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.UpdateCronWorkflowRequest{
+	updated, err := uc.servers.CronWorkflow.UpdateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.UpdateCronWorkflowRequest{
 		Namespace:    ns,
 		Name:         name,
 		CronWorkflow: cron,
 	})
+	if err != nil {
+		return nil, conflictError(err)
+	}
+	uc.done(ctx, authz.CronUpdate, updated, nil)
+	return updated, nil
 }
 
 func (uc *CronUsecase) Delete(ctx context.Context, namespace, name string) error {
@@ -119,6 +139,9 @@ func (uc *CronUsecase) Delete(ctx context.Context, namespace, name string) error
 		Namespace: cron.Namespace,
 		Name:      cron.Name,
 	})
+	if err == nil {
+		uc.done(ctx, authz.CronDelete, cron, nil)
+	}
 	return err
 }
 
@@ -127,10 +150,14 @@ func (uc *CronUsecase) Suspend(ctx context.Context, namespace, name string) (*wf
 	if err != nil {
 		return nil, err
 	}
-	return uc.servers.CronWorkflow.SuspendCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowSuspendRequest{
+	out, err := uc.servers.CronWorkflow.SuspendCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowSuspendRequest{
 		Namespace: cron.Namespace,
 		Name:      cron.Name,
 	})
+	if err == nil {
+		uc.done(ctx, authz.CronSuspend, cron, nil)
+	}
+	return out, err
 }
 
 func (uc *CronUsecase) Resume(ctx context.Context, namespace, name string) (*wfv1.CronWorkflow, error) {
@@ -138,10 +165,14 @@ func (uc *CronUsecase) Resume(ctx context.Context, namespace, name string) (*wfv
 	if err != nil {
 		return nil, err
 	}
-	return uc.servers.CronWorkflow.ResumeCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowResumeRequest{
+	out, err := uc.servers.CronWorkflow.ResumeCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowResumeRequest{
 		Namespace: cron.Namespace,
 		Name:      cron.Name,
 	})
+	if err == nil {
+		uc.done(ctx, authz.CronResume, cron, nil)
+	}
+	return out, err
 }
 
 // RunNow triggers one immediate execution. Argo exposes no such API, so we do what its cron
@@ -163,10 +194,14 @@ func (uc *CronUsecase) RunNow(ctx context.Context, namespace, name string) (*wfv
 		wf.Labels[common.LabelKeyCreator] = sanitizeLabelValue(subject)
 	}
 
-	return uc.servers.Workflow.CreateWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowCreateRequest{
+	created, err := uc.servers.Workflow.CreateWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowCreateRequest{
 		Namespace: cron.Namespace,
 		Workflow:  wf,
 	})
+	if err == nil {
+		uc.done(ctx, authz.CronRun, cron, map[string]any{"workflow": created.Name})
+	}
+	return created, err
 }
 
 func (uc *CronUsecase) Lint(ctx context.Context, namespace string, cron *wfv1.CronWorkflow) (*wfv1.CronWorkflow, error) {

@@ -1,14 +1,14 @@
 # Root entry points. The server and UI keep their own toolchains (make/go, pnpm); these targets just
 # run them in the right order.
 
-.PHONY: all build ui server gen dev-server dev-ui test lint image
+.PHONY: all build ui server gen dev-server dev-ui test e2e lint image
 
 all: build
 
-## gen: regenerate every generated artifact (Go from proto, TS from the Argo schema, the route tree)
+## gen: regenerate every generated artifact (Go and TS from proto, TS from the Argo schema, the route tree)
 gen:
 	$(MAKE) -C server api config
-	cd ui && pnpm gen:argo && pnpm exec tsr generate
+	cd ui && pnpm gen:api && pnpm gen:argo && pnpm exec tsr generate
 
 ## ui: build the SPA into server/web/dist
 ui:
@@ -32,6 +32,10 @@ dev-ui:
 test:
 	$(MAKE) -C server test
 	cd ui && pnpm test
+
+## e2e: Playwright smoke tests against a running server (default http://localhost:4100) and its cluster
+e2e:
+	cd ui && pnpm e2e
 
 lint:
 	$(MAKE) -C server lint

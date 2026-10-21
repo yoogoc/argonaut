@@ -48,7 +48,7 @@ func (s *WorkflowTemplateService) Create(ctx context.Context, req *v1.CreateWork
 	if err != nil {
 		return nil, err
 	}
-	created, err := s.uc.Create(ctx, req.GetNamespace(), tmpl)
+	created, err := s.uc.Create(ctx, req.GetNamespace(), tmpl, req.GetMessage())
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (s *WorkflowTemplateService) Update(ctx context.Context, req *v1.UpdateWork
 	if err != nil {
 		return nil, err
 	}
-	updated, err := s.uc.Update(ctx, req.GetNamespace(), req.GetName(), tmpl)
+	updated, err := s.uc.Update(ctx, req.GetNamespace(), req.GetName(), tmpl, req.GetMessage())
 	if err != nil {
 		return nil, err
 	}
@@ -84,4 +84,40 @@ func (s *WorkflowTemplateService) Lint(ctx context.Context, req *v1.LintWorkflow
 		return nil, err
 	}
 	return &v1.WorkflowTemplateReply{Template: linted}, nil
+}
+
+func (s *WorkflowTemplateService) ListRevisions(ctx context.Context, req *v1.TemplateRevisionsRequest) (*v1.TemplateRevisionsReply, error) {
+	revs, err := s.uc.Revisions(ctx, req.GetNamespace(), req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return toProtoRevisions(revs), nil
+}
+
+func (s *WorkflowTemplateService) GetRevision(ctx context.Context, req *v1.TemplateRevisionRequest) (*v1.TemplateRevisionReply, error) {
+	rev, err := s.uc.Revision(ctx, req.GetNamespace(), req.GetName(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return &v1.TemplateRevisionReply{Revision: toProtoRevision(rev)}, nil
+}
+
+func (s *WorkflowTemplateService) Rollback(ctx context.Context, req *v1.TemplateRollbackRequest) (*v1.WorkflowTemplateReply, error) {
+	tmpl, err := s.uc.Rollback(ctx, req.GetNamespace(), req.GetName(), req.GetId(), req.GetResourceVersion())
+	if err != nil {
+		return nil, err
+	}
+	return &v1.WorkflowTemplateReply{Template: tmpl}, nil
+}
+
+func (s *WorkflowTemplateService) ListComponents(ctx context.Context, req *v1.ListComponentsRequest) (*v1.ListComponentsReply, error) {
+	comps, err := s.uc.Components(ctx, req.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+	reply := &v1.ListComponentsReply{}
+	for _, c := range comps {
+		reply.Components = append(reply.Components, &v1.Component{Cluster: c.Cluster, Editable: c.Editable, Template: c.Template, ClusterTemplate: c.ClusterTemplate})
+	}
+	return reply, nil
 }

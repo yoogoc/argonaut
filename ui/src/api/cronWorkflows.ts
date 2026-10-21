@@ -1,3 +1,5 @@
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
+
 import { http, query } from "@/lib/http";
 
 import type { CronWorkflow, List, Workflow } from "./types";
@@ -17,11 +19,9 @@ export async function listCronWorkflows(params: CronListParams): Promise<List<Cr
   return reply.list;
 }
 
-export async function getCronWorkflow(namespace: string, name: string): Promise<CronWorkflow> {
-  const reply = await http
-    .get(`cron-workflows/${namespace}/${name}`)
-    .json<{ cronWorkflow: CronWorkflow }>();
-  return reply.cronWorkflow;
+export async function getCronWorkflow(namespace: string, name: string): Promise<CronWorkflow & { nextRuns: string[] }> {
+  const reply = await http.get(`cron-workflows/${namespace}/${name}`).json<{ cronWorkflow: CronWorkflow; nextRuns?: string[] }>();
+  return { ...reply.cronWorkflow, nextRuns: reply.nextRuns ?? [] };
 }
 
 export async function createCronWorkflow(
@@ -76,3 +76,8 @@ export async function runCronWorkflowNow(namespace: string, name: string): Promi
     .json<{ workflow: Workflow }>();
   return reply.workflow;
 }
+
+export const cronQueries = {
+  list: (params: CronListParams) => queryOptions({ queryKey: ["crons", "list", params], queryFn: () => listCronWorkflows(params), placeholderData: keepPreviousData }),
+  detail: (namespace: string, name: string) => queryOptions({ queryKey: ["crons", "detail", namespace, name], queryFn: () => getCronWorkflow(namespace, name) }),
+};

@@ -1,0 +1,92 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "api/v1/workflow.proto";
+import "github.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto";
+
+// ArchivedWorkflowService reads the workflow archive the Argo controller writes to its persistence
+// database once a run is garbage-collected from the cluster. Archived runs are addressed by UID,
+// because a name can be reused by a later run. Every call is authorized against the run's template
+// scope, exactly like a live workflow.
+service ArchivedWorkflowService {
+  rpc List (ListArchivedWorkflowsRequest) returns (ListArchivedWorkflowsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/archived-workflows"
+    };
+  };
+  rpc Get (ArchivedWorkflowRequest) returns (ArchivedWorkflowReply) {
+    option (google.api.http) = {
+      get: "/api/v1/archived-workflows/{uid}"
+    };
+  };
+  rpc Delete (ArchivedWorkflowRequest) returns (DeleteArchivedWorkflowReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/archived-workflows/{uid}"
+    };
+  };
+  // Resubmit creates a new run from an archived one.
+  rpc Resubmit (ResubmitArchivedWorkflowRequest) returns (ArchivedWorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/archived-workflows/{uid}/resubmit"
+      body: "*"
+    };
+  };
+  // Retry recreates the archived run in the cluster and retries its failed steps.
+  rpc Retry (RetryArchivedWorkflowRequest) returns (ArchivedWorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/archived-workflows/{uid}/retry"
+      body: "*"
+    };
+  };
+  // Logs streams a step's archived main.log (the pods are long gone) as SSE.
+  rpc Logs (ArchivedWorkflowLogRequest) returns (stream WorkflowLogEntry) {
+    option (google.api.http) = {
+      get: "/api/v1/archived-workflows/{uid}/log"
+    };
+  };
+}
+
+message ListArchivedWorkflowsRequest {
+  string namespace = 1;
+  optional string namePrefix = 2;
+  optional string labelSelector = 3;
+  repeated string phases = 4;
+  optional int64 limit = 5;
+  optional string continueToken = 6;
+}
+message ListArchivedWorkflowsReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowList list = 1;
+}
+
+message ArchivedWorkflowRequest {
+  string uid = 1;
+  // namespace narrows the lookup; it is optional because the UID alone is unique.
+  optional string namespace = 2;
+}
+message ArchivedWorkflowReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.Workflow workflow = 1;
+}
+message DeleteArchivedWorkflowReply {}
+
+message ResubmitArchivedWorkflowRequest {
+  string uid = 1;
+  bool memoized = 2;
+  repeated string parameters = 3;
+}
+
+message RetryArchivedWorkflowRequest {
+  string uid = 1;
+  bool restartSuccessful = 2;
+  optional string nodeFieldSelector = 3;
+  repeated string parameters = 4;
+}
+
+message ArchivedWorkflowLogRequest {
+  string uid = 1;
+  string nodeId = 2;
+  optional string grep = 3;
+}

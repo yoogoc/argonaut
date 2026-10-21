@@ -65,22 +65,22 @@ type WorkflowServiceHTTPServer interface {
 
 func RegisterWorkflowServiceHTTPServer(s *http.Server, srv WorkflowServiceHTTPServer) {
 	r := s.Route("/")
-	r.Handle("GET", "/api/v1/workflows", _WorkflowService_List1_HTTP_Handler(srv))
-	r.Handle("GET", "/api/v1/workflows/{namespace}/{name}", _WorkflowService_Get1_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/workflows", _WorkflowService_List0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/workflows/{namespace}/{name}", _WorkflowService_Get0_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/watch/workflows/{namespace}", _WorkflowService_Watch0_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/workflows/{namespace}/{name}/events", _WorkflowService_Events0_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/workflows/{namespace}/{name}/log", _WorkflowService_Logs0_HTTP_Handler(srv))
 	r.Handle("POST", "/api/v1/workflows/{namespace}/submit", _WorkflowService_Submit0_HTTP_Handler(srv))
-	r.Handle("POST", "/api/v1/workflows/{namespace}", _WorkflowService_Create1_HTTP_Handler(srv))
-	r.Handle("POST", "/api/v1/workflows/{namespace}/lint", _WorkflowService_Lint1_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/workflows/{namespace}", _WorkflowService_Create0_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/workflows/{namespace}/lint", _WorkflowService_Lint0_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/retry", _WorkflowService_Retry0_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/resubmit", _WorkflowService_Resubmit0_HTTP_Handler(srv))
-	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/suspend", _WorkflowService_Suspend1_HTTP_Handler(srv))
-	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/resume", _WorkflowService_Resume1_HTTP_Handler(srv))
+	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/suspend", _WorkflowService_Suspend0_HTTP_Handler(srv))
+	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/resume", _WorkflowService_Resume0_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/set", _WorkflowService_Set0_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/stop", _WorkflowService_Stop0_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/terminate", _WorkflowService_Terminate0_HTTP_Handler(srv))
-	r.Handle("DELETE", "/api/v1/workflows/{namespace}/{name}", _WorkflowService_Delete1_HTTP_Handler(srv))
+	r.Handle("DELETE", "/api/v1/workflows/{namespace}/{name}", _WorkflowService_Delete0_HTTP_Handler(srv))
 }
 
 type WorkflowService_EventsHTTPServer struct {
@@ -107,7 +107,7 @@ func (x *WorkflowService_WatchHTTPServer) Send(m *WorkflowWatchEvent) error {
 	return x.ServerStream.Send(m)
 }
 
-func _WorkflowService_List1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowService_List0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ListWorkflowRequest
 		if err := ctx.BindQuery(&in); err != nil {
@@ -126,7 +126,7 @@ func _WorkflowService_List1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx
 	}
 }
 
-func _WorkflowService_Get1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowService_Get0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in GetWorkflowRequest
 		if err := ctx.BindQuery(&in); err != nil {
@@ -230,7 +230,7 @@ func _WorkflowService_Submit0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(c
 	}
 }
 
-func _WorkflowService_Create1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowService_Create0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in CreateWorkflowRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -252,7 +252,7 @@ func _WorkflowService_Create1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(c
 	}
 }
 
-func _WorkflowService_Lint1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowService_Lint0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in LintWorkflowRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -318,7 +318,7 @@ func _WorkflowService_Resubmit0_HTTP_Handler(srv WorkflowServiceHTTPServer) func
 	}
 }
 
-func _WorkflowService_Suspend1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowService_Suspend0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in WorkflowActionRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -340,7 +340,7 @@ func _WorkflowService_Suspend1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(
 	}
 }
 
-func _WorkflowService_Resume1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowService_Resume0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ResumeWorkflowRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -428,7 +428,7 @@ func _WorkflowService_Terminate0_HTTP_Handler(srv WorkflowServiceHTTPServer) fun
 	}
 }
 
-func _WorkflowService_Delete1_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowService_Delete0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in DeleteWorkflowRequest
 		if err := ctx.BindQuery(&in); err != nil {

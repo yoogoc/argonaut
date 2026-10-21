@@ -1,3 +1,5 @@
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
+
 import { http, query } from "@/lib/http";
 import { streamEvents } from "@/lib/sse";
 
@@ -65,7 +67,7 @@ export function watchWorkflows(
     labelSelector?: string;
     /** Trims each event; omit to receive whole workflows, which a detail view needs. */
     fields?: string;
-    onWorkflow: (wf: Workflow) => void;
+    onWorkflow: (wf: Workflow, type: WorkflowWatchEvent["type"]) => void;
     onError?: (e: unknown) => void;
   },
 ) {
@@ -78,7 +80,7 @@ export function watchWorkflows(
     {
       onMessage: (event) => {
         if (!event.workflowJson) return;
-        options.onWorkflow(JSON.parse(event.workflowJson) as Workflow);
+        options.onWorkflow(JSON.parse(event.workflowJson) as Workflow, event.type);
       },
       onError: options.onError,
     },
@@ -119,7 +121,7 @@ export function streamLogs(
 }
 
 export interface SubmitParams {
-  resourceKind: "WorkflowTemplate" | "CronWorkflow";
+  resourceKind: "WorkflowTemplate" | "ClusterWorkflowTemplate" | "CronWorkflow";
   resourceName: string;
   entryPoint?: string;
   parameters?: string[];
@@ -226,3 +228,17 @@ export function artifactUrl(
   const prefix = isInput ? "input-artifacts" : "artifacts";
   return `/api/v1/${prefix}/${namespace}/${name}/${nodeId}/${encodeURIComponent(artifactName)}`;
 }
+
+export const workflowQueries = {
+  list: (params: WorkflowListParams) =>
+    queryOptions({
+      queryKey: ["workflows", "list", params],
+      queryFn: () => listWorkflows(params),
+      placeholderData: keepPreviousData,
+    }),
+  detail: (namespace: string, name: string) =>
+    queryOptions({
+      queryKey: ["workflows", "detail", namespace, name],
+      queryFn: () => getWorkflow(namespace, name),
+    }),
+};

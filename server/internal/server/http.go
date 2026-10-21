@@ -4,8 +4,10 @@ import (
 	"context"
 	"log/slog"
 	stdhttp "net/http"
+	"strconv"
 
 	v1 "argonaut/api/v1"
+	"argonaut/internal/biz"
 	"argonaut/internal/conf"
 	xoidc "argonaut/internal/oidc"
 	"argonaut/internal/service"
@@ -21,6 +23,7 @@ import (
 	"github.com/go-kratos/kratos/v3/middleware/logging"
 	"github.com/go-kratos/kratos/v3/middleware/recovery"
 	"github.com/go-kratos/kratos/v3/middleware/selector"
+	"github.com/go-kratos/kratos/v3/transport"
 	"github.com/go-kratos/kratos/v3/transport/http"
 	"github.com/gorilla/handlers"
 )
@@ -40,8 +43,11 @@ func NewHTTPServer(
 	signer *xoidc.Signer,
 	logger *slog.Logger,
 	oauth2 *service.Oauth2Service,
+	archived *service.ArchivedWorkflowService,
+	authzUC *biz.AuthzUsecase,
 	workflow *service.WorkflowService,
 	template *service.WorkflowTemplateService,
+	clusterTemplate *service.ClusterWorkflowTemplateService,
 	cron *service.CronWorkflowService,
 	authz *service.AuthzService,
 	info *service.InfoService,
@@ -52,16 +58,17 @@ func NewHTTPServer(
 		logging.Server(logger),
 		km.ProtoValidate(),
 	}
+	needsAuth := func(_ context.Context, operation string) bool {
+		for _, skip := range skipAuthOperations {
+			if skip == operation {
+				return false
+			}
+		}
+		return true
+	}
 	switch {
 	case sso.GetEnabled():
-		mws = append(mws, selector.Server(xoidc.Auth(signer)).Match(func(_ context.Context, operation string) bool {
-			for _, skip := range skipAuthOperations {
-				if skip == operation {
-					return false
-				}
-			}
-			return true
-		}).Build())
+		mws = append(mws, selector.Server(xoidc.Auth(signer)).Match(needsAuth).Build())
 	case authzConf.GetDevSubject() != "":
 		logger.Warn("single sign-on is disabled and a development subject is configured: "+
 			"every request is treated as this user, with all of its permissions",
@@ -75,11 +82,15 @@ func NewHTTPServer(
 			"requests cannot be authenticated, so every API call will be rejected with 401")
 	}
 
+	// Runs after authentication so super admins can be recognised and exempted (DESIGN §4.2).
+	mws = append(mws, selector.Server(authzFresh(authzUC)).Match(needsAuth).Build())
+
 	opts := []http.ServerOption{
 		http.Middleware(mws...),
 		http.ResponseEncoder(responseEncoder),
 		http.Filter(handlers.CORS(
-			handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}),
+			handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", service.RevisionHeader}),
+			handlers.ExposedHeaders([]string{service.RevisionHeader}),
 			handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS", "DELETE", "PATCH"}),
 			handlers.AllowedOrigins([]string{"*"}),
 		)),
@@ -105,14 +116,16 @@ func NewHTTPServer(
 
 	v1.RegisterOauth2ServiceHTTPServer(srv, oauth2)
 	v1.RegisterWorkflowServiceHTTPServer(srv, workflow)
+	v1.RegisterArchivedWorkflowServiceHTTPServer(srv, archived)
 	v1.RegisterWorkflowTemplateServiceHTTPServer(srv, template)
+	v1.RegisterClusterWorkflowTemplateServiceHTTPServer(srv, clusterTemplate)
 	v1.RegisterCronWorkflowServiceHTTPServer(srv, cron)
 	v1.RegisterAuthzServiceHTTPServer(srv, authz)
 	v1.RegisterInfoServiceHTTPServer(srv, info)
 
 	// Artifact downloads bypass the Kratos codec so the payload can stream. The generated routes
 	// above use fixed paths, so these prefixes cannot collide with them.
-	registerArtifactRoutes(srv, sso, authzConf, signer, artifacts)
+	registerArtifactRoutes(srv, sso, authzConf, signer, authzUC, artifacts)
 
 	// Everything else is the UI. Registered last so the API routes above always win.
 	srv.HandlePrefix("/", web.Handler())
@@ -123,13 +136,14 @@ func NewHTTPServer(
 // registerArtifactRoutes mounts the streaming download handlers. They sit outside the Kratos
 // middleware chain, so the same authentication the RPCs get has to be applied explicitly here —
 // forgetting it would leave every artifact readable by anyone who can reach the port.
-func registerArtifactRoutes(srv *http.Server, sso *conf.SSO, authzConf *conf.Authz, signer *xoidc.Signer, artifacts *service.ArtifactHandler) {
+func registerArtifactRoutes(srv *http.Server, sso *conf.SSO, authzConf *conf.Authz, signer *xoidc.Signer, authzUC *biz.AuthzUsecase, artifacts *service.ArtifactHandler) {
 	routes := map[string]stdhttp.HandlerFunc{
-		"/api/v1/artifacts/":       artifacts.Output,
-		"/api/v1/input-artifacts/": artifacts.Input,
+		"/api/v1/artifacts/":          artifacts.Output,
+		"/api/v1/input-artifacts/":    artifacts.Input,
+		"/api/v1/archived-artifacts/": artifacts.Archived,
 	}
 	for prefix, handler := range routes {
-		srv.HandlePrefix(prefix, withIdentity(sso, authzConf, signer, handler))
+		srv.HandlePrefix(prefix, withIdentity(sso, authzConf, signer, freshHandler(authzUC, handler)))
 	}
 }
 
@@ -156,5 +170,41 @@ func withIdentity(sso *conf.SSO, authzConf *conf.Authz, signer *xoidc.Signer, ne
 		// No identity is obtainable, so the usecase will reject the request; pass it through and let
 		// it produce the same 401 the RPCs do.
 		return next
+	}
+}
+
+// authzFresh brings this replica's authorization snapshot up to the committed revision — or to the
+// newer one the client reports having seen — before the request is decided, and reports the revision
+// the request was decided at (DESIGN §4.3).
+func authzFresh(uc *biz.AuthzUsecase) middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
+		return func(ctx context.Context, req any) (any, error) {
+			var minRevision int64
+			tr, ok := transport.FromServerContext(ctx)
+			if ok {
+				minRevision, _ = strconv.ParseInt(tr.RequestHeader().Get(service.RevisionHeader), 10, 64)
+			}
+			if err := uc.EnsureFresh(ctx, minRevision); err != nil {
+				return nil, err
+			}
+			reply, err := handler(ctx, req)
+			if ok && tr.ReplyHeader().Get(service.RevisionHeader) == "" {
+				tr.ReplyHeader().Set(service.RevisionHeader, strconv.FormatInt(uc.Revision(), 10))
+			}
+			return reply, err
+		}
+	}
+}
+
+// freshHandler is authzFresh for the raw (non-Kratos) handlers.
+func freshHandler(uc *biz.AuthzUsecase, next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		minRevision, _ := strconv.ParseInt(r.Header.Get(service.RevisionHeader), 10, 64)
+		if err := uc.EnsureFresh(r.Context(), minRevision); err != nil {
+			stdhttp.Error(w, err.Error(), stdhttp.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set(service.RevisionHeader, strconv.FormatInt(uc.Revision(), 10))
+		next(w, r)
 	}
 }

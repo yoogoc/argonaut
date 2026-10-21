@@ -8,11 +8,7 @@ rollup:
 
 .PHONY: wire
 wire:
-	wire ./cmd
-
-.PHONY: ent
-ent:
-	go generate ./internal/data/ent/generate.go
+	cd cmd && go run -mod=mod github.com/google/wire/cmd/wire
 
 # Protos are compiled with buf rather than protoc: buf bundles its own compiler, so a broken or
 # mismatched system protoc cannot break code generation.

@@ -1,26 +1,25 @@
+// Package id generates the int64 primary keys of argonaut's tables.
 package id
 
 import (
-	s2 "github.com/bwmarrin/snowflake"
+	"hash/fnv"
+	"os"
+	"strconv"
+
 	s1 "github.com/godruoyi/go-snowflake"
 )
 
-var node *s2.Node
-
 func init() {
-	s1.SetMachineID(1)
-
-	// node, _ = s2.NewNode(1)
+	// Replicas generate ids concurrently, so each needs its own machine id; a fixed one would let two
+	// replicas mint the same id in the same millisecond. The pod name (hostname) plus pid is unique per
+	// process, and hashing it into the 10-bit space keeps collisions negligible at console scale.
+	host, _ := os.Hostname()
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(host + "/" + strconv.Itoa(os.Getpid())))
+	s1.SetMachineID(uint16(h.Sum32() % 1024))
 }
 
+// Generate returns a time-ordered unique id.
 func Generate() int64 {
-	return generate1()
-}
-
-func generate1() int64 {
 	return int64(s1.ID())
-}
-
-func generate2() int64 {
-	return int64(node.Generate())
 }

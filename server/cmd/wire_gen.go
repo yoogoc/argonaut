@@ -7,7 +7,6 @@
 package main
 
 import (
-	"github.com/google/wire"
 	"argonaut/internal/authz"
 	"argonaut/internal/biz"
 	"argonaut/internal/data"
@@ -16,6 +15,7 @@ import (
 	"argonaut/internal/server"
 	"argonaut/internal/service"
 	"argonaut/pkg/argo"
+	"github.com/google/wire"
 )
 
 // Injectors from wire.go:
@@ -52,27 +52,43 @@ func initServerApp(nameString log.NameString, versionString log.VersionString) (
 		return nil, nil, err
 	}
 	confData := newDataConf(bootstrap)
-	client, cleanup3, err := data.NewEntClient(confData, logger)
+	dataData, cleanup3, err := data.NewData(confData, logger)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	dataData := data.NewData(logger, client)
-	grantRepo := data.NewGrantRepo(dataData)
-	authzUsecase := biz.NewAuthzUsecase(grantRepo, engine, confAuthz, logger)
-	workflowUsecase := biz.NewWorkflowUsecase(servers, authzUsecase, logger)
+	authzRepo := data.NewAuthzRepo(dataData)
+	auditRepo := data.NewAuditRepo(dataData)
+	auditor := biz.NewAuditor(auditRepo, logger)
+	cache, cleanup4, err := argo.NewCache(clients, servers, kube, logger)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	authzUsecase, cleanup5 := biz.NewAuthzUsecase(authzRepo, engine, auditor, cache, confAuthz, logger)
+	workflowUsecase := biz.NewWorkflowUsecase(servers, cache, authzUsecase, logger)
+	archiveUsecase := biz.NewArchiveUsecase(servers, authzUsecase, workflowUsecase, logger)
+	archivedWorkflowService := service.NewArchivedWorkflowService(archiveUsecase, logger)
 	workflowService := service.NewWorkflowService(workflowUsecase, logger)
-	templateUsecase := biz.NewTemplateUsecase(servers, authzUsecase, logger)
+	revisionRepo := data.NewRevisionRepo(dataData)
+	templateHistory := biz.NewTemplateHistory(revisionRepo, cache, auditor, logger)
+	templateUsecase := biz.NewTemplateUsecase(servers, cache, authzUsecase, templateHistory, logger)
 	workflowTemplateService := service.NewWorkflowTemplateService(templateUsecase, logger)
-	cronUsecase := biz.NewCronUsecase(servers, authzUsecase, logger)
+	clusterTemplateUsecase := biz.NewClusterTemplateUsecase(servers, cache, authzUsecase, templateHistory, logger)
+	clusterWorkflowTemplateService := service.NewClusterWorkflowTemplateService(clusterTemplateUsecase, logger)
+	cronUsecase := biz.NewCronUsecase(servers, cache, authzUsecase, logger)
 	cronWorkflowService := service.NewCronWorkflowService(cronUsecase, logger)
-	authzService := service.NewAuthzService(authzUsecase, logger)
+	authzService := service.NewAuthzService(authzUsecase, auditor, logger)
 	infoService := service.NewInfoService(servers, kube, logger)
-	artifactHandler := service.NewArtifactHandler(workflowUsecase, logger)
-	httpServer := server.NewHTTPServer(confServer, sso, confAuthz, signer, logger, oauth2Service, workflowService, workflowTemplateService, cronWorkflowService, authzService, infoService, artifactHandler)
+	artifactHandler := service.NewArtifactHandler(workflowUsecase, archiveUsecase, logger)
+	httpServer := server.NewHTTPServer(confServer, sso, confAuthz, signer, logger, oauth2Service, archivedWorkflowService, authzUsecase, workflowService, workflowTemplateService, clusterWorkflowTemplateService, cronWorkflowService, authzService, infoService, artifactHandler)
 	serverCommand := NewServerCmd(logger, httpServer)
 	return serverCommand, func() {
+		cleanup5()
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()

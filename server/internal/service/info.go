@@ -47,5 +47,6 @@ func (s *InfoService) GetInfo(_ context.Context, _ *emptypb.Empty) (*v1.GetInfoR
 		Namespaces:               namespaces,
 		NodeStatusOffloadEnabled: s.servers.OffloadEnabled,
 		Links:                    links,
+		ArchiveEnabled:           s.servers.ArchiveEnabled,
 	}, nil
 }

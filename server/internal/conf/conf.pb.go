@@ -523,18 +523,22 @@ func (x *Argo) GetInstanceId() string {
 type Authz struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// super_admins bootstraps the first administrators, e.g. "user:<oidc-sub>". Without this nobody
-	// could ever grant the first permission.
+	// could ever grant the first permission. Super admins are decided by configuration alone, so a
+	// database outage cannot lock them out.
 	SuperAdmins []string `protobuf:"bytes,1,rep,name=super_admins,json=superAdmins,proto3" json:"super_admins,omitempty"`
 	// dev_subject makes the server usable with sso.enabled=false by treating every request as this
-	// subject. It exists so the API can be exercised locally without an identity provider; setting it
-	// in a deployment hands that subject's permissions to anyone who can reach the port.
+	// subject. Setting it in a deployment hands that subject's permissions to anyone who can reach
+	// the port.
 	DevSubject string `protobuf:"bytes,4,opt,name=dev_subject,json=devSubject,proto3" json:"dev_subject,omitempty"`
-	// policy_path overrides the embedded rego policy with a file on disk.
-	PolicyPath string `protobuf:"bytes,2,opt,name=policy_path,json=policyPath,proto3" json:"policy_path,omitempty"`
-	// reload_interval controls how often grants are re-read into OPA (multi-replica staleness).
-	ReloadInterval *durationpb.Duration `protobuf:"bytes,3,opt,name=reload_interval,json=reloadInterval,proto3" json:"reload_interval,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// poll_interval backs up LISTEN/NOTIFY for long-lived streams: replicas re-read the revision this
+	// often even if a notification is lost. Request-time checks never depend on it.
+	PollInterval *durationpb.Duration `protobuf:"bytes,3,opt,name=poll_interval,json=pollInterval,proto3" json:"poll_interval,omitempty"`
+	// cluster_templates_readable lets every signed-in user read ClusterWorkflowTemplates (default true).
+	ClusterTemplatesReadable *bool `protobuf:"varint,5,opt,name=cluster_templates_readable,json=clusterTemplatesReadable,proto3,oneof" json:"cluster_templates_readable,omitempty"`
+	// replica_id names this replica in authz_replicas; defaults to $POD_NAME, then the hostname.
+	ReplicaId     string `protobuf:"bytes,6,opt,name=replica_id,json=replicaId,proto3" json:"replica_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Authz) Reset() {
@@ -581,18 +585,25 @@ func (x *Authz) GetDevSubject() string {
 	return ""
 }
 
-func (x *Authz) GetPolicyPath() string {
+func (x *Authz) GetPollInterval() *durationpb.Duration {
 	if x != nil {
-		return x.PolicyPath
-	}
-	return ""
-}
-
-func (x *Authz) GetReloadInterval() *durationpb.Duration {
-	if x != nil {
-		return x.ReloadInterval
+		return x.PollInterval
 	}
 	return nil
+}
+
+func (x *Authz) GetClusterTemplatesReadable() bool {
+	if x != nil && x.ClusterTemplatesReadable != nil {
+		return *x.ClusterTemplatesReadable
+	}
+	return false
+}
+
+func (x *Authz) GetReplicaId() string {
+	if x != nil {
+		return x.ReplicaId
+	}
+	return ""
 }
 
 type Server_HTTP struct {
@@ -834,14 +845,16 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\x14controller_namespace\x18\x01 \x01(\tR\x13controllerNamespace\x121\n" +
 	"\x14controller_configmap\x18\x02 \x01(\tR\x13controllerConfigmap\x12\x1f\n" +
 	"\vinstance_id\x18\x03 \x01(\tR\n" +
-	"instanceId\"\xb0\x01\n" +
+	"instanceId\"\x8c\x02\n" +
 	"\x05Authz\x12!\n" +
 	"\fsuper_admins\x18\x01 \x03(\tR\vsuperAdmins\x12\x1f\n" +
 	"\vdev_subject\x18\x04 \x01(\tR\n" +
-	"devSubject\x12\x1f\n" +
-	"\vpolicy_path\x18\x02 \x01(\tR\n" +
-	"policyPath\x12B\n" +
-	"\x0freload_interval\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\x0ereloadIntervalB\x14Z\x12internal/conf;confb\x06proto3"
+	"devSubject\x12>\n" +
+	"\rpoll_interval\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\fpollInterval\x12A\n" +
+	"\x1acluster_templates_readable\x18\x05 \x01(\bH\x00R\x18clusterTemplatesReadable\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"replica_id\x18\x06 \x01(\tR\treplicaIdB\x1d\n" +
+	"\x1b_cluster_templates_readableB\x14Z\x12internal/conf;confb\x06proto3"
 
 var (
 	file_internal_conf_conf_proto_rawDescOnce sync.Once
@@ -882,7 +895,7 @@ var file_internal_conf_conf_proto_depIdxs = []int32{
 	9,  // 8: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
 	10, // 9: kratos.api.Data.database:type_name -> kratos.api.Data.Database
 	11, // 10: kratos.api.SSO.session_expiry:type_name -> google.protobuf.Duration
-	11, // 11: kratos.api.Authz.reload_interval:type_name -> google.protobuf.Duration
+	11, // 11: kratos.api.Authz.poll_interval:type_name -> google.protobuf.Duration
 	11, // 12: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
 	11, // 13: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
 	14, // [14:14] is the sub-list for method output_type
@@ -897,6 +910,7 @@ func file_internal_conf_conf_proto_init() {
 	if File_internal_conf_conf_proto != nil {
 		return
 	}
+	file_internal_conf_conf_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

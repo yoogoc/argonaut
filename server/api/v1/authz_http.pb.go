@@ -18,21 +18,41 @@ var _ = new(context.Context)
 
 const _ = http.SupportPackageIsVersion3
 
+const OperationAuthzServiceActions = "/api.v1.AuthzService/Actions"
 const OperationAuthzServiceCreateGrant = "/api.v1.AuthzService/CreateGrant"
+const OperationAuthzServiceCreatePolicy = "/api.v1.AuthzService/CreatePolicy"
 const OperationAuthzServiceDeleteGrant = "/api.v1.AuthzService/DeleteGrant"
+const OperationAuthzServiceDeletePolicy = "/api.v1.AuthzService/DeletePolicy"
+const OperationAuthzServiceListAudit = "/api.v1.AuthzService/ListAudit"
 const OperationAuthzServiceListGrants = "/api.v1.AuthzService/ListGrants"
+const OperationAuthzServiceListPolicies = "/api.v1.AuthzService/ListPolicies"
 const OperationAuthzServiceListRoles = "/api.v1.AuthzService/ListRoles"
 const OperationAuthzServiceMyPermissions = "/api.v1.AuthzService/MyPermissions"
+const OperationAuthzServiceOrphanGrants = "/api.v1.AuthzService/OrphanGrants"
+const OperationAuthzServiceSetPolicyEnabled = "/api.v1.AuthzService/SetPolicyEnabled"
+const OperationAuthzServiceStatus = "/api.v1.AuthzService/Status"
 
 type AuthzServiceHTTPServer interface {
+	// Actions Actions lists what the caller may do on one resource. The UI shows buttons from this rather than
+	// re-implementing the policy, so it can never disagree with enforcement.
+	Actions(context.Context, *ActionsRequest) (*ActionsReply, error)
 	CreateGrant(context.Context, *CreateGrantRequest) (*GrantReply, error)
+	CreatePolicy(context.Context, *CreatePolicyRequest) (*PolicyReply, error)
 	DeleteGrant(context.Context, *DeleteGrantRequest) (*DeleteGrantReply, error)
+	DeletePolicy(context.Context, *DeletePolicyRequest) (*RevisionReply, error)
+	ListAudit(context.Context, *ListAuditRequest) (*ListAuditReply, error)
 	ListGrants(context.Context, *ListGrantsRequest) (*ListGrantsReply, error)
+	ListPolicies(context.Context, *emptypb.Empty) (*ListPoliciesReply, error)
 	// ListRoles ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.
 	ListRoles(context.Context, *emptypb.Empty) (*ListRolesReply, error)
 	// MyPermissions MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
 	// convenience, never the security boundary (every RPC is checked server-side).
 	MyPermissions(context.Context, *emptypb.Empty) (*MyPermissionsReply, error)
+	// OrphanGrants OrphanGrants lists grants on templates that no longer exist.
+	OrphanGrants(context.Context, *emptypb.Empty) (*ListGrantsReply, error)
+	SetPolicyEnabled(context.Context, *SetPolicyEnabledRequest) (*RevisionReply, error)
+	// Status Status reports the committed revision and which replicas have loaded it.
+	Status(context.Context, *emptypb.Empty) (*AuthzStatusReply, error)
 }
 
 func RegisterAuthzServiceHTTPServer(s *http.Server, srv AuthzServiceHTTPServer) {
@@ -42,6 +62,14 @@ func RegisterAuthzServiceHTTPServer(s *http.Server, srv AuthzServiceHTTPServer) 
 	r.Handle("DELETE", "/api/v1/authz/grants/{id}", _AuthzService_DeleteGrant0_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/authz/roles", _AuthzService_ListRoles0_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/authz/my-permissions", _AuthzService_MyPermissions0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/authz/actions", _AuthzService_Actions0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/authz/status", _AuthzService_Status0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/authz/orphan-grants", _AuthzService_OrphanGrants0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/authz/audit", _AuthzService_ListAudit0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/authz/policies", _AuthzService_ListPolicies0_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/authz/policies", _AuthzService_CreatePolicy0_HTTP_Handler(srv))
+	r.Handle("PUT", "/api/v1/authz/policies/{id}", _AuthzService_SetPolicyEnabled0_HTTP_Handler(srv))
+	r.Handle("DELETE", "/api/v1/authz/policies/{id}", _AuthzService_DeletePolicy0_HTTP_Handler(srv))
 }
 
 func _AuthzService_ListGrants0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
@@ -142,15 +170,185 @@ func _AuthzService_MyPermissions0_HTTP_Handler(srv AuthzServiceHTTPServer) func(
 	}
 }
 
+func _AuthzService_Actions0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ActionsRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceActions)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.Actions(ctx, req.(*ActionsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ActionsReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_Status0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in emptypb.Empty
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceStatus)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.Status(ctx, req.(*emptypb.Empty))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*AuthzStatusReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_OrphanGrants0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in emptypb.Empty
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceOrphanGrants)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.OrphanGrants(ctx, req.(*emptypb.Empty))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ListGrantsReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_ListAudit0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ListAuditRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceListAudit)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListAudit(ctx, req.(*ListAuditRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ListAuditReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_ListPolicies0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in emptypb.Empty
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceListPolicies)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListPolicies(ctx, req.(*emptypb.Empty))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ListPoliciesReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_CreatePolicy0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in CreatePolicyRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceCreatePolicy)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.CreatePolicy(ctx, req.(*CreatePolicyRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*PolicyReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_SetPolicyEnabled0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SetPolicyEnabledRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceSetPolicyEnabled)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SetPolicyEnabled(ctx, req.(*SetPolicyEnabledRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*RevisionReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_DeletePolicy0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in DeletePolicyRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceDeletePolicy)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.DeletePolicy(ctx, req.(*DeletePolicyRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*RevisionReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 type AuthzServiceHTTPClient interface {
+	// Actions Actions lists what the caller may do on one resource. The UI shows buttons from this rather than
+	// re-implementing the policy, so it can never disagree with enforcement.
+	Actions(ctx context.Context, req *ActionsRequest, opts ...http.CallOption) (rsp *ActionsReply, err error)
 	CreateGrant(ctx context.Context, req *CreateGrantRequest, opts ...http.CallOption) (rsp *GrantReply, err error)
+	CreatePolicy(ctx context.Context, req *CreatePolicyRequest, opts ...http.CallOption) (rsp *PolicyReply, err error)
 	DeleteGrant(ctx context.Context, req *DeleteGrantRequest, opts ...http.CallOption) (rsp *DeleteGrantReply, err error)
+	DeletePolicy(ctx context.Context, req *DeletePolicyRequest, opts ...http.CallOption) (rsp *RevisionReply, err error)
+	ListAudit(ctx context.Context, req *ListAuditRequest, opts ...http.CallOption) (rsp *ListAuditReply, err error)
 	ListGrants(ctx context.Context, req *ListGrantsRequest, opts ...http.CallOption) (rsp *ListGrantsReply, err error)
+	ListPolicies(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *ListPoliciesReply, err error)
 	// ListRoles ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.
 	ListRoles(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *ListRolesReply, err error)
 	// MyPermissions MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
 	// convenience, never the security boundary (every RPC is checked server-side).
 	MyPermissions(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *MyPermissionsReply, err error)
+	// OrphanGrants OrphanGrants lists grants on templates that no longer exist.
+	OrphanGrants(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *ListGrantsReply, err error)
+	SetPolicyEnabled(ctx context.Context, req *SetPolicyEnabledRequest, opts ...http.CallOption) (rsp *RevisionReply, err error)
+	// Status Status reports the committed revision and which replicas have loaded it.
+	Status(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *AuthzStatusReply, err error)
 }
 
 type AuthzServiceHTTPClientImpl struct {
@@ -161,6 +359,24 @@ func NewAuthzServiceHTTPClient(client *http.Client) AuthzServiceHTTPClient {
 	return &AuthzServiceHTTPClientImpl{client}
 }
 
+// Actions Actions lists what the caller may do on one resource. The UI shows buttons from this rather than
+// re-implementing the policy, so it can never disagree with enforcement.
+func (c *AuthzServiceHTTPClientImpl) Actions(ctx context.Context, in *ActionsRequest, opts ...http.CallOption) (*ActionsReply, error) {
+	var out ActionsReply
+	pattern := "/api/v1/authz/actions"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceActions),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *AuthzServiceHTTPClientImpl) CreateGrant(ctx context.Context, in *CreateGrantRequest, opts ...http.CallOption) (*GrantReply, error) {
 	var out GrantReply
 	pattern := "/api/v1/authz/grants"
@@ -169,6 +385,23 @@ func (c *AuthzServiceHTTPClientImpl) CreateGrant(ctx context.Context, in *Create
 		http.Accept("application/protojson"),
 		http.ContentType("application/protojson"),
 		http.Operation(OperationAuthzServiceCreateGrant),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *AuthzServiceHTTPClientImpl) CreatePolicy(ctx context.Context, in *CreatePolicyRequest, opts ...http.CallOption) (*PolicyReply, error) {
+	var out PolicyReply
+	pattern := "/api/v1/authz/policies"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationAuthzServiceCreatePolicy),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
@@ -194,6 +427,38 @@ func (c *AuthzServiceHTTPClientImpl) DeleteGrant(ctx context.Context, in *Delete
 	return &out, nil
 }
 
+func (c *AuthzServiceHTTPClientImpl) DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...http.CallOption) (*RevisionReply, error) {
+	var out RevisionReply
+	pattern := "/api/v1/authz/policies/{id}"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceDeletePolicy),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "DELETE", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *AuthzServiceHTTPClientImpl) ListAudit(ctx context.Context, in *ListAuditRequest, opts ...http.CallOption) (*ListAuditReply, error) {
+	var out ListAuditReply
+	pattern := "/api/v1/authz/audit"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceListAudit),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *AuthzServiceHTTPClientImpl) ListGrants(ctx context.Context, in *ListGrantsRequest, opts ...http.CallOption) (*ListGrantsReply, error) {
 	var out ListGrantsReply
 	pattern := "/api/v1/authz/grants"
@@ -201,6 +466,22 @@ func (c *AuthzServiceHTTPClientImpl) ListGrants(ctx context.Context, in *ListGra
 	opts = append([]http.CallOption{
 		http.Accept("application/protojson"),
 		http.Operation(OperationAuthzServiceListGrants),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *AuthzServiceHTTPClientImpl) ListPolicies(ctx context.Context, in *emptypb.Empty, opts ...http.CallOption) (*ListPoliciesReply, error) {
+	var out ListPoliciesReply
+	pattern := "/api/v1/authz/policies"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceListPolicies),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
@@ -236,6 +517,57 @@ func (c *AuthzServiceHTTPClientImpl) MyPermissions(ctx context.Context, in *empt
 	opts = append([]http.CallOption{
 		http.Accept("application/protojson"),
 		http.Operation(OperationAuthzServiceMyPermissions),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// OrphanGrants OrphanGrants lists grants on templates that no longer exist.
+func (c *AuthzServiceHTTPClientImpl) OrphanGrants(ctx context.Context, in *emptypb.Empty, opts ...http.CallOption) (*ListGrantsReply, error) {
+	var out ListGrantsReply
+	pattern := "/api/v1/authz/orphan-grants"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceOrphanGrants),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *AuthzServiceHTTPClientImpl) SetPolicyEnabled(ctx context.Context, in *SetPolicyEnabledRequest, opts ...http.CallOption) (*RevisionReply, error) {
+	var out RevisionReply
+	pattern := "/api/v1/authz/policies/{id}"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationAuthzServiceSetPolicyEnabled),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Status Status reports the committed revision and which replicas have loaded it.
+func (c *AuthzServiceHTTPClientImpl) Status(ctx context.Context, in *emptypb.Empty, opts ...http.CallOption) (*AuthzStatusReply, error) {
+	var out AuthzStatusReply
+	pattern := "/api/v1/authz/status"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceStatus),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)

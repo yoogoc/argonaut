@@ -20,16 +20,28 @@ const _ = http.SupportPackageIsVersion3
 const OperationWorkflowTemplateServiceCreate = "/api.v1.WorkflowTemplateService/Create"
 const OperationWorkflowTemplateServiceDelete = "/api.v1.WorkflowTemplateService/Delete"
 const OperationWorkflowTemplateServiceGet = "/api.v1.WorkflowTemplateService/Get"
+const OperationWorkflowTemplateServiceGetRevision = "/api.v1.WorkflowTemplateService/GetRevision"
 const OperationWorkflowTemplateServiceLint = "/api.v1.WorkflowTemplateService/Lint"
 const OperationWorkflowTemplateServiceList = "/api.v1.WorkflowTemplateService/List"
+const OperationWorkflowTemplateServiceListComponents = "/api.v1.WorkflowTemplateService/ListComponents"
+const OperationWorkflowTemplateServiceListRevisions = "/api.v1.WorkflowTemplateService/ListRevisions"
+const OperationWorkflowTemplateServiceRollback = "/api.v1.WorkflowTemplateService/Rollback"
 const OperationWorkflowTemplateServiceUpdate = "/api.v1.WorkflowTemplateService/Update"
 
 type WorkflowTemplateServiceHTTPServer interface {
 	Create(context.Context, *CreateWorkflowTemplateRequest) (*WorkflowTemplateReply, error)
 	Delete(context.Context, *DeleteWorkflowTemplateRequest) (*DeleteWorkflowTemplateReply, error)
 	Get(context.Context, *GetWorkflowTemplateRequest) (*WorkflowTemplateReply, error)
+	GetRevision(context.Context, *TemplateRevisionRequest) (*TemplateRevisionReply, error)
 	Lint(context.Context, *LintWorkflowTemplateRequest) (*WorkflowTemplateReply, error)
 	List(context.Context, *ListWorkflowTemplateRequest) (*ListWorkflowTemplateReply, error)
+	// ListComponents ListComponents returns the component templates usable from a namespace: its own templates
+	// labelled argonaut.io/component=true, plus cluster templates with the same label.
+	ListComponents(context.Context, *ListComponentsRequest) (*ListComponentsReply, error)
+	// ListRevisions ListRevisions returns a template's recorded history, newest first (manifests omitted).
+	ListRevisions(context.Context, *TemplateRevisionsRequest) (*TemplateRevisionsReply, error)
+	// Rollback Rollback saves an old revision's spec as a new revision, guarded by the caller's resourceVersion.
+	Rollback(context.Context, *TemplateRollbackRequest) (*WorkflowTemplateReply, error)
 	Update(context.Context, *UpdateWorkflowTemplateRequest) (*WorkflowTemplateReply, error)
 }
 
@@ -37,10 +49,14 @@ func RegisterWorkflowTemplateServiceHTTPServer(s *http.Server, srv WorkflowTempl
 	r := s.Route("/")
 	r.Handle("GET", "/api/v1/workflow-templates", _WorkflowTemplateService_List2_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/workflow-templates/{namespace}/{name}", _WorkflowTemplateService_Get2_HTTP_Handler(srv))
-	r.Handle("POST", "/api/v1/workflow-templates/{namespace}", _WorkflowTemplateService_Create2_HTTP_Handler(srv))
-	r.Handle("PUT", "/api/v1/workflow-templates/{namespace}/{name}", _WorkflowTemplateService_Update1_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/workflow-templates/{namespace}", _WorkflowTemplateService_Create1_HTTP_Handler(srv))
+	r.Handle("PUT", "/api/v1/workflow-templates/{namespace}/{name}", _WorkflowTemplateService_Update0_HTTP_Handler(srv))
 	r.Handle("DELETE", "/api/v1/workflow-templates/{namespace}/{name}", _WorkflowTemplateService_Delete2_HTTP_Handler(srv))
-	r.Handle("POST", "/api/v1/workflow-templates/{namespace}/lint", _WorkflowTemplateService_Lint2_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/workflow-templates/{namespace}/lint", _WorkflowTemplateService_Lint1_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/workflow-templates/{namespace}/{name}/revisions", _WorkflowTemplateService_ListRevisions0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/workflow-templates/{namespace}/{name}/revisions/{id}", _WorkflowTemplateService_GetRevision0_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/workflow-templates/{namespace}/{name}/revisions/{id}/rollback", _WorkflowTemplateService_Rollback0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/components/{namespace}", _WorkflowTemplateService_ListComponents0_HTTP_Handler(srv))
 }
 
 func _WorkflowTemplateService_List2_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
@@ -84,7 +100,7 @@ func _WorkflowTemplateService_Get2_HTTP_Handler(srv WorkflowTemplateServiceHTTPS
 	}
 }
 
-func _WorkflowTemplateService_Create2_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowTemplateService_Create1_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in CreateWorkflowTemplateRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -106,7 +122,7 @@ func _WorkflowTemplateService_Create2_HTTP_Handler(srv WorkflowTemplateServiceHT
 	}
 }
 
-func _WorkflowTemplateService_Update1_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowTemplateService_Update0_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in UpdateWorkflowTemplateRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -150,7 +166,7 @@ func _WorkflowTemplateService_Delete2_HTTP_Handler(srv WorkflowTemplateServiceHT
 	}
 }
 
-func _WorkflowTemplateService_Lint2_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowTemplateService_Lint1_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in LintWorkflowTemplateRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -172,12 +188,108 @@ func _WorkflowTemplateService_Lint2_HTTP_Handler(srv WorkflowTemplateServiceHTTP
 	}
 }
 
+func _WorkflowTemplateService_ListRevisions0_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in TemplateRevisionsRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationWorkflowTemplateServiceListRevisions)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListRevisions(ctx, req.(*TemplateRevisionsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*TemplateRevisionsReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _WorkflowTemplateService_GetRevision0_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in TemplateRevisionRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationWorkflowTemplateServiceGetRevision)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetRevision(ctx, req.(*TemplateRevisionRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*TemplateRevisionReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _WorkflowTemplateService_Rollback0_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in TemplateRollbackRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationWorkflowTemplateServiceRollback)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.Rollback(ctx, req.(*TemplateRollbackRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*WorkflowTemplateReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _WorkflowTemplateService_ListComponents0_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ListComponentsRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationWorkflowTemplateServiceListComponents)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListComponents(ctx, req.(*ListComponentsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ListComponentsReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 type WorkflowTemplateServiceHTTPClient interface {
 	Create(ctx context.Context, req *CreateWorkflowTemplateRequest, opts ...http.CallOption) (rsp *WorkflowTemplateReply, err error)
 	Delete(ctx context.Context, req *DeleteWorkflowTemplateRequest, opts ...http.CallOption) (rsp *DeleteWorkflowTemplateReply, err error)
 	Get(ctx context.Context, req *GetWorkflowTemplateRequest, opts ...http.CallOption) (rsp *WorkflowTemplateReply, err error)
+	GetRevision(ctx context.Context, req *TemplateRevisionRequest, opts ...http.CallOption) (rsp *TemplateRevisionReply, err error)
 	Lint(ctx context.Context, req *LintWorkflowTemplateRequest, opts ...http.CallOption) (rsp *WorkflowTemplateReply, err error)
 	List(ctx context.Context, req *ListWorkflowTemplateRequest, opts ...http.CallOption) (rsp *ListWorkflowTemplateReply, err error)
+	// ListComponents ListComponents returns the component templates usable from a namespace: its own templates
+	// labelled argonaut.io/component=true, plus cluster templates with the same label.
+	ListComponents(ctx context.Context, req *ListComponentsRequest, opts ...http.CallOption) (rsp *ListComponentsReply, err error)
+	// ListRevisions ListRevisions returns a template's recorded history, newest first (manifests omitted).
+	ListRevisions(ctx context.Context, req *TemplateRevisionsRequest, opts ...http.CallOption) (rsp *TemplateRevisionsReply, err error)
+	// Rollback Rollback saves an old revision's spec as a new revision, guarded by the caller's resourceVersion.
+	Rollback(ctx context.Context, req *TemplateRollbackRequest, opts ...http.CallOption) (rsp *WorkflowTemplateReply, err error)
 	Update(ctx context.Context, req *UpdateWorkflowTemplateRequest, opts ...http.CallOption) (rsp *WorkflowTemplateReply, err error)
 }
 
@@ -238,6 +350,22 @@ func (c *WorkflowTemplateServiceHTTPClientImpl) Get(ctx context.Context, in *Get
 	return &out, nil
 }
 
+func (c *WorkflowTemplateServiceHTTPClientImpl) GetRevision(ctx context.Context, in *TemplateRevisionRequest, opts ...http.CallOption) (*TemplateRevisionReply, error) {
+	var out TemplateRevisionReply
+	pattern := "/api/v1/workflow-templates/{namespace}/{name}/revisions/{id}"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationWorkflowTemplateServiceGetRevision),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *WorkflowTemplateServiceHTTPClientImpl) Lint(ctx context.Context, in *LintWorkflowTemplateRequest, opts ...http.CallOption) (*WorkflowTemplateReply, error) {
 	var out WorkflowTemplateReply
 	pattern := "/api/v1/workflow-templates/{namespace}/lint"
@@ -265,6 +393,59 @@ func (c *WorkflowTemplateServiceHTTPClientImpl) List(ctx context.Context, in *Li
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListComponents ListComponents returns the component templates usable from a namespace: its own templates
+// labelled argonaut.io/component=true, plus cluster templates with the same label.
+func (c *WorkflowTemplateServiceHTTPClientImpl) ListComponents(ctx context.Context, in *ListComponentsRequest, opts ...http.CallOption) (*ListComponentsReply, error) {
+	var out ListComponentsReply
+	pattern := "/api/v1/components/{namespace}"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationWorkflowTemplateServiceListComponents),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListRevisions ListRevisions returns a template's recorded history, newest first (manifests omitted).
+func (c *WorkflowTemplateServiceHTTPClientImpl) ListRevisions(ctx context.Context, in *TemplateRevisionsRequest, opts ...http.CallOption) (*TemplateRevisionsReply, error) {
+	var out TemplateRevisionsReply
+	pattern := "/api/v1/workflow-templates/{namespace}/{name}/revisions"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationWorkflowTemplateServiceListRevisions),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Rollback Rollback saves an old revision's spec as a new revision, guarded by the caller's resourceVersion.
+func (c *WorkflowTemplateServiceHTTPClientImpl) Rollback(ctx context.Context, in *TemplateRollbackRequest, opts ...http.CallOption) (*WorkflowTemplateReply, error) {
+	var out WorkflowTemplateReply
+	pattern := "/api/v1/workflow-templates/{namespace}/{name}/revisions/{id}/rollback"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationWorkflowTemplateServiceRollback),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

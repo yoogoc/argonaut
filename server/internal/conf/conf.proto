@@ -86,14 +86,18 @@ message Argo {
 
 message Authz {
   // super_admins bootstraps the first administrators, e.g. "user:<oidc-sub>". Without this nobody
-  // could ever grant the first permission.
+  // could ever grant the first permission. Super admins are decided by configuration alone, so a
+  // database outage cannot lock them out.
   repeated string super_admins = 1;
   // dev_subject makes the server usable with sso.enabled=false by treating every request as this
-  // subject. It exists so the API can be exercised locally without an identity provider; setting it
-  // in a deployment hands that subject's permissions to anyone who can reach the port.
+  // subject. Setting it in a deployment hands that subject's permissions to anyone who can reach
+  // the port.
   string dev_subject = 4;
-  // policy_path overrides the embedded rego policy with a file on disk.
-  string policy_path = 2;
-  // reload_interval controls how often grants are re-read into OPA (multi-replica staleness).
-  google.protobuf.Duration reload_interval = 3;
+  // poll_interval backs up LISTEN/NOTIFY for long-lived streams: replicas re-read the revision this
+  // often even if a notification is lost. Request-time checks never depend on it.
+  google.protobuf.Duration poll_interval = 3;
+  // cluster_templates_readable lets every signed-in user read ClusterWorkflowTemplates (default true).
+  optional bool cluster_templates_readable = 5;
+  // replica_id names this replica in authz_replicas; defaults to $POD_NAME, then the hostname.
+  string replica_id = 6;
 }

@@ -7,31 +7,40 @@ import (
 	"github.com/argoproj/argo-workflows/v4/workflow/common"
 )
 
-// Permissions are granted on WorkflowTemplates, so every other resource has to be attributed back to
-// the template it came from. A resource with no template lineage falls back to a namespace-only
-// scope, which only namespace-wide grants ("*") cover — a grant on one template never leaks to
-// unrelated runs in the same namespace.
+// Permissions are granted on templates (or wider scopes), so every other resource is attributed to
+// the scope that governs it (DESIGN §4.4):
+//
+//   - a run of a WorkflowTemplate belongs to that template;
+//   - a run with no template lineage belongs to its namespace;
+//   - a run of a ClusterWorkflowTemplate belongs to its namespace too. Cluster templates are shared
+//     pipelines that teams run in their own namespaces; if a grant on the cluster template covered its
+//     runs, one grant would reach into every namespace.
 
 // WorkflowResource returns the authz scope of a workflow.
 func WorkflowResource(wf *wfv1.Workflow) authz.Resource {
 	if wf == nil {
 		return authz.Resource{}
 	}
-	return authz.Resource{Namespace: wf.Namespace, Template: workflowTemplateName(wf)}
+	return authz.Resource{Namespace: wf.Namespace, Template: workflowTemplateName(wf), Labels: wf.Labels}
 }
 
 func workflowTemplateName(wf *wfv1.Workflow) string {
 	// spec.workflowTemplateRef is authoritative: it is what Argo actually resolves at runtime.
-	// ClusterWorkflowTemplates are out of scope, and attributing one to a same-named namespaced
-	// template would grant access across a boundary the cluster template does not respect.
-	if ref := wf.Spec.WorkflowTemplateRef; ref != nil && !ref.ClusterScope && ref.Name != "" {
-		return ref.Name
+	if ref := wf.Spec.WorkflowTemplateRef; ref != nil {
+		if ref.ClusterScope {
+			return ""
+		}
+		if ref.Name != "" {
+			return ref.Name
+		}
 	}
-	// Workflows submitted from a template carry this label even when the spec was inlined.
-	if name := wf.Labels[common.LabelKeyWorkflowTemplate]; name != "" {
-		return name
+	if wf.Labels[common.LabelKeyClusterWorkflowTemplate] != "" {
+		return ""
 	}
-	return ""
+	// Workflows submitted from a template carry this label even when the spec was inlined. argonaut
+	// rewrites it on every workflow it creates (see sanitizeLineage), so it cannot be forged through
+	// argonaut to borrow another template's grants.
+	return wf.Labels[common.LabelKeyWorkflowTemplate]
 }
 
 // CronWorkflowResource returns the authz scope of a cron workflow.
@@ -42,10 +51,8 @@ func CronWorkflowResource(cron *wfv1.CronWorkflow) authz.Resource {
 	template := ""
 	if ref := cron.Spec.WorkflowSpec.WorkflowTemplateRef; ref != nil && !ref.ClusterScope && ref.Name != "" {
 		template = ref.Name
-	} else if name := cron.Labels[common.LabelKeyWorkflowTemplate]; name != "" {
-		template = name
 	}
-	return authz.Resource{Namespace: cron.Namespace, Template: template}
+	return authz.Resource{Namespace: cron.Namespace, Template: template, Labels: cron.Labels}
 }
 
 // TemplateResource returns the authz scope of a workflow template.
@@ -53,7 +60,26 @@ func TemplateResource(namespace, name string) authz.Resource {
 	return authz.Resource{Namespace: namespace, Template: name}
 }
 
-// NamespaceResource is the scope for namespace-level actions such as listing or creating.
+// TemplateObjectResource includes the template's labels for custom policies.
+func TemplateObjectResource(t *wfv1.WorkflowTemplate) authz.Resource {
+	return authz.Resource{Namespace: t.Namespace, Template: t.Name, Labels: t.Labels}
+}
+
+// ClusterTemplateResource returns the authz scope of a cluster workflow template.
+func ClusterTemplateResource(name string) authz.Resource {
+	return authz.Resource{ClusterTemplate: name}
+}
+
+// NamespaceResource is the scope for namespace-level actions such as creating.
 func NamespaceResource(namespace string) authz.Resource {
 	return authz.Resource{Namespace: namespace}
+}
+
+// sanitizeLineage removes the labels that attribute a workflow to a template before argonaut creates
+// it from a raw manifest. Without this, a user with a namespace grant elsewhere — or none — could
+// label their manifest with a template they operate and have the run inherit that template's scope.
+func sanitizeLineage(wf *wfv1.Workflow) {
+	delete(wf.Labels, common.LabelKeyWorkflowTemplate)
+	delete(wf.Labels, common.LabelKeyClusterWorkflowTemplate)
+	delete(wf.Labels, common.LabelKeyCronWorkflow)
 }

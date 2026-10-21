@@ -1,7 +1,9 @@
-// These types mirror xyflow-server's api/v1/*.proto, which is the single source of truth for the
-// contract. Workflow-shaped payloads are Argo's own CRD types passed through unchanged, so they are
-// typed loosely here: modelling every Argo field would duplicate the CRD and go stale, and the UI
-// reads them the same way Argo's own console does.
+// The API's types. Workflow-shaped payloads are Argo's own CRD types passed through unchanged, so
+// they are typed loosely here: modelling every Argo field would duplicate the CRD and go stale, and
+// the UI reads them the same way Argo's own console does. argonaut's own DTOs, at the end, are
+// derived from the types generated from server/api/v1/*.proto.
+
+import type * as api from "./gen/api.gen";
 
 export interface ObjectMeta {
   name: string;
@@ -235,99 +237,53 @@ export interface List<T> {
   items: T[] | null;
 }
 
-export interface WorkflowWatchEvent {
+// ---- argonaut's own DTOs ----
+// The shapes come from the generated proto types (api/gen/api.gen.ts, `pnpm gen:api`), where every
+// field is optional because the server omits zero values. `Present` marks the fields the server always
+// fills (identifiers, timestamps), and string unions narrow what proto can only call a string.
+
+/** T with the keys K made required: the server always sets them, so they are never omitted. */
+type Present<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
+
+export type WorkflowWatchEvent = Present<api.WorkflowWatchEvent, "workflowJson"> & {
   type: "ADDED" | "MODIFIED" | "DELETED";
-  /** The workflow arrives pre-serialized; see the note on WorkflowWatchEvent in workflow.proto. */
-  workflowJson: string;
-}
+};
 
-export interface WorkflowEvent {
-  type: string;
-  reason: string;
-  message: string;
-  objectName: string;
-  objectKind: string;
-  firstTimestamp: string;
-  lastTimestamp: string;
-  count: number;
-}
+export type WorkflowEvent = Present<api.WorkflowEvent, "type" | "reason" | "objectName" | "objectKind">;
 
-export interface LogEntry {
-  content: string;
-  podName: string;
-}
+export type LogEntry = api.WorkflowLogEntry;
 
-export interface UserInfo {
-  issuer: string;
-  subject: string;
-  email?: string;
-  emailVerified?: boolean;
-  name?: string;
-  superAdmin?: boolean;
-}
+export type UserInfo = Present<api.Oauth2UserInfoReply, "issuer" | "subject">;
 
-export interface Info {
-  version: string;
-  managedNamespace?: string;
-  namespaces?: string[];
-  nodeStatusOffloadEnabled?: boolean;
-  links?: { name: string; scope: string; url: string }[];
-}
+export type Info = api.GetInfoReply;
 
 export type Role = "viewer" | "operator" | "editor" | "admin";
 
-export interface Grant {
-  id: string;
-  subjectType: string;
-  subject: string;
-  resourceType: "global" | "namespace" | "template" | "cluster_template";
-  namespace: string;
-  name: string;
+export type GrantResourceType = "global" | "namespace" | "template" | "cluster_template";
+
+export type Grant = Present<api.Grant, "id" | "subject" | "createdBy" | "createdAt" | "revision"> & {
   role: Role;
-  createdBy: string;
-  createdAt: string;
-  /** The authorization revision this grant was written at. */
-  revision: number;
-  /** Set on orphan listings: the template this grant names no longer exists. */
-  orphan?: boolean;
-}
+  resourceType: GrantResourceType;
+};
 
-export interface RoleInfo {
-  name: Role;
-  actions: string[];
-  description: string;
-}
+export type RoleInfo = Present<api.Role, "actions" | "description"> & { name: Role };
 
-export interface MyPermissions {
-  subject: string;
-  superAdmin?: boolean;
-  revision: number;
-  grants: Grant[] | null;
-}
+export type MyPermissions = Present<Omit<api.MyPermissionsReply, "grants">, "subject"> & { grants?: Grant[] };
 
 /** What a permission question is asked about (see DESIGN §4.4 for how runs map onto these). */
-export interface ResourceRef {
-  namespace?: string;
-  template?: string;
-  clusterTemplate?: string;
-}
+export type ResourceRef = api.ActionsRequest;
 
-export interface AuthzStatus {
-  revision: number;
-  replicas: { id: string; revision: number; seenAt: string }[];
-  lastChange?: AuditEvent;
-}
-
-export interface AuditEvent {
-  id: string;
-  at: string;
-  actor: string;
-  action: string;
-  resourceType: string;
-  namespace: string;
-  name: string;
+export type AuditEvent = Present<api.AuditEvent, "id" | "at" | "actor" | "action" | "resourceType"> & {
   result: "allowed" | "denied" | "recorded";
-  reason?: string;
-  detail?: string;
-  revision: number;
-}
+};
+
+export type AuthzStatus = Omit<api.AuthzStatusReply, "replicas" | "lastChange"> & {
+  replicas?: Present<api.Replica, "id" | "seenAt">[];
+  lastChange?: AuditEvent;
+};
+
+export type Policy = Present<api.Policy, "id" | "name" | "body" | "createdAt">;
+
+export type TemplateRevision = Present<api.TemplateRevision, "id" | "seq" | "resourceVersion" | "createdAt">;
+
+export type Component = api.Component;

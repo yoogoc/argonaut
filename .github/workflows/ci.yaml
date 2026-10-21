@@ -33,6 +33,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: ui/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      # The proto-derived types must be regenerated whenever a proto changes.
+      - run: pnpm gen:api && git diff --exit-code src/api/gen/api.gen.ts
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test

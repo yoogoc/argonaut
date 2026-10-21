@@ -27,6 +27,8 @@ message GetInfoReply {
   bool nodeStatusOffloadEnabled = 4;
   // links are the configured external links (Argo `links` config), rendered on detail pages.
   repeated Link links = 5;
+  // archiveEnabled is true when the controller archives finished workflows to its database.
+  bool archiveEnabled = 6;
   // modals/columns are omitted deliberately; add only when the UI needs them.
 }
 

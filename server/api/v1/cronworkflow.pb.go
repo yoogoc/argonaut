@@ -196,8 +196,11 @@ func (x *GetCronWorkflowRequest) GetName() string {
 }
 
 type CronWorkflowReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CronWorkflow  *v1alpha1.CronWorkflow `protobuf:"bytes,1,opt,name=cronWorkflow,proto3" json:"cronWorkflow,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	CronWorkflow *v1alpha1.CronWorkflow `protobuf:"bytes,1,opt,name=cronWorkflow,proto3" json:"cronWorkflow,omitempty"`
+	// nextRuns are the next scheduled times (RFC3339), computed with the same cron parser the Argo
+	// controller uses, so the UI never disagrees with the scheduler. Only Get fills it.
+	NextRuns      []string `protobuf:"bytes,2,rep,name=nextRuns,proto3" json:"nextRuns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -235,6 +238,13 @@ func (*CronWorkflowReply) Descriptor() ([]byte, []int) {
 func (x *CronWorkflowReply) GetCronWorkflow() *v1alpha1.CronWorkflow {
 	if x != nil {
 		return x.CronWorkflow
+	}
+	return nil
+}
+
+func (x *CronWorkflowReply) GetNextRuns() []string {
+	if x != nil {
+		return x.NextRuns
 	}
 	return nil
 }
@@ -606,9 +616,10 @@ const file_api_v1_cronworkflow_proto_rawDesc = "" +
 	"\x04list\x18\x01 \x01(\v2R.github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.CronWorkflowListR\x04list\"J\n" +
 	"\x16GetCronWorkflowRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\x87\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\xa3\x01\n" +
 	"\x11CronWorkflowReply\x12r\n" +
-	"\fcronWorkflow\x18\x01 \x01(\v2N.github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.CronWorkflowR\fcronWorkflow\"U\n" +
+	"\fcronWorkflow\x18\x01 \x01(\v2N.github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.CronWorkflowR\fcronWorkflow\x12\x1a\n" +
+	"\bnextRuns\x18\x02 \x03(\tR\bnextRuns\"U\n" +
 	"\x19CreateCronWorkflowRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n" +
 	"\bmanifest\x18\x02 \x01(\tR\bmanifest\"i\n" +

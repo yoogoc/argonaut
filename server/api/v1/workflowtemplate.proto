@@ -44,6 +44,84 @@ service WorkflowTemplateService {
       body: "*"
     };
   };
+  // ListRevisions returns a template's recorded history, newest first (manifests omitted).
+  rpc ListRevisions (TemplateRevisionsRequest) returns (TemplateRevisionsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/workflow-templates/{namespace}/{name}/revisions"
+    };
+  };
+  rpc GetRevision (TemplateRevisionRequest) returns (TemplateRevisionReply) {
+    option (google.api.http) = {
+      get: "/api/v1/workflow-templates/{namespace}/{name}/revisions/{id}"
+    };
+  };
+  // Rollback saves an old revision's spec as a new revision, guarded by the caller's resourceVersion.
+  rpc Rollback (TemplateRollbackRequest) returns (WorkflowTemplateReply) {
+    option (google.api.http) = {
+      post: "/api/v1/workflow-templates/{namespace}/{name}/revisions/{id}/rollback"
+      body: "*"
+    };
+  };
+  // ListComponents returns the component templates usable from a namespace: its own templates
+  // labelled argonaut.io/component=true, plus cluster templates with the same label.
+  rpc ListComponents (ListComponentsRequest) returns (ListComponentsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/components/{namespace}"
+    };
+  };
+}
+
+// TemplateRevision is one recorded version of a (cluster) workflow template.
+message TemplateRevision {
+  string id = 1;
+  int32 seq = 2;
+  string resourceVersion = 3;
+  string author = 4;
+  bool external = 5;
+  string message = 6;
+  string createdAt = 7;
+  // manifest is the template as JSON; only GetRevision fills it.
+  string manifest = 8;
+}
+
+message TemplateRevisionsRequest {
+  string namespace = 1;
+  string name = 2;
+}
+message TemplateRevisionsReply {
+  repeated TemplateRevision revisions = 1;
+}
+
+message TemplateRevisionRequest {
+  string namespace = 1;
+  string name = 2;
+  string id = 3;
+}
+message TemplateRevisionReply {
+  TemplateRevision revision = 1;
+}
+
+message TemplateRollbackRequest {
+  string namespace = 1;
+  string name = 2;
+  string id = 3;
+  // resourceVersion is the version the caller is looking at; a newer one means 409.
+  string resourceVersion = 4;
+}
+
+message ListComponentsRequest {
+  string namespace = 1;
+}
+message Component {
+  // cluster is true for a ClusterWorkflowTemplate.
+  bool cluster = 1;
+  // editable reports whether the caller may update the component.
+  bool editable = 2;
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplate template = 3;
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.ClusterWorkflowTemplate clusterTemplate = 4;
+}
+message ListComponentsReply {
+  repeated Component components = 1;
 }
 
 message ListWorkflowTemplateRequest {
@@ -70,12 +148,16 @@ message CreateWorkflowTemplateRequest {
   string namespace = 1;
   // manifest is the WorkflowTemplate YAML or JSON.
   string manifest = 2;
+  // message describes the change in the template's revision history.
+  optional string message = 3;
 }
 
 message UpdateWorkflowTemplateRequest {
   string namespace = 1;
   string name = 2;
+  // manifest must carry metadata.resourceVersion; a stale one is refused with 409.
   string manifest = 3;
+  optional string message = 4;
 }
 
 message DeleteWorkflowTemplateRequest {

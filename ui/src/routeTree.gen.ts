@@ -14,11 +14,27 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppComponentsRouteImport } from './routes/_app/components'
 import { Route as Oauth2CallbackRouteImport } from './routes/oauth2.callback'
+import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
+import { Route as AppAdminAuditRouteImport } from './routes/_app/admin/audit'
 import { Route as AppAdminAuthzRouteImport } from './routes/_app/admin/authz'
+import { Route as AppAdminMineRouteImport } from './routes/_app/admin/mine'
+import { Route as AppAdminOrphansRouteImport } from './routes/_app/admin/orphans'
+import { Route as AppAdminPoliciesRouteImport } from './routes/_app/admin/policies'
+import { Route as AppAdminRolesRouteImport } from './routes/_app/admin/roles'
+import { Route as AppArchivedIndexRouteImport } from './routes/_app/archived/index'
+import { Route as AppArchivedUidRouteImport } from './routes/_app/archived/$uid'
 import { Route as AppClusterTemplatesIndexRouteImport } from './routes/_app/cluster-templates/index'
+import { Route as AppClusterTemplatesNameRouteImport } from './routes/_app/cluster-templates/$name'
+import { Route as AppClusterTemplatesNewRouteImport } from './routes/_app/cluster-templates/new'
 import { Route as AppCronsIndexRouteImport } from './routes/_app/crons/index'
 import { Route as AppTemplatesIndexRouteImport } from './routes/_app/templates/index'
+import { Route as AppTemplatesNewRouteImport } from './routes/_app/templates/new'
 import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/index'
+import { Route as AppClusterTemplatesNameEditRouteImport } from './routes/_app/cluster-templates/$name_.edit'
+import { Route as AppCronsNamespaceNameRouteImport } from './routes/_app/crons/$namespace.$name'
+import { Route as AppTemplatesNamespaceNameRouteImport } from './routes/_app/templates/$namespace.$name'
+import { Route as AppWorkflowsNamespaceNameRouteImport } from './routes/_app/workflows/$namespace.$name'
+import { Route as AppTemplatesNamespaceNameEditRouteImport } from './routes/_app/templates/$namespace.$name_.edit'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -44,9 +60,49 @@ const Oauth2CallbackRoute = Oauth2CallbackRouteImport.update({
   path: '/oauth2/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminAuditRoute = AppAdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminAuthzRoute = AppAdminAuthzRouteImport.update({
   id: '/admin/authz',
   path: '/admin/authz',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminMineRoute = AppAdminMineRouteImport.update({
+  id: '/admin/mine',
+  path: '/admin/mine',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminOrphansRoute = AppAdminOrphansRouteImport.update({
+  id: '/admin/orphans',
+  path: '/admin/orphans',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminPoliciesRoute = AppAdminPoliciesRouteImport.update({
+  id: '/admin/policies',
+  path: '/admin/policies',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminRolesRoute = AppAdminRolesRouteImport.update({
+  id: '/admin/roles',
+  path: '/admin/roles',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppArchivedIndexRoute = AppArchivedIndexRouteImport.update({
+  id: '/archived/',
+  path: '/archived/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppArchivedUidRoute = AppArchivedUidRouteImport.update({
+  id: '/archived/$uid',
+  path: '/archived/$uid',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClusterTemplatesIndexRoute =
@@ -55,6 +111,16 @@ const AppClusterTemplatesIndexRoute =
     path: '/cluster-templates/',
     getParentRoute: () => AppRoute,
   } as any)
+const AppClusterTemplatesNameRoute = AppClusterTemplatesNameRouteImport.update({
+  id: '/cluster-templates/$name',
+  path: '/cluster-templates/$name',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClusterTemplatesNewRoute = AppClusterTemplatesNewRouteImport.update({
+  id: '/cluster-templates/new',
+  path: '/cluster-templates/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCronsIndexRoute = AppCronsIndexRouteImport.update({
   id: '/crons/',
   path: '/crons/',
@@ -65,33 +131,99 @@ const AppTemplatesIndexRoute = AppTemplatesIndexRouteImport.update({
   path: '/templates/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTemplatesNewRoute = AppTemplatesNewRouteImport.update({
+  id: '/templates/new',
+  path: '/templates/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppWorkflowsIndexRoute = AppWorkflowsIndexRouteImport.update({
   id: '/workflows/',
   path: '/workflows/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppClusterTemplatesNameEditRoute =
+  AppClusterTemplatesNameEditRouteImport.update({
+    id: '/cluster-templates/$name_/edit',
+    path: '/cluster-templates/$name/edit',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppCronsNamespaceNameRoute = AppCronsNamespaceNameRouteImport.update({
+  id: '/crons/$namespace/$name',
+  path: '/crons/$namespace/$name',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTemplatesNamespaceNameRoute =
+  AppTemplatesNamespaceNameRouteImport.update({
+    id: '/templates/$namespace/$name',
+    path: '/templates/$namespace/$name',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppWorkflowsNamespaceNameRoute =
+  AppWorkflowsNamespaceNameRouteImport.update({
+    id: '/workflows/$namespace/$name',
+    path: '/workflows/$namespace/$name',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppTemplatesNamespaceNameEditRoute =
+  AppTemplatesNamespaceNameEditRouteImport.update({
+    id: '/templates/$namespace/$name_/edit',
+    path: '/templates/$namespace/$name/edit',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
   '/components': typeof AppComponentsRoute
   '/oauth2/callback': typeof Oauth2CallbackRoute
+  '/admin/audit': typeof AppAdminAuditRoute
   '/admin/authz': typeof AppAdminAuthzRoute
+  '/admin/mine': typeof AppAdminMineRoute
+  '/admin/orphans': typeof AppAdminOrphansRoute
+  '/admin/policies': typeof AppAdminPoliciesRoute
+  '/admin/roles': typeof AppAdminRolesRoute
+  '/archived/$uid': typeof AppArchivedUidRoute
+  '/cluster-templates/$name': typeof AppClusterTemplatesNameRoute
+  '/cluster-templates/new': typeof AppClusterTemplatesNewRoute
+  '/templates/new': typeof AppTemplatesNewRoute
+  '/admin/': typeof AppAdminIndexRoute
+  '/archived/': typeof AppArchivedIndexRoute
   '/cluster-templates/': typeof AppClusterTemplatesIndexRoute
   '/crons/': typeof AppCronsIndexRoute
   '/templates/': typeof AppTemplatesIndexRoute
   '/workflows/': typeof AppWorkflowsIndexRoute
+  '/cluster-templates/$name/edit': typeof AppClusterTemplatesNameEditRoute
+  '/crons/$namespace/$name': typeof AppCronsNamespaceNameRoute
+  '/templates/$namespace/$name': typeof AppTemplatesNamespaceNameRoute
+  '/workflows/$namespace/$name': typeof AppWorkflowsNamespaceNameRoute
+  '/templates/$namespace/$name/edit': typeof AppTemplatesNamespaceNameEditRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/components': typeof AppComponentsRoute
   '/oauth2/callback': typeof Oauth2CallbackRoute
   '/': typeof AppIndexRoute
+  '/admin/audit': typeof AppAdminAuditRoute
   '/admin/authz': typeof AppAdminAuthzRoute
+  '/admin/mine': typeof AppAdminMineRoute
+  '/admin/orphans': typeof AppAdminOrphansRoute
+  '/admin/policies': typeof AppAdminPoliciesRoute
+  '/admin/roles': typeof AppAdminRolesRoute
+  '/archived/$uid': typeof AppArchivedUidRoute
+  '/cluster-templates/$name': typeof AppClusterTemplatesNameRoute
+  '/cluster-templates/new': typeof AppClusterTemplatesNewRoute
+  '/templates/new': typeof AppTemplatesNewRoute
+  '/admin': typeof AppAdminIndexRoute
+  '/archived': typeof AppArchivedIndexRoute
   '/cluster-templates': typeof AppClusterTemplatesIndexRoute
   '/crons': typeof AppCronsIndexRoute
   '/templates': typeof AppTemplatesIndexRoute
   '/workflows': typeof AppWorkflowsIndexRoute
+  '/cluster-templates/$name/edit': typeof AppClusterTemplatesNameEditRoute
+  '/crons/$namespace/$name': typeof AppCronsNamespaceNameRoute
+  '/templates/$namespace/$name': typeof AppTemplatesNamespaceNameRoute
+  '/workflows/$namespace/$name': typeof AppWorkflowsNamespaceNameRoute
+  '/templates/$namespace/$name/edit': typeof AppTemplatesNamespaceNameEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -100,11 +232,27 @@ export interface FileRoutesById {
   '/_app/components': typeof AppComponentsRoute
   '/oauth2/callback': typeof Oauth2CallbackRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/admin/audit': typeof AppAdminAuditRoute
   '/_app/admin/authz': typeof AppAdminAuthzRoute
+  '/_app/admin/mine': typeof AppAdminMineRoute
+  '/_app/admin/orphans': typeof AppAdminOrphansRoute
+  '/_app/admin/policies': typeof AppAdminPoliciesRoute
+  '/_app/admin/roles': typeof AppAdminRolesRoute
+  '/_app/archived/$uid': typeof AppArchivedUidRoute
+  '/_app/cluster-templates/$name': typeof AppClusterTemplatesNameRoute
+  '/_app/cluster-templates/new': typeof AppClusterTemplatesNewRoute
+  '/_app/templates/new': typeof AppTemplatesNewRoute
+  '/_app/admin/': typeof AppAdminIndexRoute
+  '/_app/archived/': typeof AppArchivedIndexRoute
   '/_app/cluster-templates/': typeof AppClusterTemplatesIndexRoute
   '/_app/crons/': typeof AppCronsIndexRoute
   '/_app/templates/': typeof AppTemplatesIndexRoute
   '/_app/workflows/': typeof AppWorkflowsIndexRoute
+  '/_app/cluster-templates/$name_/edit': typeof AppClusterTemplatesNameEditRoute
+  '/_app/crons/$namespace/$name': typeof AppCronsNamespaceNameRoute
+  '/_app/templates/$namespace/$name': typeof AppTemplatesNamespaceNameRoute
+  '/_app/workflows/$namespace/$name': typeof AppWorkflowsNamespaceNameRoute
+  '/_app/templates/$namespace/$name_/edit': typeof AppTemplatesNamespaceNameEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -113,22 +261,54 @@ export interface FileRouteTypes {
     | '/login'
     | '/components'
     | '/oauth2/callback'
+    | '/admin/audit'
     | '/admin/authz'
+    | '/admin/mine'
+    | '/admin/orphans'
+    | '/admin/policies'
+    | '/admin/roles'
+    | '/archived/$uid'
+    | '/cluster-templates/$name'
+    | '/cluster-templates/new'
+    | '/templates/new'
+    | '/admin/'
+    | '/archived/'
     | '/cluster-templates/'
     | '/crons/'
     | '/templates/'
     | '/workflows/'
+    | '/cluster-templates/$name/edit'
+    | '/crons/$namespace/$name'
+    | '/templates/$namespace/$name'
+    | '/workflows/$namespace/$name'
+    | '/templates/$namespace/$name/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/components'
     | '/oauth2/callback'
     | '/'
+    | '/admin/audit'
     | '/admin/authz'
+    | '/admin/mine'
+    | '/admin/orphans'
+    | '/admin/policies'
+    | '/admin/roles'
+    | '/archived/$uid'
+    | '/cluster-templates/$name'
+    | '/cluster-templates/new'
+    | '/templates/new'
+    | '/admin'
+    | '/archived'
     | '/cluster-templates'
     | '/crons'
     | '/templates'
     | '/workflows'
+    | '/cluster-templates/$name/edit'
+    | '/crons/$namespace/$name'
+    | '/templates/$namespace/$name'
+    | '/workflows/$namespace/$name'
+    | '/templates/$namespace/$name/edit'
   id:
     | '__root__'
     | '/_app'
@@ -136,11 +316,27 @@ export interface FileRouteTypes {
     | '/_app/components'
     | '/oauth2/callback'
     | '/_app/'
+    | '/_app/admin/audit'
     | '/_app/admin/authz'
+    | '/_app/admin/mine'
+    | '/_app/admin/orphans'
+    | '/_app/admin/policies'
+    | '/_app/admin/roles'
+    | '/_app/archived/$uid'
+    | '/_app/cluster-templates/$name'
+    | '/_app/cluster-templates/new'
+    | '/_app/templates/new'
+    | '/_app/admin/'
+    | '/_app/archived/'
     | '/_app/cluster-templates/'
     | '/_app/crons/'
     | '/_app/templates/'
     | '/_app/workflows/'
+    | '/_app/cluster-templates/$name_/edit'
+    | '/_app/crons/$namespace/$name'
+    | '/_app/templates/$namespace/$name'
+    | '/_app/workflows/$namespace/$name'
+    | '/_app/templates/$namespace/$name_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -186,6 +382,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Oauth2CallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/admin/': {
+      id: '/_app/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AppAdminIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/audit': {
+      id: '/_app/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AppAdminAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/admin/authz': {
       id: '/_app/admin/authz'
       path: '/admin/authz'
@@ -193,11 +403,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminAuthzRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/mine': {
+      id: '/_app/admin/mine'
+      path: '/admin/mine'
+      fullPath: '/admin/mine'
+      preLoaderRoute: typeof AppAdminMineRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/orphans': {
+      id: '/_app/admin/orphans'
+      path: '/admin/orphans'
+      fullPath: '/admin/orphans'
+      preLoaderRoute: typeof AppAdminOrphansRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/policies': {
+      id: '/_app/admin/policies'
+      path: '/admin/policies'
+      fullPath: '/admin/policies'
+      preLoaderRoute: typeof AppAdminPoliciesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/roles': {
+      id: '/_app/admin/roles'
+      path: '/admin/roles'
+      fullPath: '/admin/roles'
+      preLoaderRoute: typeof AppAdminRolesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/archived/': {
+      id: '/_app/archived/'
+      path: '/archived'
+      fullPath: '/archived/'
+      preLoaderRoute: typeof AppArchivedIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/archived/$uid': {
+      id: '/_app/archived/$uid'
+      path: '/archived/$uid'
+      fullPath: '/archived/$uid'
+      preLoaderRoute: typeof AppArchivedUidRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/cluster-templates/': {
       id: '/_app/cluster-templates/'
       path: '/cluster-templates'
       fullPath: '/cluster-templates/'
       preLoaderRoute: typeof AppClusterTemplatesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cluster-templates/$name': {
+      id: '/_app/cluster-templates/$name'
+      path: '/cluster-templates/$name'
+      fullPath: '/cluster-templates/$name'
+      preLoaderRoute: typeof AppClusterTemplatesNameRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cluster-templates/new': {
+      id: '/_app/cluster-templates/new'
+      path: '/cluster-templates/new'
+      fullPath: '/cluster-templates/new'
+      preLoaderRoute: typeof AppClusterTemplatesNewRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/crons/': {
@@ -214,11 +480,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTemplatesIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/templates/new': {
+      id: '/_app/templates/new'
+      path: '/templates/new'
+      fullPath: '/templates/new'
+      preLoaderRoute: typeof AppTemplatesNewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/workflows/': {
       id: '/_app/workflows/'
       path: '/workflows'
       fullPath: '/workflows/'
       preLoaderRoute: typeof AppWorkflowsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/cluster-templates/$name_/edit': {
+      id: '/_app/cluster-templates/$name_/edit'
+      path: '/cluster-templates/$name/edit'
+      fullPath: '/cluster-templates/$name/edit'
+      preLoaderRoute: typeof AppClusterTemplatesNameEditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/crons/$namespace/$name': {
+      id: '/_app/crons/$namespace/$name'
+      path: '/crons/$namespace/$name'
+      fullPath: '/crons/$namespace/$name'
+      preLoaderRoute: typeof AppCronsNamespaceNameRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/templates/$namespace/$name': {
+      id: '/_app/templates/$namespace/$name'
+      path: '/templates/$namespace/$name'
+      fullPath: '/templates/$namespace/$name'
+      preLoaderRoute: typeof AppTemplatesNamespaceNameRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/workflows/$namespace/$name': {
+      id: '/_app/workflows/$namespace/$name'
+      path: '/workflows/$namespace/$name'
+      fullPath: '/workflows/$namespace/$name'
+      preLoaderRoute: typeof AppWorkflowsNamespaceNameRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/templates/$namespace/$name_/edit': {
+      id: '/_app/templates/$namespace/$name_/edit'
+      path: '/templates/$namespace/$name/edit'
+      fullPath: '/templates/$namespace/$name/edit'
+      preLoaderRoute: typeof AppTemplatesNamespaceNameEditRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -227,21 +535,53 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppComponentsRoute: typeof AppComponentsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAdminAuditRoute: typeof AppAdminAuditRoute
   AppAdminAuthzRoute: typeof AppAdminAuthzRoute
+  AppAdminMineRoute: typeof AppAdminMineRoute
+  AppAdminOrphansRoute: typeof AppAdminOrphansRoute
+  AppAdminPoliciesRoute: typeof AppAdminPoliciesRoute
+  AppAdminRolesRoute: typeof AppAdminRolesRoute
+  AppArchivedUidRoute: typeof AppArchivedUidRoute
+  AppClusterTemplatesNameRoute: typeof AppClusterTemplatesNameRoute
+  AppClusterTemplatesNewRoute: typeof AppClusterTemplatesNewRoute
+  AppTemplatesNewRoute: typeof AppTemplatesNewRoute
+  AppAdminIndexRoute: typeof AppAdminIndexRoute
+  AppArchivedIndexRoute: typeof AppArchivedIndexRoute
   AppClusterTemplatesIndexRoute: typeof AppClusterTemplatesIndexRoute
   AppCronsIndexRoute: typeof AppCronsIndexRoute
   AppTemplatesIndexRoute: typeof AppTemplatesIndexRoute
   AppWorkflowsIndexRoute: typeof AppWorkflowsIndexRoute
+  AppClusterTemplatesNameEditRoute: typeof AppClusterTemplatesNameEditRoute
+  AppCronsNamespaceNameRoute: typeof AppCronsNamespaceNameRoute
+  AppTemplatesNamespaceNameRoute: typeof AppTemplatesNamespaceNameRoute
+  AppWorkflowsNamespaceNameRoute: typeof AppWorkflowsNamespaceNameRoute
+  AppTemplatesNamespaceNameEditRoute: typeof AppTemplatesNamespaceNameEditRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppComponentsRoute: AppComponentsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAdminAuditRoute: AppAdminAuditRoute,
   AppAdminAuthzRoute: AppAdminAuthzRoute,
+  AppAdminMineRoute: AppAdminMineRoute,
+  AppAdminOrphansRoute: AppAdminOrphansRoute,
+  AppAdminPoliciesRoute: AppAdminPoliciesRoute,
+  AppAdminRolesRoute: AppAdminRolesRoute,
+  AppArchivedUidRoute: AppArchivedUidRoute,
+  AppClusterTemplatesNameRoute: AppClusterTemplatesNameRoute,
+  AppClusterTemplatesNewRoute: AppClusterTemplatesNewRoute,
+  AppTemplatesNewRoute: AppTemplatesNewRoute,
+  AppAdminIndexRoute: AppAdminIndexRoute,
+  AppArchivedIndexRoute: AppArchivedIndexRoute,
   AppClusterTemplatesIndexRoute: AppClusterTemplatesIndexRoute,
   AppCronsIndexRoute: AppCronsIndexRoute,
   AppTemplatesIndexRoute: AppTemplatesIndexRoute,
   AppWorkflowsIndexRoute: AppWorkflowsIndexRoute,
+  AppClusterTemplatesNameEditRoute: AppClusterTemplatesNameEditRoute,
+  AppCronsNamespaceNameRoute: AppCronsNamespaceNameRoute,
+  AppTemplatesNamespaceNameRoute: AppTemplatesNamespaceNameRoute,
+  AppWorkflowsNamespaceNameRoute: AppWorkflowsNamespaceNameRoute,
+  AppTemplatesNamespaceNameEditRoute: AppTemplatesNamespaceNameEditRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -1,7 +1,12 @@
 package service
 
 import (
+	"sort"
+	"time"
+
 	"context"
+	wfv1 "github.com/argoproj/argo-workflows/v4/pkg/apis/workflow/v1alpha1"
+	robfig "github.com/robfig/cron/v3"
 	"log/slog"
 
 	v1 "argonaut/api/v1"
@@ -40,7 +45,39 @@ func (s *CronWorkflowService) Get(ctx context.Context, req *v1.GetCronWorkflowRe
 	if err != nil {
 		return nil, err
 	}
-	return &v1.CronWorkflowReply{CronWorkflow: cron}, nil
+	return &v1.CronWorkflowReply{CronWorkflow: cron, NextRuns: nextRuns(cron, 5)}, nil
+}
+
+// nextRuns merges the upcoming times of every schedule a cron workflow has.
+func nextRuns(cron *wfv1.CronWorkflow, n int) []string {
+	schedules := cron.Spec.Schedules
+	var times []time.Time
+	for _, expr := range schedules {
+		if cron.Spec.Timezone != "" {
+			expr = "CRON_TZ=" + cron.Spec.Timezone + " " + expr
+		}
+		sched, err := robfig.ParseStandard(expr)
+		if err != nil {
+			continue
+		}
+		at := time.Now()
+		for i := 0; i < n; i++ {
+			at = sched.Next(at)
+			if at.IsZero() {
+				break
+			}
+			times = append(times, at)
+		}
+	}
+	sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
+	if len(times) > n {
+		times = times[:n]
+	}
+	out := make([]string, 0, len(times))
+	for _, t := range times {
+		out = append(out, t.Format(timeFormat))
+	}
+	return out
 }
 
 func (s *CronWorkflowService) Create(ctx context.Context, req *v1.CreateCronWorkflowRequest) (*v1.CronWorkflowReply, error) {

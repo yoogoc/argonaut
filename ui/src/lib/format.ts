@@ -1,26 +1,31 @@
 import { formatDistanceToNowStrict } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
 
-import type { NodePhase } from "@/api/types";
+import i18n from "./i18n";
 
-export function formatTimestamp(value?: string): string {
-  if (!value) return "-";
+const locale = () => (i18n.language === "zh-CN" ? zhCN : enUS);
+
+export function formatTimestamp(value?: string | null): string {
+  if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(i18n.language);
 }
 
-export function formatRelative(value?: string): string {
-  if (!value) return "-";
+/** "3 minutes ago" for recent times, the date for anything older than a week. */
+export function formatRelative(value?: string | null): string {
+  if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return `${formatDistanceToNowStrict(date)} ago`;
+  if (Date.now() - date.getTime() > 7 * 24 * 3600 * 1000) return date.toLocaleDateString(i18n.language);
+  return formatDistanceToNowStrict(date, { addSuffix: true, locale: locale() });
 }
 
-/** Human duration between two timestamps; an unfinished workflow measures against now. */
-export function formatDuration(startedAt?: string, finishedAt?: string): string {
-  if (!startedAt) return "-";
+/** Human duration between two timestamps; an unfinished one measures against `now`. */
+export function formatDuration(startedAt?: string | null, finishedAt?: string | null, now = Date.now()): string {
+  if (!startedAt) return "—";
   const start = Date.parse(startedAt);
-  if (Number.isNaN(start)) return "-";
-  const end = finishedAt ? Date.parse(finishedAt) : Date.now();
+  if (Number.isNaN(start)) return "—";
+  const end = finishedAt ? Date.parse(finishedAt) : now;
   return formatSeconds(Math.max(0, Math.round((end - start) / 1000)));
 }
 
@@ -31,36 +36,23 @@ export function formatSeconds(total: number): string {
   if (minutes < 60) return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   const restMinutes = minutes % 60;
-  return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
+  if (hours < 48) return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
 }
 
-/** Colour per phase, kept in one place so the graph, badges and lists cannot drift apart. */
-export const phaseColor: Record<NodePhase | "Unknown", string> = {
-  Pending: "#a8a29e",
-  Running: "#0ea5e9",
-  Succeeded: "#16a34a",
-  Failed: "#dc2626",
-  Error: "#b91c1c",
-  Omitted: "#a1a1aa",
-  Skipped: "#a1a1aa",
-  Unknown: "#a1a1aa",
-};
-
-export const phaseTextClass: Record<string, string> = {
-  Pending: "text-stone-600 dark:text-stone-300",
-  Running: "text-sky-600 dark:text-sky-400",
-  Succeeded: "text-green-700 dark:text-green-400",
-  Failed: "text-red-600 dark:text-red-400",
-  Error: "text-red-700 dark:text-red-400",
-  Omitted: "text-zinc-500",
-  Skipped: "text-zinc-500",
-};
-
 export function resourcesDuration(durations?: Record<string, number>): string {
-  if (!durations) return "-";
+  if (!durations) return "—";
   return (
     Object.entries(durations)
-      .map(([resource, value]) => `${value}s*${resource}`)
-      .join(", ") || "-"
+      .map(([resource, value]) => `${formatSeconds(value)}×${resource}`)
+      .join(", ") || "—"
   );
+}
+
+/** "3/6" → [3, 6]. */
+export function parseProgress(progress?: string): [number, number] | undefined {
+  const m = progress?.match(/^(\d+)\/(\d+)$/);
+  if (!m) return undefined;
+  return [Number(m[1]), Number(m[2])];
 }

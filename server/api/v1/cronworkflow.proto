@@ -83,6 +83,9 @@ message GetCronWorkflowRequest {
 
 message CronWorkflowReply {
   github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.CronWorkflow cronWorkflow = 1;
+  // nextRuns are the next scheduled times (RFC3339), computed with the same cron parser the Argo
+  // controller uses, so the UI never disagrees with the scheduler. Only Get fills it.
+  repeated string nextRuns = 2;
 }
 
 message CreateCronWorkflowRequest {

@@ -30,6 +30,7 @@ const navActive = "bg-accent font-semibold text-foreground";
 export function AppHeader() {
   const { t } = useTranslation();
   const { data: permissions } = useMyPermissions();
+  const archiveEnabled = useSession((st) => !!st.info?.archiveEnabled);
   const showAdmin = !!permissions && (permissions.superAdmin || (permissions.grants ?? []).some((g) => g.role === "admin"));
 
   const items: { to: string; label: string }[] = [
@@ -39,6 +40,8 @@ export function AppHeader() {
     { to: "/components", label: t("Components") },
     { to: "/crons", label: t("CronWorkflows") },
   ];
+  // The archive exists only when the controller writes one (persistence.archive).
+  if (archiveEnabled) items.splice(1, 0, { to: "/archived", label: t("Archive") });
   if (showAdmin) items.push({ to: "/admin/authz", label: t("Permissions") });
 
   return (

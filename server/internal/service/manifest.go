@@ -42,6 +42,20 @@ func parseWorkflowTemplate(manifest string) (*wfv1.WorkflowTemplate, error) {
 	return tmpl, nil
 }
 
+func parseClusterWorkflowTemplate(manifest string) (*wfv1.ClusterWorkflowTemplate, error) {
+	if manifest == "" {
+		return nil, errors.BadRequest("invalid_argument", "manifest is required")
+	}
+	tmpl := &wfv1.ClusterWorkflowTemplate{}
+	if err := yaml.UnmarshalStrict([]byte(manifest), tmpl); err != nil {
+		return nil, errors.BadRequest("invalid_manifest", fmt.Sprintf("not a valid ClusterWorkflowTemplate: %v", err))
+	}
+	if tmpl.Kind != "" && tmpl.Kind != "ClusterWorkflowTemplate" {
+		return nil, errors.BadRequest("invalid_manifest", fmt.Sprintf("expected kind ClusterWorkflowTemplate, got %q", tmpl.Kind))
+	}
+	return tmpl, nil
+}
+
 func parseCronWorkflow(manifest string) (*wfv1.CronWorkflow, error) {
 	if manifest == "" {
 		return nil, errors.BadRequest("invalid_argument", "manifest is required")

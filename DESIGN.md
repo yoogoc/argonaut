@@ -58,18 +58,18 @@ Kubernetes API (Workflow / WorkflowTemplate / CronWorkflow / Pod logs / Events)
 
 ```
 argonaut/
-  api/v1/*.proto           接口契约（唯一真理源）
   server/                  Go module `argonaut`
+    api/v1/*.proto         接口契约（唯一真理源，buf 生成 Go / HTTP / swagger）
     cmd/                   cobra：server / migrate
+    db/migration/          goose 迁移
     internal/
       service/             HTTP service；proto ↔ biz；SSE / 下载 handler
-      biz/                 用例层：鉴权入口、编排、审计
-      data/                Ent 仓储：grants / audit / revisions
-      authz/               引擎接口、Cedar 实现、快照与 revision 同步
-      cache/               Argo CRD informer + 排序索引 + SSE 扇出
+      biz/                 用例层：鉴权入口、编排、审计、版本历史
+      data/                pgx 仓储：grants / policies / audit / revisions / 副本心跳
+      authz/               Cedar 引擎、内置角色策略、快照与 revision 同步
       oidc/ viewer/        从 xyflow 照搬
-    pkg/argo/              从 xyflow 移植：clientset、操作、日志回退、产物、offload、lint
-    web/                   //go:embed ui/dist
+    pkg/argo/              从 xyflow 移植：clientset、操作、日志回退、产物、offload、lint；cache.go 为 informer 缓存
+    web/                   //go:embed web/dist（ui 构建产物）
   ui/                      React SPA（pnpm）
   deploy/helm/             单 chart：Deployment、SA + RBAC、ConfigMap
   Makefile                 根目录统一入口：make api / gen / dev / build / image
@@ -80,10 +80,10 @@ argonaut/
 
 ### 2.2 技术栈（与 xyflow 对齐）
 
-- Go 1.26、Kratos v3、Wire、Ent + goose + PostgreSQL、slog
+- Go 1.26、Kratos v3、Wire、pgx + goose + PostgreSQL、slog（表少且查询简单，手写 SQL 比 Ent 的代码生成更直接）
 - `github.com/argoproj/argo-workflows/v4 v4.1.0`、client-go 0.35
 - 授权：`github.com/cedar-policy/cedar-go`（§4.2）
-- **JSON 编码**：自有消息用 protojson（lowerCamelCase，与前端生成的类型一致）；Argo 对象在 proto 里声明为 `google.protobuf.Value`，先用 `encoding/json` 序列化再转换进去。这样避开了 protojson 无法处理 Argo 自定义标量的问题（xyflow 踩过：会 panic）
+- **JSON 编码**：proto 直接引用 Argo 的 `generated.proto` 消息类型，响应统一用 `encoding/json` 编码（`internal/server/encoder.go`）。生成的 Go 结构体带 lowerCamelCase 的 json tag，Argo 对象按其自身的 JSON 形态输出，避开了 protojson 无法处理 Argo 自定义标量的问题（xyflow 踩过：会 panic）
 - **v4 要求 context 带 logger**：沿用 xyflow `pkg/argo.WithClients` 统一注入
 
 ### 2.3 informer 缓存（相对 xyflow 的主要改进）
@@ -101,14 +101,15 @@ xyflow 的列表每次全量分页读 namespace 再排序，延迟在 10s 量级
 | Service | 方法 |
 | --- | --- |
 | `AuthService` | Redirect / Callback / UserInfo |
-| `InfoService` | GetInfo（版本、受管 namespace、集群/持久化连接状态） |
+| `InfoService` | GetInfo（版本、受管 namespace、offload / 归档是否启用、外链） |
 | `WorkflowService` | List / Get / Watch(SSE) / PodLogs(SSE) / Events / Submit / Retry / Resubmit / RetryNode / Suspend / Resume / Stop / Terminate / Delete / ArtifactDownload |
 | `WorkflowTemplateService` | List / Get / Create / Update / Delete / Lint / ListRevisions / GetRevision / Rollback / ListComponents（同时返回 namespace 级和集群级组件） |
+| `ArchivedWorkflowService` | List / Get / Delete / Resubmit / Retry / Logs(SSE)，按 UID 寻址（名字可能被后来的运行复用）；另有原始下载路由 `/api/v1/archived-artifacts/{uid}/{nodeId}/{name}`。列表在授权过滤之后分页（逐批扫描归档表），continue token 是归档内的偏移 |
 | `ClusterWorkflowTemplateService` | List / Get / Create / Update / Delete / Lint / ListRevisions / GetRevision / Rollback |
 | `CronWorkflowService` | List / Get / Create / Update / Delete / Suspend / Resume / RunNow / Lint |
 | `AuthzService` | ListGrants / CreateGrant / DeleteGrant / ListRoles / MyPermissions / Check（批量） / ListAudit |
 
-Argo 对象在 proto 中以 `google.protobuf.Value` 透传（§2.2）；UI 侧 Argo 类型由 Argo 官方 swagger 生成（`openapi-typescript` → `ui/src/api/gen/argo.gen.ts`），自有 DTO 由 proto 生成 TS（`protoc-gen-es`，`json_types=true`），**不再手写镜像 types.ts**（§5.5）。
+Argo 对象按其 CRD 的 JSON 原样透传（§2.2）；UI 侧 Argo 类型由 Argo 官方 JSON Schema 生成（`scripts/gen-argo-types.mjs`，json-schema-to-typescript → `ui/src/api/gen/argo.gen.ts`，schema 本身也随包提供给 ajv 与 monaco-yaml）。自有 DTO 由 `pnpm gen:api`（`scripts/gen-api-types.mjs`）直接从 `server/api/v1/*.proto` 生成到 `ui/src/api/gen/api.gen.ts`：生成器按响应实际的 JSON 形态输出（encoding/json + protoc-gen-go 的 `omitempty` tag ⇒ 字段名照抄 proto、int64 为 number、所有字段可选），Argo 消息映射到 UI 自己的 Argo 类型。没有用 protoc-gen-es：proto 引用了 Argo 的 gogo `generated.proto`，它会把整个 Argo/K8s 类型树一起带进前端，且其 JSON 形态是 protojson 的，与服务端实际编码不符。`api/types.ts` 在生成类型之上只补服务端保证的不变量（`Present<…>` 标出必有的 ID/时间戳，角色等字符串收窄为联合类型）。CI 重新生成并检查无差异。
 
 ## 3. 可视化编排器
 
@@ -151,7 +152,7 @@ Argo 对象在 proto 中以 `google.protobuf.Value` 透传（§2.2）；UI 侧 A
 ### 3.5 保存、校验、运行
 
 1. **Lint**：server 用 `workflow/validate` 校验，会解析集群内的 templateRef；错误定位回节点并高亮。
-2. **保存**：带 `resourceVersion` 做乐观锁；冲突（409）时弹出三方 diff（我的修改 / 集群最新 / 基线），让用户合并后重试。
+2. **保存**：先跑服务端 Lint，再带 `resourceVersion` 做乐观锁写入；冲突（409）时进入三方合并页（基线 = 编辑器加载时的版本，对方 = 集群最新，我的 = 当前文档）。不重叠的修改自动合并，重叠处逐条选择“采用对方 / 采用我的 / 手动编辑”，全部解决后以对方的 `resourceVersion` 校验并保存；合并期间若又被修改，基于最新版本重新合并。
 3. **试运行**：编辑器内直接提交（填参数表单），跳到运行详情页。
 4. **运行视图复用画布组件**：运行详情页的图与编辑器共用同一套节点渲染器；运行视图从 `status.nodes` 构建（含 withItems 展开、重试组），并支持“设计视图 / 运行视图”切换，在设计视图上叠加各 task 的最新状态。
 
@@ -322,22 +323,22 @@ COMMIT;
 | 路由 | TanStack Router（文件路由、自动代码分割） | 选型理由见 §5.2 |
 | 服务端状态 | TanStack Query 5 | 路由 loader 中预取；SSE 事件直接写入 query 缓存（§5.5） |
 | 客户端状态 | Zustand 5 + immer | 会话、偏好、编排器文档；不引入 jotai |
-| 表单 | react-hook-form + zod 4 + shadcn Form | 用于普通表单（提交、授权、新建资源…）；编排器配置面板不用表单库（§5.4） |
-| 表格 | TanStack Table 8 + shadcn Data Table 模式 | 列表、授权、审计 |
+| 表单 | 受控组件 + zod 4 | 现有表单（提交、授权、策略…）字段少，受控组件足够，未引入 react-hook-form；zod 用于 URL 搜索参数；编排器配置面板直接绑定文档（§5.4） |
+| 表格 | shadcn Table | 列表由服务端分页、过滤，前端无需 TanStack Table 的列模型 |
 | 虚拟滚动 | TanStack Virtual | 日志（可达几十万行）、长列表、大 diff |
 | 图 | @xyflow/react 12 + elkjs | 编辑器与运行视图共用；elk 跑在 Web Worker 里，原生支持分组和嵌套 |
 | 代码编辑 | Monaco（@monaco-editor/react）+ monaco-yaml | YAML 编辑接入 Argo JSON Schema，实现补全和即时校验；DiffEditor 用于修订对比 |
 | YAML | yaml（eemeli）Document API | 保留注释和键顺序，支持对文档做最小修改 |
-| 三方合并 | node-diff3 | 保存冲突页的合并计算 |
+| 三方合并 | 自研结构化合并（`editor/merge.ts`） | 按键合并对象、按 name 合并列表（templates / tasks / parameters / env…），不同任务上的修改即使在 YAML 里相邻也不冲突；比按行的 diff3 更贴合模板结构 |
 | 结构校验 | ajv（Argo JSON Schema）、zod 4（表单与 URL 参数） | |
 | HTTP | ky | 统一注入 Authorization、`X-Authz-Revision`，归一化错误 |
 | SSE | @microsoft/fetch-event-source | 浏览器 EventSource 不能带 Authorization（xyflow 为此手写了解析器）；该库负责分帧、重连和 Last-Event-ID |
-| 时间与 cron | date-fns 4 + @date-fns/tz、cronstrue（zh_CN） | cron 的下次运行时间由服务端计算，保证与控制器一致；前端只把表达式翻成中文描述 |
+| 时间与 cron | date-fns 4、cronstrue（zh_CN） | cron 的下次运行时间由服务端计算，保证与控制器一致；前端只把表达式翻成中文描述 |
 | 日志渲染 | anser | ANSI 颜色 |
 | 国际化 | i18next + react-i18next | zh-CN / en，语言包随构建打包 |
-| shadcn 生态 | sonner、cmdk、react-resizable-panels、react-day-picker | 提示、⌘K 搜索与表达式补全、可拖宽面板、时间筛选 |
-| 测试 | Vitest 3 + Testing Library + MSW 2；Playwright；Storybook 9 | Storybook 只用于图节点和配置控件 |
-| 规范 | ESLint 9（flat config）+ typescript-eslint + react-hooks、Prettier、husky + lint-staged | |
+| shadcn 生态 | sonner、cmdk、react-resizable-panels | 提示、表达式补全、可拖宽面板 |
+| 测试 | Vitest 3、Playwright | Vitest 覆盖编排器的纯逻辑（ops、merge、lint、文档补丁）；Playwright 冒烟（`ui/e2e`，`pnpm e2e`）跑在真实 server + 集群上：列表/详情/日志、编排器新建/编辑/Lint/保存、三方合并、模板详情与修订、归档、权限页、中文界面；用本机 Chrome，测试自建并清理 `e2e-` 前缀的模板。需要集群，故不进 CI |
+| 规范 | ESLint 9（flat config）+ typescript-eslint + react-hooks、Prettier | CI 执行 lint、typecheck、test |
 
 **明确不用**：emotion（全部 Tailwind）、framer-motion（tw-animate-css 与 CSS 过渡足够）、jotai、ramda、react-use、dagre、shiki（Monaco 已覆盖高亮）、nuqs（TanStack Router 已覆盖 URL 状态）、除 lucide 外的图标库。
 
@@ -402,10 +403,10 @@ URL 状态沿用 xyflow 的约定（`?tab=&nodeId=&artifact=in|out:<nodeId>/<nam
   - 403 → 显示无权限及原因；
   - 409 → 交给编排器的冲突合并流程。
 - **类型来源**：
-  - 自有 DTO 用 `protoc-gen-es`（开启 `json_types=true`）生成 JSON 形态的类型；
-  - Argo 对象用 openapi-typescript 从与 v4.1.0 对应的 swagger.json 生成；
-  - 生成的文件提交进仓库，CI 检查它们与 proto 和 Argo 版本是否一致。
-- **SSE**：统一用 `useEventStream(path, onEvent)`，事件写入对应 query 的缓存。effect 只依赖 path，不依赖缓存：xyflow 曾因 effect 依赖缓存，导致每个事件都重连一次（STATUS.md bug #6）。列表 Watch 只请求列表需要的字段。
+  - Argo 对象由 `pnpm gen:argo` 从 v4.1.0 的 JSON Schema 生成（`api/gen/argo.gen.ts`），schema 同时供 ajv 和 monaco-yaml 使用；
+  - 自有 DTO 由 `pnpm gen:api` 从 proto 生成（`api/gen/api.gen.ts`，见 §2.4），`api/types.ts` 只在其上补不变量；
+  - 生成的文件提交进仓库。
+- **SSE**：统一走 `lib/sse.ts` 的 `streamEvents`（fetch-event-source），事件写入对应 query 的缓存。effect 只依赖 path，不依赖缓存：xyflow 曾因 effect 依赖缓存，导致每个事件都重连一次（STATUS.md bug #6）。列表 Watch 只请求列表需要的字段。
 - **授权 revision**：响应头里的 `X-Authz-Revision` 存进 session store。`MyPermissions` 的 query key 包含 revision，revision 一变化就自动重新获取（§4.3）。
 
 ### 5.6 目录结构
@@ -425,15 +426,16 @@ ui/
     editor/          编排器：store、fields（schema、覆盖、控件）、panels、merge
     workflow/        运行详情：各页签、节点面板、日志、产物、时间线
     lib/             http、sse、authz、format、i18n、theme
+  e2e/               Playwright 冒烟（真实 server + 集群）
     stores/          session、preferences
-    locales/         zh-CN、en
-  e2e/               Playwright
+    locales/         zh-CN（英文原文即 key）、en（仅单数形式）
 ```
 
 ## 6. 配置与部署
 
 - `configs/config.yaml`：`server`、`data.database`、`sso`、`kube`（kubeconfig/in-cluster、**显式 `context`**、受管 namespace 列表；单集群）、`argo`（controller configmap 位置、instanceId）、`authz`（superAdmins、`clusterTemplatesReadable`）。
 - 单镜像：UI 构建产物通过 `embed.FS` 进入二进制，server 负责 SPA fallback。
+- 归档：与 argo-server 一样，从控制器 ConfigMap 的 `persistence` 段发现归档库（只读，不做迁移）；`persistence.archive` 为真时 UI 出现“归档”入口。本地开发用 `configs/dev-archive`：它读取 `argonaut-dev-controller-configmap`（真实 ConfigMap 的副本 + 指向本机 Postgres 的 persistence 段），用 `go run ./hack/archive-seed` 把集群里已结束的运行写入归档，不改动集群里的控制器。
 - Helm chart：Deployment（可多副本，一致性由 §4.3 保证）、SA + ClusterRole（含 clusterworkflowtemplates 读写）+ 各受管 namespace 的 RoleBinding（Argo CRD 读写、pods/log、events、configmap/secret 读）、PG 连接 Secret。
 
 ## 7. 里程碑
@@ -447,6 +449,12 @@ ui/
 | M4 | 编排器 v1：DAG 投影与补丁写回、§3.7 全部节点类型与全字段配置面板、工作流设置、YAML 双向同步、Lint 定位、乐观锁与冲突合并 | 编辑一个手写的复杂模板，未支持的字段保存后不丢失 |
 | M5 | 组件库（引用/快照）、参数表达式补全、编辑器内试运行、设计视图叠加运行状态 | 用组件拼出模板 → 运行 → 在设计视图看到状态 |
 | M6 | i18n、暗色、归档 workflow、批量操作逐行结果 | — |
+
+### 7.1 实现状态（2026-10-21）
+
+M0–M6 全部实现，并在真实集群上验证：列表与详情（含重试折叠/展开、时间线、日志、产物）、跨副本授权一致性、审计、模板修订（含集群外修改检测）、编排器（全部节点类型、配置面板、YAML 双向同步、本地 + 服务端 Lint、保存冲突三方合并、试运行、最新运行状态叠加、从组件新建）、i18n（zh-CN）、暗色、批量操作逐行结果、workflow 归档（列表、详情、日志、产物、重新提交、重试、删除，均按模板授权并审计）。自有 DTO 类型由 proto 生成。
+
+测试：Go 单测（授权引擎、归档分页与授权）、Vitest（编排器纯逻辑）、Playwright 冒烟 8 例（需真实 server 与集群，本地运行）。
 
 ## 8. 已确认的决策（2026-10-21）
 

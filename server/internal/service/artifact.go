@@ -9,6 +9,8 @@ import (
 
 	"argonaut/internal/biz"
 
+	wfv1 "github.com/argoproj/argo-workflows/v4/pkg/apis/workflow/v1alpha1"
+
 	"github.com/go-kratos/kratos/v3/errors"
 )
 
@@ -16,12 +18,30 @@ import (
 // be gigabytes: the reply is streamed straight from the object store to the client instead of being
 // buffered into a protobuf message. Authorization is the same check the RPCs use.
 type ArtifactHandler struct {
-	log *slog.Logger
-	uc  *biz.WorkflowUsecase
+	log     *slog.Logger
+	uc      *biz.WorkflowUsecase
+	archive *biz.ArchiveUsecase
 }
 
-func NewArtifactHandler(uc *biz.WorkflowUsecase, logger *slog.Logger) *ArtifactHandler {
-	return &ArtifactHandler{log: logger.With("module", "service/artifact"), uc: uc}
+func NewArtifactHandler(uc *biz.WorkflowUsecase, archive *biz.ArchiveUsecase, logger *slog.Logger) *ArtifactHandler {
+	return &ArtifactHandler{log: logger.With("module", "service/artifact"), uc: uc, archive: archive}
+}
+
+// Archived serves an archived run's artifact: /api/v1/archived-artifacts/{uid}/{nodeId}/{artifactName},
+// with ?input=true for an input artifact. The run is addressed by UID, as everywhere in the archive.
+func (h *ArtifactHandler) Archived(w http.ResponseWriter, r *http.Request) {
+	rest, _ := strings.CutPrefix(r.URL.Path, "/api/v1/archived-artifacts/")
+	parts := strings.SplitN(strings.Trim(rest, "/"), "/", 3)
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		http.Error(w, "expected {uid}/{nodeId}/{artifactName}", http.StatusBadRequest)
+		return
+	}
+	art, reader, err := h.archive.OpenArtifact(r.Context(), parts[0], parts[1], parts[2], r.URL.Query().Get("input") == "true")
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	h.stream(w, art, reader, parts[2], "uid", parts[0])
 }
 
 // Output serves a node's output artifact.
@@ -46,6 +66,11 @@ func (h *ArtifactHandler) serve(w http.ResponseWriter, r *http.Request, prefix s
 		h.writeError(w, err)
 		return
 	}
+	h.stream(w, art, reader, artifactName, "workflow", namespace+"/"+name, "node", nodeID)
+}
+
+// stream copies an opened artifact to the response as a download.
+func (h *ArtifactHandler) stream(w http.ResponseWriter, art *wfv1.Artifact, reader io.ReadCloser, artifactName string, logArgs ...any) {
 	defer func() {
 		if cerr := reader.Close(); cerr != nil {
 			h.log.Warn("closing artifact reader", "err", cerr)
@@ -65,8 +90,7 @@ func (h *ArtifactHandler) serve(w http.ResponseWriter, r *http.Request, prefix s
 
 	if _, err := io.Copy(w, reader); err != nil {
 		// The status line is already sent, so this can only be logged.
-		h.log.Warn("artifact stream interrupted", "namespace", namespace, "workflow", name,
-			"node", nodeID, "artifact", artifactName, "err", err)
+		h.log.Warn("artifact stream interrupted", append(logArgs, "artifact", artifactName, "err", err)...)
 	}
 }
 

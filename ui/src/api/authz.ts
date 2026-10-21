@@ -3,7 +3,9 @@ import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query"
 import { http, query } from "@/lib/http";
 import { getRevision } from "@/lib/revision";
 
-import type { AuditEvent, AuthzStatus, Grant, MyPermissions, ResourceRef, Role, RoleInfo } from "./types";
+import type { AuditEvent, AuthzStatus, Grant, MyPermissions, Policy, ResourceRef, Role, RoleInfo } from "./types";
+
+export type { Policy };
 
 export async function listGrants(params: { subject?: string; namespace?: string; name?: string } = {}): Promise<Grant[]> {
   const reply = await http.get(`authz/grants${query({ ...params })}`).json<{ grants: Grant[] | null }>();
@@ -40,6 +42,23 @@ export async function listOrphanGrants(): Promise<Grant[]> {
 
 export async function getAuthzStatus(): Promise<AuthzStatus> {
   return http.get("authz/status").json<AuthzStatus>();
+}
+
+
+export async function listPolicies(): Promise<Policy[]> {
+  return (await http.get("authz/policies").json<{ policies: Policy[] | null }>()).policies ?? [];
+}
+
+export async function createPolicy(p: { name: string; description: string; body: string }) {
+  return (await http.post("authz/policies", { json: p }).json<{ policy: Policy }>()).policy;
+}
+
+export async function setPolicyEnabled(p: Policy, enabled: boolean) {
+  await http.put(`authz/policies/${p.id}`, { json: { id: p.id, name: p.name, enabled } }).json();
+}
+
+export async function deletePolicy(p: Policy) {
+  await http.delete(`authz/policies/${p.id}${query({ name: p.name })}`).json();
 }
 
 export async function listAudit(params: { actor?: string; action?: string; result?: string; limit?: number; offset?: number }) {

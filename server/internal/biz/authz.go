@@ -4,116 +4,229 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"argonaut/internal/authz"
 	"argonaut/internal/conf"
 	"argonaut/internal/viewer"
+	pkgargo "argonaut/pkg/argo"
 
 	"github.com/go-kratos/kratos/v3/errors"
+	"golang.org/x/sync/singleflight"
 )
 
-const defaultReloadInterval = 15 * time.Second
+const (
+	defaultPollInterval = 5 * time.Second
+	heartbeatInterval   = 10 * time.Second
+	replicaLiveness     = 45 * time.Second
+)
 
-// GrantRepo persists authorization grants.
-type GrantRepo interface {
-	List(ctx context.Context) ([]authz.Grant, error)
-	ListBySubject(ctx context.Context, subject string) ([]authz.Grant, error)
-	Get(ctx context.Context, id string) (authz.Grant, error)
-	Create(ctx context.Context, g authz.Grant) (authz.Grant, error)
-	Delete(ctx context.Context, id string) error
+// AuthzRepo persists grants and custom policies under one revision counter (DESIGN §4.3). Every
+// write increments the revision, records an audit event and notifies the other replicas, all in one
+// transaction; it returns the revision it produced.
+type AuthzRepo interface {
+	Snapshot(ctx context.Context) (authz.Snapshot, error)
+	Revision(ctx context.Context) (int64, error)
+	GetGrant(ctx context.Context, id string) (authz.Grant, error)
+	CreateGrant(ctx context.Context, g authz.Grant, audit AuditEvent) (authz.Grant, int64, error)
+	DeleteGrant(ctx context.Context, id string, audit AuditEvent) (int64, error)
+	// DeleteGrantsOn removes every grant on one scope; it returns 0 when there were none.
+	DeleteGrantsOn(ctx context.Context, resourceType, namespace, name string, audit AuditEvent) (int64, error)
+	CreatePolicy(ctx context.Context, p authz.CustomPolicy, audit AuditEvent) (authz.CustomPolicy, int64, error)
+	SetPolicyEnabled(ctx context.Context, id string, enabled bool, audit AuditEvent) (int64, error)
+	DeletePolicy(ctx context.Context, id string, audit AuditEvent) (int64, error)
+	// Listen blocks, calling onRevision for every committed change until ctx ends. It reconnects by
+	// itself; missed notifications are covered by polling, never by trusting the connection.
+	Listen(ctx context.Context, onRevision func(int64))
+	Heartbeat(ctx context.Context, replica string, revision int64) error
+	Replicas(ctx context.Context, since time.Time) ([]Replica, error)
 }
 
-// AuthzUsecase is the single entry point for permission decisions and grant administration. Service
-// methods call Require before doing any work, and Filter* to drop resources the caller can't see.
+// Replica reports which revision one server process has loaded.
+type Replica struct {
+	ID       string
+	Revision int64
+	SeenAt   time.Time
+}
+
+// AuthzStatus is what the permissions page shows about consistency.
+type AuthzStatus struct {
+	Revision   int64
+	Replicas   []Replica
+	LastChange *AuditEvent
+}
+
+// AuthzUsecase is the single entry point for permission decisions and their administration.
+//
+// Consistency (DESIGN §4.3): the database revision is the truth. Each HTTP request first calls
+// EnsureFresh, which reads that one row and, if this replica's snapshot is older, reloads it before
+// anything is decided — so no replica ever decides on data older than the last committed change.
+// NOTIFY and polling only make the reload happen early; correctness never depends on them.
 type AuthzUsecase struct {
-	log    *slog.Logger
-	repo   GrantRepo
-	engine *authz.Engine
+	log       *slog.Logger
+	repo      AuthzRepo
+	cache     *pkgargo.Cache
+	engine    *authz.Engine
+	audit     *Auditor
+	replicaID string
+	poll      time.Duration
 
-	reloadInterval time.Duration
-	reloadMu       sync.Mutex
+	reloads singleflight.Group
+
+	subMu       sync.Mutex
+	subscribers map[int]func(int64)
+	nextSub     int
 }
 
-func NewAuthzUsecase(repo GrantRepo, engine *authz.Engine, authzConf *conf.Authz, logger *slog.Logger) *AuthzUsecase {
-	interval := defaultReloadInterval
-	if d := authzConf.GetReloadInterval(); d != nil && d.AsDuration() > 0 {
-		interval = d.AsDuration()
+func NewAuthzUsecase(repo AuthzRepo, engine *authz.Engine, auditor *Auditor, cache *pkgargo.Cache, authzConf *conf.Authz, logger *slog.Logger) (*AuthzUsecase, func()) {
+	poll := defaultPollInterval
+	if d := authzConf.GetPollInterval(); d != nil && d.AsDuration() > 0 {
+		poll = d.AsDuration()
 	}
-	return &AuthzUsecase{
-		log:            logger.With("module", "biz/authz"),
-		repo:           repo,
-		engine:         engine,
-		reloadInterval: interval,
+	replica := authzConf.GetReplicaId()
+	if replica == "" {
+		replica = os.Getenv("POD_NAME")
+	}
+	if replica == "" {
+		host, _ := os.Hostname()
+		replica = fmt.Sprintf("%s/%d", host, os.Getpid())
+	}
+	uc := &AuthzUsecase{
+		log:         logger.With("module", "biz/authz"),
+		repo:        repo,
+		cache:       cache,
+		engine:      engine,
+		audit:       auditor,
+		replicaID:   replica,
+		poll:        poll,
+		subscribers: map[int]func(int64){},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := uc.reload(ctx); err != nil {
+		// Not fatal: requests will retry the load and report the outage until the database answers.
+		uc.log.Error("initial authorization load failed", "err", err)
+	}
+	go repo.Listen(ctx, func(rev int64) {
+		if rev > engine.Revision() {
+			_ = uc.reload(ctx)
+		}
+	})
+	go uc.background(ctx)
+	return uc, cancel
+}
+
+// background polls the revision (a backstop for lost notifications, which matters only to long-lived
+// streams) and reports this replica's loaded revision.
+func (uc *AuthzUsecase) background(ctx context.Context) {
+	poll := time.NewTicker(uc.poll)
+	beat := time.NewTicker(heartbeatInterval)
+	defer poll.Stop()
+	defer beat.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-poll.C:
+			if rev, err := uc.repo.Revision(ctx); err == nil && rev > uc.engine.Revision() {
+				_ = uc.reload(ctx)
+			}
+		case <-beat.C:
+			uc.heartbeat(ctx)
+		}
 	}
 }
 
-// ensureFresh reloads the grant table when it has gone stale. Another replica may have changed
-// permissions, and there is no cross-replica invalidation, so freshness is bounded by this interval.
-func (uc *AuthzUsecase) ensureFresh(ctx context.Context) error {
-	// A super admin is defined entirely by configuration, so their access must not depend on the
-	// database being reachable — otherwise a database outage locks out the only people who could
-	// repair the deployment.
+func (uc *AuthzUsecase) heartbeat(ctx context.Context) {
+	if rev := uc.engine.Revision(); rev > 0 {
+		if err := uc.repo.Heartbeat(ctx, uc.replicaID, rev); err != nil {
+			uc.log.Debug("authz heartbeat failed", "err", err)
+		}
+	}
+}
+
+// reload reads a consistent snapshot and swaps it in. Concurrent callers share one load.
+func (uc *AuthzUsecase) reload(ctx context.Context) error {
+	_, err, _ := uc.reloads.Do("reload", func() (any, error) {
+		snap, err := uc.repo.Snapshot(context.WithoutCancel(ctx))
+		if err != nil {
+			return nil, err
+		}
+		if snap.Revision < uc.engine.Revision() {
+			return nil, nil // a newer snapshot won the race
+		}
+		changed := snap.Revision != uc.engine.Revision()
+		uc.engine.Load(snap)
+		if changed {
+			uc.log.Info("authorization snapshot loaded", "revision", snap.Revision, "grants", len(snap.Grants), "policies", len(snap.Policies))
+			uc.heartbeat(context.WithoutCancel(ctx))
+			uc.notify(snap.Revision)
+		}
+		return nil, nil
+	})
+	return err
+}
+
+// EnsureFresh makes this replica's snapshot at least as new as the committed revision, and at least
+// as new as minRevision (the X-Authz-Revision the client last saw, which gives read-your-writes even
+// when the write happened on another replica). It fails closed: if the revision cannot be read, the
+// request is refused rather than decided on possibly stale data. Super admins are exempt, so a
+// database outage cannot lock out the people who would fix it.
+func (uc *AuthzUsecase) EnsureFresh(ctx context.Context, minRevision int64) error {
 	if uc.engine.IsSuperAdmin(viewer.Subject(ctx)) {
 		return nil
 	}
-	if uc.fresh() {
+	committed, err := uc.repo.Revision(ctx)
+	if err != nil {
+		uc.log.Error("reading authorization revision failed", "err", err)
+		return errors.ServiceUnavailable("authz_unavailable", "authorization data is unavailable; try again shortly")
+	}
+	target := committed
+	if minRevision > target {
+		// A client cannot have seen a revision that was never committed; ignore anything larger.
+		minRevision = target
+	}
+	if uc.engine.Revision() >= target && uc.engine.Revision() >= minRevision {
 		return nil
 	}
-	uc.reloadMu.Lock()
-	defer uc.reloadMu.Unlock()
-	// Re-check: a concurrent caller may have reloaded while we waited for the lock.
-	if uc.fresh() {
-		return nil
+	if err := uc.reload(ctx); err != nil {
+		uc.log.Error("reloading authorization data failed", "err", err)
+		return errors.ServiceUnavailable("authz_unavailable", "authorization data is unavailable; try again shortly")
 	}
-	return uc.reload(ctx)
+	return nil
 }
 
-// fresh reports whether the loaded grant table can still be trusted. A never-loaded table is not
-// fresh no matter how recently the process started, otherwise every restart would deny all
-// non-super-admin access until the first interval elapsed.
-func (uc *AuthzUsecase) fresh() bool {
-	loadedAt := uc.engine.LoadedAt()
-	return !loadedAt.IsZero() && time.Since(loadedAt) < uc.reloadInterval
+// Revision is the revision decisions on this replica are currently taken at.
+func (uc *AuthzUsecase) Revision() int64 { return uc.engine.Revision() }
+
+// Subscribe calls fn after every snapshot change; long-lived streams use it to re-check what they
+// have sent (DESIGN §4.3, "长连接").
+func (uc *AuthzUsecase) Subscribe(fn func(int64)) func() {
+	uc.subMu.Lock()
+	defer uc.subMu.Unlock()
+	id := uc.nextSub
+	uc.nextSub++
+	uc.subscribers[id] = fn
+	return func() {
+		uc.subMu.Lock()
+		defer uc.subMu.Unlock()
+		delete(uc.subscribers, id)
+	}
 }
 
-func (uc *AuthzUsecase) reload(ctx context.Context) error {
-	grants, err := uc.repo.List(ctx)
-	if err != nil {
-		return fmt.Errorf("loading grants: %w", err)
+func (uc *AuthzUsecase) notify(rev int64) {
+	uc.subMu.Lock()
+	fns := make([]func(int64), 0, len(uc.subscribers))
+	for _, fn := range uc.subscribers {
+		fns = append(fns, fn)
 	}
-	return uc.engine.Reload(ctx, grants)
-}
-
-// Require fails with 403 unless the caller may perform the action on the resource.
-func (uc *AuthzUsecase) Require(ctx context.Context, action authz.Action, res authz.Resource) error {
-	subject, err := uc.subject(ctx)
-	if err != nil {
-		return err
+	uc.subMu.Unlock()
+	for _, fn := range fns {
+		fn(rev)
 	}
-	if err := uc.ensureFresh(ctx); err != nil {
-		return err
-	}
-	return uc.engine.Require(ctx, subject, action, res)
-}
-
-// Allow reports whether the caller may perform the action, without producing an error.
-func (uc *AuthzUsecase) Allow(ctx context.Context, action authz.Action, res authz.Resource) bool {
-	subject, err := uc.subject(ctx)
-	if err != nil {
-		return false
-	}
-	if err := uc.ensureFresh(ctx); err != nil {
-		uc.log.Error("failed to refresh grants", "err", err)
-		return false
-	}
-	allowed, err := uc.engine.Allow(ctx, subject, action, res)
-	if err != nil {
-		uc.log.Error("authz evaluation failed", "err", err)
-		return false
-	}
-	return allowed
 }
 
 func (uc *AuthzUsecase) subject(ctx context.Context) (string, error) {
@@ -124,48 +237,90 @@ func (uc *AuthzUsecase) subject(ctx context.Context) (string, error) {
 	return subject, nil
 }
 
-// RequireAuthenticated establishes that there is a caller and that the grant table is loaded.
-//
-// List endpoints call this instead of Require: their access rule is per item, since someone holding a
-// grant on a single template must still be able to open the list page and see that one template.
-// Both failures it reports would otherwise surface as an empty list — indistinguishable from "nothing
-// exists" — so they are turned into errors here: 401 when nobody is authenticated, and the loading
-// error when permissions cannot be read at all.
-func (uc *AuthzUsecase) RequireAuthenticated(ctx context.Context) error {
-	if _, err := uc.subject(ctx); err != nil {
+// readActions are never audited when refused: lists and detail pages probe them constantly.
+var readActions = map[authz.Action]bool{}
+
+func init() {
+	for _, r := range authz.Roles() {
+		if r.Name == authz.RoleViewer {
+			for _, a := range r.Actions {
+				readActions[a] = true
+			}
+		}
+	}
+}
+
+// Require fails with 403 unless the caller may perform the action on the resource. Refused writes
+// are audited with the policy that refused them.
+func (uc *AuthzUsecase) Require(ctx context.Context, action authz.Action, res authz.Resource) error {
+	subject, err := uc.subject(ctx)
+	if err != nil {
 		return err
 	}
-	return uc.ensureFresh(ctx)
+	d := uc.engine.Decide(subject, action, res)
+	if d.Allowed {
+		return nil
+	}
+	reason := "no grant allows this action on this resource"
+	for _, p := range d.Policies {
+		if strings.HasPrefix(p, "custom:") {
+			reason = "refused by policy " + strings.TrimPrefix(p, "custom:")
+		}
+	}
+	if !readActions[action] {
+		uc.audit.Record(ctx, action, res, AuditDenied, reason, map[string]any{"policies": d.Policies}, d.Revision)
+	}
+	where := res.Name()
+	if res.Kind() == authz.ResourceTemplate {
+		where = res.Namespace + "/" + res.Template
+	}
+	return errors.Forbidden("forbidden", fmt.Sprintf("not permitted to %s on %s %q: %s", action, strings.ReplaceAll(res.Kind(), "_", " "), where, reason))
+}
+
+// Allow reports whether the caller may perform the action, without producing an error.
+func (uc *AuthzUsecase) Allow(ctx context.Context, action authz.Action, res authz.Resource) bool {
+	subject := viewer.Subject(ctx)
+	return subject != "" && uc.engine.Allow(subject, action, res)
+}
+
+// Actions lists what the caller may do on a resource, for the UI.
+func (uc *AuthzUsecase) Actions(ctx context.Context, res authz.Resource) ([]authz.Action, error) {
+	subject, err := uc.subject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return uc.engine.Actions(subject, res), nil
+}
+
+// RequireAuthenticated establishes that there is a caller. List endpoints call this instead of
+// Require: their access rule is per item.
+func (uc *AuthzUsecase) RequireAuthenticated(ctx context.Context) error {
+	_, err := uc.subject(ctx)
+	return err
 }
 
 // Subject exposes the caller identity for services that stamp it onto Argo resources.
-func (uc *AuthzUsecase) Subject(ctx context.Context) string {
-	return viewer.Subject(ctx)
-}
+func (uc *AuthzUsecase) Subject(ctx context.Context) string { return viewer.Subject(ctx) }
 
 // IsSuperAdmin reports whether the caller is a bootstrapped platform administrator.
 func (uc *AuthzUsecase) IsSuperAdmin(ctx context.Context) bool {
 	return uc.engine.IsSuperAdmin(viewer.Subject(ctx))
 }
 
-// ListGrants returns grants the caller is allowed to see: their own always, plus every grant on a
-// scope they administer. Super admins see everything.
+// Audit exposes the auditor to other usecases.
+func (uc *AuthzUsecase) Audit() *Auditor { return uc.audit }
+
+// ---- grant administration ----
+
+// ListGrants returns the grants the caller may see: their own, plus every grant on a scope they
+// administer. Super admins see everything.
 func (uc *AuthzUsecase) ListGrants(ctx context.Context, filterSubject, filterNamespace, filterName string) ([]authz.Grant, error) {
 	subject, err := uc.subject(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := uc.reloadNow(ctx); err != nil {
-		return nil, err
-	}
-
-	all, err := uc.repo.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]authz.Grant, 0, len(all))
-	for _, g := range all {
+	out := []authz.Grant{}
+	for _, g := range uc.engine.Grants() {
 		if filterSubject != "" && g.Subject != filterSubject {
 			continue
 		}
@@ -175,68 +330,55 @@ func (uc *AuthzUsecase) ListGrants(ctx context.Context, filterSubject, filterNam
 		if filterName != "" && g.Name != filterName {
 			continue
 		}
-		if g.Subject == subject {
-			out = append(out, g)
-			continue
-		}
-		// Seeing someone else's grant requires administering the scope it applies to.
-		if allowed, _ := uc.engine.Allow(ctx, subject, authz.AuthzGrant, grantResource(g)); allowed {
+		if g.Subject == subject || uc.engine.Allow(subject, authz.AuthzGrant, GrantResource(g)) {
 			out = append(out, g)
 		}
 	}
 	return out, nil
 }
 
-// CreateGrant issues a grant. The caller must hold authz:grant on the scope being granted, which is
-// what makes "who may authorize whom" part of the same policy as everything else.
-func (uc *AuthzUsecase) CreateGrant(ctx context.Context, g authz.Grant) (authz.Grant, error) {
+// CreateGrant issues a grant. The caller must hold authz:grant on the scope, and may not grant a role
+// whose actions they do not hold there themselves.
+func (uc *AuthzUsecase) CreateGrant(ctx context.Context, g authz.Grant) (authz.Grant, int64, error) {
 	subject, err := uc.subject(ctx)
 	if err != nil {
-		return authz.Grant{}, err
+		return authz.Grant{}, 0, err
 	}
-	if err := normalizeGrant(&g); err != nil {
-		return authz.Grant{}, err
+	if err := NormalizeGrant(&g); err != nil {
+		return authz.Grant{}, 0, err
 	}
-	if err := uc.Require(ctx, authz.AuthzGrant, grantResource(g)); err != nil {
-		return authz.Grant{}, err
+	res := GrantResource(g)
+	if err := uc.Require(ctx, authz.AuthzGrant, res); err != nil {
+		return authz.Grant{}, 0, err
 	}
-	// A grant may not exceed what the issuer can already do, otherwise a template admin could mint
-	// themselves global powers.
-	if err := uc.requireCanDelegate(ctx, subject, g); err != nil {
-		return authz.Grant{}, err
+	if err := uc.requireCanDelegate(subject, g); err != nil {
+		return authz.Grant{}, 0, err
 	}
-
 	g.CreatedBy = subject
-	created, err := uc.repo.Create(ctx, g)
+	ev := uc.grantAudit(ctx, authz.AuthzGrant, g)
+	created, rev, err := uc.repo.CreateGrant(ctx, g, ev)
 	if err != nil {
-		return authz.Grant{}, err
+		return authz.Grant{}, 0, err
 	}
+	// Load before answering, so the caller's next request on this replica already sees the grant.
 	if err := uc.reload(ctx); err != nil {
-		return authz.Grant{}, err
+		uc.log.Error("reload after grant failed", "err", err)
 	}
-	uc.log.Info("grant created", "by", subject, "subject", g.Subject, "role", g.Role,
-		"namespace", g.Namespace, "name", g.Name, "resourceType", g.ResourceType)
-	return created, nil
+	return created, rev, nil
 }
 
-// requireCanDelegate checks the issuer holds every action the new role confers on that scope.
-func (uc *AuthzUsecase) requireCanDelegate(ctx context.Context, subject string, g authz.Grant) error {
+func (uc *AuthzUsecase) requireCanDelegate(subject string, g authz.Grant) error {
 	if uc.engine.IsSuperAdmin(subject) {
 		return nil
 	}
-	res := grantResource(g)
+	res := GrantResource(g)
 	for _, role := range authz.Roles() {
 		if role.Name != g.Role {
 			continue
 		}
 		for _, action := range role.Actions {
-			allowed, err := uc.engine.Allow(ctx, subject, action, res)
-			if err != nil {
-				return err
-			}
-			if !allowed {
-				return errors.Forbidden("forbidden",
-					fmt.Sprintf("cannot grant role %q: you do not hold %q on this scope", g.Role, action))
+			if !uc.engine.Allow(subject, action, res) {
+				return errors.Forbidden("forbidden", fmt.Sprintf("cannot grant role %q: you do not hold %q on this scope", g.Role, action))
 			}
 		}
 	}
@@ -244,99 +386,258 @@ func (uc *AuthzUsecase) requireCanDelegate(ctx context.Context, subject string, 
 }
 
 // DeleteGrant revokes a grant; the caller must administer the scope it applies to.
-func (uc *AuthzUsecase) DeleteGrant(ctx context.Context, id string) error {
-	subject, err := uc.subject(ctx)
+func (uc *AuthzUsecase) DeleteGrant(ctx context.Context, id string) (int64, error) {
+	if _, err := uc.subject(ctx); err != nil {
+		return 0, err
+	}
+	existing, err := uc.repo.GetGrant(ctx, id)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	existing, err := uc.repo.Get(ctx, id)
+	if err := uc.Require(ctx, authz.AuthzRevoke, GrantResource(existing)); err != nil {
+		return 0, err
+	}
+	rev, err := uc.repo.DeleteGrant(ctx, id, uc.grantAudit(ctx, authz.AuthzRevoke, existing))
 	if err != nil {
-		return err
-	}
-	if err := uc.Require(ctx, authz.AuthzRevoke, grantResource(existing)); err != nil {
-		return err
-	}
-	if err := uc.repo.Delete(ctx, id); err != nil {
-		return err
+		return 0, err
 	}
 	if err := uc.reload(ctx); err != nil {
-		return err
+		uc.log.Error("reload after revoke failed", "err", err)
 	}
-	uc.log.Info("grant deleted", "by", subject, "id", id, "subject", existing.Subject, "role", existing.Role)
-	return nil
+	return rev, nil
 }
 
-// MyPermissions returns the caller's own grants so the UI can hide actions it would be refused.
-func (uc *AuthzUsecase) MyPermissions(ctx context.Context) (string, bool, []authz.Grant, error) {
+func (uc *AuthzUsecase) grantAudit(ctx context.Context, action authz.Action, g authz.Grant) AuditEvent {
+	res := GrantResource(g)
+	return AuditEvent{
+		Actor:        viewer.Subject(ctx),
+		Action:       string(action),
+		ResourceType: g.ResourceType,
+		Namespace:    g.Namespace,
+		Name:         res.Name(),
+		Result:       AuditAllowed,
+		Reason:       fmt.Sprintf("%s → %s on %s", g.Subject, g.Role, authz.DescribeScope(g)),
+		Detail:       mustJSON(map[string]any{"subject": g.Subject, "role": g.Role, "resourceType": g.ResourceType, "namespace": g.Namespace, "name": g.Name}),
+	}
+}
+
+// RevokeAllOn removes every grant on a scope whose resource was just deleted. The deletion was already
+// authorized, so this is housekeeping rather than an administrative act; a failure leaves an orphan
+// grant, which the permissions page lists.
+func (uc *AuthzUsecase) RevokeAllOn(ctx context.Context, scope authz.Grant) {
+	ev := AuditEvent{
+		Actor: viewer.Subject(ctx), Action: string(authz.AuthzRevoke), ResourceType: scope.ResourceType,
+		Namespace: scope.Namespace, Name: scope.Name, Result: AuditAllowed,
+		Reason: "revoked with the deleted " + strings.ReplaceAll(scope.ResourceType, "_", " "),
+	}
+	rev, err := uc.repo.DeleteGrantsOn(context.WithoutCancel(ctx), scope.ResourceType, scope.Namespace, scope.Name, ev)
+	if err != nil {
+		uc.log.Error("revoking grants of a deleted resource failed; they remain as orphans", "err", err, "name", scope.Name)
+		return
+	}
+	if rev > 0 {
+		_ = uc.reload(ctx)
+	}
+}
+
+// OrphanGrants lists grants on templates that no longer exist (DESIGN §4.3). They are reported, not
+// deleted: a GitOps tool may briefly delete and recreate a template, and its grants should survive.
+func (uc *AuthzUsecase) OrphanGrants(ctx context.Context) ([]authz.Grant, error) {
 	subject, err := uc.subject(ctx)
 	if err != nil {
-		return "", false, nil, err
+		return nil, err
 	}
-	if err := uc.reloadNow(ctx); err != nil {
-		return "", false, nil, err
+	if err := uc.cache.WaitSynced(ctx); err != nil {
+		return nil, err
 	}
-	grants, err := uc.repo.ListBySubject(ctx, subject)
-	if err != nil {
-		return "", false, nil, err
+	var out []authz.Grant
+	for _, g := range uc.engine.Grants() {
+		switch g.ResourceType {
+		case authz.ResourceTemplate:
+			if !uc.cache.Manages(g.Namespace) {
+				continue
+			}
+			if _, ok := uc.cache.GetTemplate(g.Namespace, g.Name); ok {
+				continue
+			}
+		case authz.ResourceClusterTemplate:
+			if _, ok := uc.cache.GetClusterTemplate(g.Name); ok {
+				continue
+			}
+		default:
+			continue
+		}
+		if g.Subject == subject || uc.engine.Allow(subject, authz.AuthzGrant, GrantResource(g)) {
+			out = append(out, g)
+		}
 	}
-	return subject, uc.engine.IsSuperAdmin(subject), grants, nil
+	return out, nil
 }
 
-// reloadNow refreshes unconditionally, for reads that must not show stale permissions.
-func (uc *AuthzUsecase) reloadNow(ctx context.Context) error {
-	uc.reloadMu.Lock()
-	defer uc.reloadMu.Unlock()
-	return uc.reload(ctx)
+// MyPermissions returns the caller's own grants and the revision they were read at.
+func (uc *AuthzUsecase) MyPermissions(ctx context.Context) (string, bool, int64, []authz.Grant, error) {
+	subject, err := uc.subject(ctx)
+	if err != nil {
+		return "", false, 0, nil, err
+	}
+	var mine []authz.Grant
+	for _, g := range uc.engine.Grants() {
+		if g.Subject == subject {
+			mine = append(mine, g)
+		}
+	}
+	return subject, uc.engine.IsSuperAdmin(subject), uc.engine.Revision(), mine, nil
 }
 
 // Roles exposes the built-in role catalogue.
-func (uc *AuthzUsecase) Roles() []authz.Role {
-	return authz.Roles()
+func (uc *AuthzUsecase) Roles() []authz.Role { return authz.Roles() }
+
+// Status reports the committed revision and which replicas have loaded it.
+func (uc *AuthzUsecase) Status(ctx context.Context) (AuthzStatus, error) {
+	if _, err := uc.subject(ctx); err != nil {
+		return AuthzStatus{}, err
+	}
+	rev, err := uc.repo.Revision(ctx)
+	if err != nil {
+		return AuthzStatus{}, err
+	}
+	replicas, err := uc.repo.Replicas(ctx, time.Now().Add(-replicaLiveness))
+	if err != nil {
+		return AuthzStatus{}, err
+	}
+	last, err := uc.audit.repo.Latest(ctx, []string{string(authz.AuthzGrant), string(authz.AuthzRevoke), "authz:policy"})
+	if err != nil {
+		return AuthzStatus{}, err
+	}
+	return AuthzStatus{Revision: rev, Replicas: replicas, LastChange: last}, nil
 }
 
-// grantResource maps a grant row onto the resource scope it applies to.
-func grantResource(g authz.Grant) authz.Resource {
-	if g.ResourceType == authz.ResourceGlobal {
-		return authz.Global()
+// ---- custom policies (global admins only) ----
+
+func (uc *AuthzUsecase) ListPolicies(ctx context.Context) ([]authz.CustomPolicy, map[string]string, error) {
+	if err := uc.Require(ctx, authz.AuthzGrant, authz.Global()); err != nil {
+		return nil, nil, err
 	}
-	if g.Name == authz.Wildcard {
-		// A namespace-wide grant is administered at namespace level, so the template is left empty.
+	snap, err := uc.repo.Snapshot(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return snap.Policies, uc.engine.BrokenPolicies(), nil
+}
+
+func (uc *AuthzUsecase) CreatePolicy(ctx context.Context, p authz.CustomPolicy) (authz.CustomPolicy, int64, error) {
+	if err := uc.Require(ctx, authz.AuthzGrant, authz.Global()); err != nil {
+		return authz.CustomPolicy{}, 0, err
+	}
+	p.Name = strings.TrimSpace(p.Name)
+	if p.Name == "" {
+		return authz.CustomPolicy{}, 0, errors.BadRequest("invalid_argument", "a policy needs a name")
+	}
+	if err := authz.ValidatePolicy(p.Body); err != nil {
+		return authz.CustomPolicy{}, 0, errors.BadRequest("invalid_policy", err.Error())
+	}
+	p.CreatedBy = viewer.Subject(ctx)
+	p.Enabled = true
+	created, rev, err := uc.repo.CreatePolicy(ctx, p, uc.policyAudit(ctx, "create", p.Name))
+	if err != nil {
+		return authz.CustomPolicy{}, 0, err
+	}
+	_ = uc.reload(ctx)
+	return created, rev, nil
+}
+
+func (uc *AuthzUsecase) SetPolicyEnabled(ctx context.Context, id, name string, enabled bool) (int64, error) {
+	if err := uc.Require(ctx, authz.AuthzGrant, authz.Global()); err != nil {
+		return 0, err
+	}
+	verb := "disable"
+	if enabled {
+		verb = "enable"
+	}
+	rev, err := uc.repo.SetPolicyEnabled(ctx, id, enabled, uc.policyAudit(ctx, verb, name))
+	if err != nil {
+		return 0, err
+	}
+	_ = uc.reload(ctx)
+	return rev, nil
+}
+
+func (uc *AuthzUsecase) DeletePolicy(ctx context.Context, id, name string) (int64, error) {
+	if err := uc.Require(ctx, authz.AuthzGrant, authz.Global()); err != nil {
+		return 0, err
+	}
+	rev, err := uc.repo.DeletePolicy(ctx, id, uc.policyAudit(ctx, "delete", name))
+	if err != nil {
+		return 0, err
+	}
+	_ = uc.reload(ctx)
+	return rev, nil
+}
+
+func (uc *AuthzUsecase) policyAudit(ctx context.Context, verb, name string) AuditEvent {
+	return AuditEvent{
+		Actor:        viewer.Subject(ctx),
+		Action:       "authz:policy",
+		ResourceType: authz.ResourceGlobal,
+		Name:         name,
+		Result:       AuditAllowed,
+		Reason:       verb + " policy " + name,
+	}
+}
+
+// ---- helpers ----
+
+// GrantResource maps a grant row onto the resource scope it applies to.
+func GrantResource(g authz.Grant) authz.Resource {
+	switch g.ResourceType {
+	case authz.ResourceGlobal:
+		return authz.Global()
+	case authz.ResourceNamespace:
 		return authz.Resource{Namespace: g.Namespace}
+	case authz.ResourceClusterTemplate:
+		return authz.Resource{ClusterTemplate: g.Name}
 	}
 	return authz.Resource{Namespace: g.Namespace, Template: g.Name}
 }
 
-func normalizeGrant(g *authz.Grant) error {
+// NormalizeGrant validates a grant request and fills defaults. A template grant on "*" is accepted
+// as the older spelling of a namespace grant.
+func NormalizeGrant(g *authz.Grant) error {
 	if g.SubjectType == "" {
 		g.SubjectType = authz.SubjectUser
 	}
 	if g.SubjectType != authz.SubjectUser {
-		// Group grants need the identity provider decision (and a groups claim) first.
-		return errors.BadRequest("invalid_argument", fmt.Sprintf("unsupported subject type %q", g.SubjectType))
+		return errors.BadRequest("invalid_argument", "only user grants are supported in this version")
 	}
+	g.Subject = strings.TrimPrefix(strings.TrimSpace(g.Subject), "user:")
 	if g.Subject == "" {
 		return errors.BadRequest("invalid_argument", "subject is required")
 	}
 	if !authz.IsRole(g.Role) {
 		return errors.BadRequest("invalid_argument", fmt.Sprintf("unknown role %q", g.Role))
 	}
+	if g.ResourceType == authz.ResourceTemplate && (g.Name == "" || g.Name == authz.Wildcard) {
+		g.ResourceType = authz.ResourceNamespace
+	}
 	switch g.ResourceType {
-	case "":
-		g.ResourceType = authz.ResourceTemplate
-	case authz.ResourceTemplate, authz.ResourceGlobal:
+	case authz.ResourceGlobal:
+		g.Namespace, g.Name = "", ""
+	case authz.ResourceNamespace:
+		g.Name = ""
+		if g.Namespace == "" {
+			return errors.BadRequest("invalid_argument", "namespace is required")
+		}
+	case authz.ResourceTemplate:
+		if g.Namespace == "" {
+			return errors.BadRequest("invalid_argument", "namespace is required for a template grant")
+		}
+	case authz.ResourceClusterTemplate:
+		g.Namespace = ""
+		if g.Name == "" {
+			return errors.BadRequest("invalid_argument", "cluster template name is required")
+		}
 	default:
 		return errors.BadRequest("invalid_argument", fmt.Sprintf("unknown resource type %q", g.ResourceType))
-	}
-	if g.ResourceType == authz.ResourceGlobal {
-		g.Namespace = ""
-		g.Name = authz.Wildcard
-		return nil
-	}
-	if g.Namespace == "" {
-		return errors.BadRequest("invalid_argument", "namespace is required for a template grant")
-	}
-	if g.Name == "" {
-		g.Name = authz.Wildcard
 	}
 	return nil
 }

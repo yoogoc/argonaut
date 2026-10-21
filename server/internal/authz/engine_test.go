@@ -1,7 +1,6 @@
 package authz
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"testing"
@@ -9,160 +8,121 @@ import (
 	"argonaut/internal/conf"
 )
 
-func newTestEngine(t *testing.T, superAdmins []string, grants []Grant) *Engine {
+func newTestEngine(t *testing.T, readable *bool) *Engine {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	e, err := NewEngine(&conf.Authz{SuperAdmins: superAdmins}, logger)
+	e, err := NewEngine(&conf.Authz{SuperAdmins: []string{"user:root"}, ClusterTemplatesReadable: readable}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	if err := e.Reload(context.Background(), grants); err != nil {
-		t.Fatalf("Reload: %v", err)
+		t.Fatal(err)
 	}
 	return e
 }
 
-func TestAllow(t *testing.T) {
-	grants := []Grant{
-		// A viewer on one specific template.
-		{Subject: "alice", SubjectType: SubjectUser, ResourceType: ResourceTemplate, Namespace: "argo", Name: "build", Role: RoleViewer},
-		// An operator across a whole namespace.
-		{Subject: "bob", SubjectType: SubjectUser, ResourceType: ResourceTemplate, Namespace: "argo", Name: Wildcard, Role: RoleOperator},
-		// An admin on one template: may grant there, but nowhere else.
-		{Subject: "carol", SubjectType: SubjectUser, ResourceType: ResourceTemplate, Namespace: "argo", Name: "build", Role: RoleAdmin},
+func TestNothingLoadedDeniesEveryoneButSuperAdmins(t *testing.T) {
+	e := newTestEngine(t, nil)
+	if e.Allow("alice", WorkflowGet, Resource{Namespace: "argo"}) {
+		t.Fatal("unloaded engine allowed a regular user")
 	}
-	e := newTestEngine(t, []string{"user:root"}, grants)
+	if !e.Allow("root", AuthzGrant, Global()) {
+		t.Fatal("super admin denied")
+	}
+}
+
+func TestScopesAndRoleNesting(t *testing.T) {
+	e := newTestEngine(t, nil)
+	e.Load(Snapshot{Revision: 7, Grants: []Grant{
+		{Subject: "alice", ResourceType: ResourceTemplate, Namespace: "argo", Name: "etl", Role: RoleOperator},
+		{Subject: "bob", ResourceType: ResourceNamespace, Namespace: "argo", Role: RoleEditor},
+		{Subject: "carol", ResourceType: ResourceGlobal, Role: RoleViewer},
+		{Subject: "dave", ResourceType: ResourceClusterTemplate, Name: "spark", Role: RoleEditor},
+	}})
 
 	cases := []struct {
-		name    string
 		subject string
 		action  Action
 		res     Resource
 		want    bool
 	}{
-		{"viewer reads its template", "alice", TemplateGet, Resource{"argo", "build"}, true},
-		{"viewer cannot retry", "alice", WorkflowRetry, Resource{"argo", "build"}, false},
-		{"viewer cannot read another template", "alice", TemplateGet, Resource{"argo", "deploy"}, false},
-		{"viewer cannot cross namespaces", "alice", TemplateGet, Resource{"prod", "build"}, false},
-
-		{"namespace operator retries any template", "bob", WorkflowRetry, Resource{"argo", "deploy"}, true},
-		{"namespace grant covers template-less workflows", "bob", WorkflowRetry, Resource{Namespace: "argo"}, true},
-		{"operator cannot edit templates", "bob", TemplateUpdate, Resource{"argo", "deploy"}, false},
-		{"operator cannot grant", "bob", AuthzGrant, Resource{"argo", "deploy"}, false},
-		{"namespace grant does not leak to other namespaces", "bob", WorkflowRetry, Resource{"prod", "deploy"}, false},
-
-		{"admin may grant on its scope", "carol", AuthzGrant, Resource{"argo", "build"}, true},
-		{"admin may not grant elsewhere", "carol", AuthzGrant, Resource{"argo", "deploy"}, false},
-		{"admin inherits editor actions", "carol", TemplateUpdate, Resource{"argo", "build"}, true},
-
-		{"super admin may do anything", "root", AuthzGrant, Resource{"prod", "anything"}, true},
-		{"super admin is namespace agnostic", "root", WorkflowDelete, Resource{Namespace: "whatever"}, true},
-
-		{"unknown subject is denied", "mallory", TemplateList, Resource{"argo", "build"}, false},
-		{"empty subject is denied", "", TemplateList, Resource{"argo", "build"}, false},
+		// A template grant covers that template and nothing else.
+		{"alice", WorkflowRetry, Resource{Namespace: "argo", Template: "etl"}, true},
+		{"alice", WorkflowGet, Resource{Namespace: "argo", Template: "etl"}, true}, // operator includes viewer
+		{"alice", TemplateUpdate, Resource{Namespace: "argo", Template: "etl"}, false},
+		{"alice", WorkflowRetry, Resource{Namespace: "argo", Template: "other"}, false},
+		{"alice", WorkflowRetry, Resource{Namespace: "argo"}, false}, // runs without a template
+		// A namespace grant covers every template in it and template-less runs.
+		{"bob", TemplateUpdate, Resource{Namespace: "argo", Template: "anything"}, true},
+		{"bob", WorkflowSubmit, Resource{Namespace: "argo"}, true},
+		{"bob", AuthzGrant, Resource{Namespace: "argo"}, false},
+		{"bob", WorkflowGet, Resource{Namespace: "other"}, false},
+		{"bob", TemplateGet, Resource{ClusterTemplate: "spark"}, true}, // readable by default
+		{"bob", TemplateUpdate, Resource{ClusterTemplate: "spark"}, false},
+		// A global grant covers everything, cluster templates included.
+		{"carol", WorkflowGet, Resource{Namespace: "x", Template: "y"}, true},
+		{"carol", WorkflowDelete, Resource{Namespace: "x"}, false},
+		// A cluster template grant covers only the definition.
+		{"dave", TemplateUpdate, Resource{ClusterTemplate: "spark"}, true},
+		{"dave", WorkflowSubmit, Resource{Namespace: "argo"}, false},
 	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := e.Allow(context.Background(), tc.subject, tc.action, tc.res)
-			if err != nil {
-				t.Fatalf("Allow: %v", err)
-			}
-			if got != tc.want {
-				t.Errorf("Allow(%q, %q, %+v) = %v, want %v", tc.subject, tc.action, tc.res, got, tc.want)
-			}
-		})
-	}
-}
-
-// A template-less workflow must not become visible just because someone holds a grant on a single
-// template in that namespace: only namespace-wide grants cover it.
-func TestTemplatelessWorkflowNeedsNamespaceGrant(t *testing.T) {
-	e := newTestEngine(t, nil, []Grant{
-		{Subject: "alice", ResourceType: ResourceTemplate, Namespace: "argo", Name: "build", Role: RoleViewer},
-	})
-	got, err := e.Allow(context.Background(), "alice", WorkflowGet, Resource{Namespace: "argo"})
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-	if got {
-		t.Error("a single-template grant must not cover workflows with no template lineage")
-	}
-}
-
-func TestGlobalGrant(t *testing.T) {
-	e := newTestEngine(t, nil, []Grant{
-		{Subject: "dave", ResourceType: ResourceGlobal, Role: RoleEditor},
-	})
-	for _, res := range []Resource{{"argo", "build"}, {"prod", "deploy"}, {}} {
-		got, err := e.Allow(context.Background(), "dave", TemplateCreate, res)
-		if err != nil {
-			t.Fatalf("Allow: %v", err)
-		}
-		if !got {
-			t.Errorf("global editor grant should cover %+v", res)
+	for _, c := range cases {
+		if got := e.Allow(c.subject, c.action, c.res); got != c.want {
+			t.Errorf("%s %s %+v = %v, want %v", c.subject, c.action, c.res, got, c.want)
 		}
 	}
-	// A global editor still cannot grant permissions; that needs admin.
-	got, err := e.Allow(context.Background(), "dave", AuthzGrant, Resource{"argo", "build"})
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-	if got {
-		t.Error("editor must not have authz:grant")
+	if d := e.Decide("alice", WorkflowRetry, Resource{Namespace: "argo", Template: "etl"}); d.Revision != 7 || len(d.Policies) == 0 || d.Policies[0] != "role-operator" {
+		t.Errorf("decision = %+v", d)
 	}
 }
 
-func TestEffectiveRoles(t *testing.T) {
-	e := newTestEngine(t, nil, []Grant{
-		{Subject: "alice", ResourceType: ResourceTemplate, Namespace: "argo", Name: "build", Role: RoleViewer},
-		{Subject: "alice", ResourceType: ResourceTemplate, Namespace: "argo", Name: Wildcard, Role: RoleOperator},
+func TestClusterTemplatesReadableCanBeDisabled(t *testing.T) {
+	off := false
+	e := newTestEngine(t, &off)
+	e.Load(Snapshot{Revision: 1})
+	if e.Allow("bob", TemplateGet, Resource{ClusterTemplate: "spark"}) {
+		t.Fatal("cluster template readable although disabled")
+	}
+}
+
+func TestCustomForbidPolicy(t *testing.T) {
+	e := newTestEngine(t, nil)
+	e.Load(Snapshot{Revision: 2,
+		Grants: []Grant{{Subject: "alice", ResourceType: ResourceNamespace, Namespace: "argo", Role: RoleOperator}},
+		Policies: []CustomPolicy{{Name: "prod-no-terminate", Enabled: true, Body: `
+forbid (principal, action == Action::"workflow:terminate", resource)
+when { resource.labels has env && resource.labels.env == "prod" };`}},
 	})
-	roles, err := e.EffectiveRoles(context.Background(), "alice", Resource{"argo", "build"})
-	if err != nil {
-		t.Fatalf("EffectiveRoles: %v", err)
+	prod := Resource{Namespace: "argo", Labels: map[string]string{"env": "prod"}}
+	if e.Allow("alice", WorkflowTerminate, prod) {
+		t.Fatal("forbid policy ignored")
 	}
-	seen := map[string]bool{}
-	for _, r := range roles {
-		seen[r] = true
+	d := e.Decide("alice", WorkflowTerminate, prod)
+	if len(d.Policies) != 1 || d.Policies[0] != "custom:prod-no-terminate" {
+		t.Errorf("reasons = %v", d.Policies)
 	}
-	if !seen[RoleViewer] || !seen[RoleOperator] {
-		t.Errorf("expected viewer and operator on argo/build, got %v", roles)
+	if !e.Allow("alice", WorkflowTerminate, Resource{Namespace: "argo", Labels: map[string]string{"env": "dev"}}) {
+		t.Fatal("forbid policy over-applied")
+	}
+	if !e.Allow("alice", WorkflowStop, prod) {
+		t.Fatal("forbid policy matched another action")
 	}
 }
 
-func TestReloadReplacesGrants(t *testing.T) {
-	e := newTestEngine(t, nil, []Grant{
-		{Subject: "alice", ResourceType: ResourceTemplate, Namespace: "argo", Name: Wildcard, Role: RoleViewer},
+func TestBrokenCustomPolicyIsSkipped(t *testing.T) {
+	e := newTestEngine(t, nil)
+	e.Load(Snapshot{Revision: 3,
+		Grants:   []Grant{{Subject: "alice", ResourceType: ResourceNamespace, Namespace: "argo", Role: RoleViewer}},
+		Policies: []CustomPolicy{{Name: "broken", Enabled: true, Body: "forbid ("}},
 	})
-	if allowed, _ := e.Allow(context.Background(), "alice", TemplateGet, Resource{"argo", "build"}); !allowed {
-		t.Fatal("alice should start with access")
+	if !e.Allow("alice", WorkflowGet, Resource{Namespace: "argo"}) {
+		t.Fatal("a broken custom policy took down the built-in ones")
 	}
-	// Revoking is a full-table reload; the decision must flip immediately.
-	if err := e.Reload(context.Background(), nil); err != nil {
-		t.Fatalf("Reload: %v", err)
-	}
-	if allowed, _ := e.Allow(context.Background(), "alice", TemplateGet, Resource{"argo", "build"}); allowed {
-		t.Error("access should be revoked after the grant table is emptied")
+	if _, ok := e.BrokenPolicies()["broken"]; !ok {
+		t.Fatal("broken policy not reported")
 	}
 }
 
-// A freshly constructed engine must report that it has never loaded grants. Callers use LoadedAt to
-// decide whether to read the table, and if construction looked like a successful load, every restart
-// would deny all non-super-admin access until the reload interval elapsed.
-func TestNewEngineIsNotMarkedLoaded(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	e, err := NewEngine(&conf.Authz{}, logger)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	if !e.LoadedAt().IsZero() {
-		t.Error("a new engine must have a zero LoadedAt so callers treat its empty grant table as stale")
-	}
-	if err := e.Reload(context.Background(), nil); err != nil {
-		t.Fatalf("Reload: %v", err)
-	}
-	if e.LoadedAt().IsZero() {
-		t.Error("Reload must record the load time")
+func TestActions(t *testing.T) {
+	e := newTestEngine(t, nil)
+	e.Load(Snapshot{Revision: 1, Grants: []Grant{{Subject: "v", ResourceType: ResourceNamespace, Namespace: "argo", Role: RoleViewer}}})
+	if got := len(e.Actions("v", Resource{Namespace: "argo"})); got != len(viewerActions) {
+		t.Fatalf("viewer actions = %d, want %d", got, len(viewerActions))
 	}
 }

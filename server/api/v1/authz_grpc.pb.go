@@ -20,11 +20,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthzService_ListGrants_FullMethodName    = "/api.v1.AuthzService/ListGrants"
-	AuthzService_CreateGrant_FullMethodName   = "/api.v1.AuthzService/CreateGrant"
-	AuthzService_DeleteGrant_FullMethodName   = "/api.v1.AuthzService/DeleteGrant"
-	AuthzService_ListRoles_FullMethodName     = "/api.v1.AuthzService/ListRoles"
-	AuthzService_MyPermissions_FullMethodName = "/api.v1.AuthzService/MyPermissions"
+	AuthzService_ListGrants_FullMethodName       = "/api.v1.AuthzService/ListGrants"
+	AuthzService_CreateGrant_FullMethodName      = "/api.v1.AuthzService/CreateGrant"
+	AuthzService_DeleteGrant_FullMethodName      = "/api.v1.AuthzService/DeleteGrant"
+	AuthzService_ListRoles_FullMethodName        = "/api.v1.AuthzService/ListRoles"
+	AuthzService_MyPermissions_FullMethodName    = "/api.v1.AuthzService/MyPermissions"
+	AuthzService_Actions_FullMethodName          = "/api.v1.AuthzService/Actions"
+	AuthzService_Status_FullMethodName           = "/api.v1.AuthzService/Status"
+	AuthzService_OrphanGrants_FullMethodName     = "/api.v1.AuthzService/OrphanGrants"
+	AuthzService_ListAudit_FullMethodName        = "/api.v1.AuthzService/ListAudit"
+	AuthzService_ListPolicies_FullMethodName     = "/api.v1.AuthzService/ListPolicies"
+	AuthzService_CreatePolicy_FullMethodName     = "/api.v1.AuthzService/CreatePolicy"
+	AuthzService_SetPolicyEnabled_FullMethodName = "/api.v1.AuthzService/SetPolicyEnabled"
+	AuthzService_DeletePolicy_FullMethodName     = "/api.v1.AuthzService/DeletePolicy"
 )
 
 // AuthzServiceClient is the client API for AuthzService service.
@@ -42,6 +50,18 @@ type AuthzServiceClient interface {
 	// MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
 	// convenience, never the security boundary (every RPC is checked server-side).
 	MyPermissions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MyPermissionsReply, error)
+	// Actions lists what the caller may do on one resource. The UI shows buttons from this rather than
+	// re-implementing the policy, so it can never disagree with enforcement.
+	Actions(ctx context.Context, in *ActionsRequest, opts ...grpc.CallOption) (*ActionsReply, error)
+	// Status reports the committed revision and which replicas have loaded it.
+	Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AuthzStatusReply, error)
+	// OrphanGrants lists grants on templates that no longer exist.
+	OrphanGrants(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListGrantsReply, error)
+	ListAudit(ctx context.Context, in *ListAuditRequest, opts ...grpc.CallOption) (*ListAuditReply, error)
+	ListPolicies(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListPoliciesReply, error)
+	CreatePolicy(ctx context.Context, in *CreatePolicyRequest, opts ...grpc.CallOption) (*PolicyReply, error)
+	SetPolicyEnabled(ctx context.Context, in *SetPolicyEnabledRequest, opts ...grpc.CallOption) (*RevisionReply, error)
+	DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...grpc.CallOption) (*RevisionReply, error)
 }
 
 type authzServiceClient struct {
@@ -102,6 +122,86 @@ func (c *authzServiceClient) MyPermissions(ctx context.Context, in *emptypb.Empt
 	return out, nil
 }
 
+func (c *authzServiceClient) Actions(ctx context.Context, in *ActionsRequest, opts ...grpc.CallOption) (*ActionsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ActionsReply)
+	err := c.cc.Invoke(ctx, AuthzService_Actions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AuthzStatusReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthzStatusReply)
+	err := c.cc.Invoke(ctx, AuthzService_Status_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) OrphanGrants(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListGrantsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGrantsReply)
+	err := c.cc.Invoke(ctx, AuthzService_OrphanGrants_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) ListAudit(ctx context.Context, in *ListAuditRequest, opts ...grpc.CallOption) (*ListAuditReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAuditReply)
+	err := c.cc.Invoke(ctx, AuthzService_ListAudit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) ListPolicies(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListPoliciesReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPoliciesReply)
+	err := c.cc.Invoke(ctx, AuthzService_ListPolicies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) CreatePolicy(ctx context.Context, in *CreatePolicyRequest, opts ...grpc.CallOption) (*PolicyReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PolicyReply)
+	err := c.cc.Invoke(ctx, AuthzService_CreatePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) SetPolicyEnabled(ctx context.Context, in *SetPolicyEnabledRequest, opts ...grpc.CallOption) (*RevisionReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevisionReply)
+	err := c.cc.Invoke(ctx, AuthzService_SetPolicyEnabled_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...grpc.CallOption) (*RevisionReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevisionReply)
+	err := c.cc.Invoke(ctx, AuthzService_DeletePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthzServiceServer is the server API for AuthzService service.
 // All implementations must embed UnimplementedAuthzServiceServer
 // for forward compatibility.
@@ -117,6 +217,18 @@ type AuthzServiceServer interface {
 	// MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
 	// convenience, never the security boundary (every RPC is checked server-side).
 	MyPermissions(context.Context, *emptypb.Empty) (*MyPermissionsReply, error)
+	// Actions lists what the caller may do on one resource. The UI shows buttons from this rather than
+	// re-implementing the policy, so it can never disagree with enforcement.
+	Actions(context.Context, *ActionsRequest) (*ActionsReply, error)
+	// Status reports the committed revision and which replicas have loaded it.
+	Status(context.Context, *emptypb.Empty) (*AuthzStatusReply, error)
+	// OrphanGrants lists grants on templates that no longer exist.
+	OrphanGrants(context.Context, *emptypb.Empty) (*ListGrantsReply, error)
+	ListAudit(context.Context, *ListAuditRequest) (*ListAuditReply, error)
+	ListPolicies(context.Context, *emptypb.Empty) (*ListPoliciesReply, error)
+	CreatePolicy(context.Context, *CreatePolicyRequest) (*PolicyReply, error)
+	SetPolicyEnabled(context.Context, *SetPolicyEnabledRequest) (*RevisionReply, error)
+	DeletePolicy(context.Context, *DeletePolicyRequest) (*RevisionReply, error)
 	mustEmbedUnimplementedAuthzServiceServer()
 }
 
@@ -141,6 +253,30 @@ func (UnimplementedAuthzServiceServer) ListRoles(context.Context, *emptypb.Empty
 }
 func (UnimplementedAuthzServiceServer) MyPermissions(context.Context, *emptypb.Empty) (*MyPermissionsReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method MyPermissions not implemented")
+}
+func (UnimplementedAuthzServiceServer) Actions(context.Context, *ActionsRequest) (*ActionsReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method Actions not implemented")
+}
+func (UnimplementedAuthzServiceServer) Status(context.Context, *emptypb.Empty) (*AuthzStatusReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
+}
+func (UnimplementedAuthzServiceServer) OrphanGrants(context.Context, *emptypb.Empty) (*ListGrantsReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method OrphanGrants not implemented")
+}
+func (UnimplementedAuthzServiceServer) ListAudit(context.Context, *ListAuditRequest) (*ListAuditReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAudit not implemented")
+}
+func (UnimplementedAuthzServiceServer) ListPolicies(context.Context, *emptypb.Empty) (*ListPoliciesReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPolicies not implemented")
+}
+func (UnimplementedAuthzServiceServer) CreatePolicy(context.Context, *CreatePolicyRequest) (*PolicyReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePolicy not implemented")
+}
+func (UnimplementedAuthzServiceServer) SetPolicyEnabled(context.Context, *SetPolicyEnabledRequest) (*RevisionReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetPolicyEnabled not implemented")
+}
+func (UnimplementedAuthzServiceServer) DeletePolicy(context.Context, *DeletePolicyRequest) (*RevisionReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePolicy not implemented")
 }
 func (UnimplementedAuthzServiceServer) mustEmbedUnimplementedAuthzServiceServer() {}
 func (UnimplementedAuthzServiceServer) testEmbeddedByValue()                      {}
@@ -253,6 +389,150 @@ func _AuthzService_MyPermissions_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthzService_Actions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).Actions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_Actions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).Actions(ctx, req.(*ActionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).Status(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_Status_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).Status(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_OrphanGrants_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).OrphanGrants(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_OrphanGrants_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).OrphanGrants(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_ListAudit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAuditRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).ListAudit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_ListAudit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).ListAudit(ctx, req.(*ListAuditRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_ListPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).ListPolicies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_ListPolicies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).ListPolicies(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_CreatePolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).CreatePolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_CreatePolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).CreatePolicy(ctx, req.(*CreatePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_SetPolicyEnabled_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPolicyEnabledRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).SetPolicyEnabled(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_SetPolicyEnabled_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).SetPolicyEnabled(ctx, req.(*SetPolicyEnabledRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_DeletePolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).DeletePolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_DeletePolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).DeletePolicy(ctx, req.(*DeletePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthzService_ServiceDesc is the grpc.ServiceDesc for AuthzService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -279,6 +559,38 @@ var AuthzService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MyPermissions",
 			Handler:    _AuthzService_MyPermissions_Handler,
+		},
+		{
+			MethodName: "Actions",
+			Handler:    _AuthzService_Actions_Handler,
+		},
+		{
+			MethodName: "Status",
+			Handler:    _AuthzService_Status_Handler,
+		},
+		{
+			MethodName: "OrphanGrants",
+			Handler:    _AuthzService_OrphanGrants_Handler,
+		},
+		{
+			MethodName: "ListAudit",
+			Handler:    _AuthzService_ListAudit_Handler,
+		},
+		{
+			MethodName: "ListPolicies",
+			Handler:    _AuthzService_ListPolicies_Handler,
+		},
+		{
+			MethodName: "CreatePolicy",
+			Handler:    _AuthzService_CreatePolicy_Handler,
+		},
+		{
+			MethodName: "SetPolicyEnabled",
+			Handler:    _AuthzService_SetPolicyEnabled_Handler,
+		},
+		{
+			MethodName: "DeletePolicy",
+			Handler:    _AuthzService_DeletePolicy_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

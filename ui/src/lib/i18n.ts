@@ -1,6 +1,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
+import en from "@/locales/en";
 import zhCN from "@/locales/zh-CN";
 
 // English source strings are the keys, so English needs no catalogue and a missing translation
@@ -23,13 +24,21 @@ function initialLanguage(): string {
 }
 
 void i18n.use(initReactI18next).init({
-  resources: { "zh-CN": { translation: zhCN } },
+  resources: { "zh-CN": { translation: zhCN }, en: { translation: en } },
   lng: initialLanguage(),
   fallbackLng: false,
   keySeparator: false,
   nsSeparator: false,
   interpolation: { escapeValue: false },
   returnEmptyString: false,
+  // In development, untranslated strings are collected on window.__missingI18n for checking a page.
+  saveMissing: import.meta.env.DEV,
+  saveMissingTo: "current",
+  missingKeyHandler: (lngs, _ns, key) => {
+    if (!lngs.includes("zh-CN")) return;
+    const w = window as unknown as { __missingI18n?: Set<string> };
+    (w.__missingI18n ??= new Set()).add(key);
+  },
 });
 
 i18n.on("languageChanged", (lng) => {

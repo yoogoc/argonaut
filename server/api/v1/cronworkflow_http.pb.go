@@ -43,18 +43,18 @@ type CronWorkflowServiceHTTPServer interface {
 
 func RegisterCronWorkflowServiceHTTPServer(s *http.Server, srv CronWorkflowServiceHTTPServer) {
 	r := s.Route("/")
-	r.Handle("GET", "/api/v1/cron-workflows", _CronWorkflowService_List0_HTTP_Handler(srv))
-	r.Handle("GET", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Get0_HTTP_Handler(srv))
-	r.Handle("POST", "/api/v1/cron-workflows/{namespace}", _CronWorkflowService_Create0_HTTP_Handler(srv))
-	r.Handle("PUT", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Update0_HTTP_Handler(srv))
-	r.Handle("DELETE", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Delete0_HTTP_Handler(srv))
-	r.Handle("PUT", "/api/v1/cron-workflows/{namespace}/{name}/suspend", _CronWorkflowService_Suspend0_HTTP_Handler(srv))
-	r.Handle("PUT", "/api/v1/cron-workflows/{namespace}/{name}/resume", _CronWorkflowService_Resume0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/cron-workflows", _CronWorkflowService_List4_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Get4_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/cron-workflows/{namespace}", _CronWorkflowService_Create3_HTTP_Handler(srv))
+	r.Handle("PUT", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Update2_HTTP_Handler(srv))
+	r.Handle("DELETE", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Delete4_HTTP_Handler(srv))
+	r.Handle("PUT", "/api/v1/cron-workflows/{namespace}/{name}/suspend", _CronWorkflowService_Suspend1_HTTP_Handler(srv))
+	r.Handle("PUT", "/api/v1/cron-workflows/{namespace}/{name}/resume", _CronWorkflowService_Resume1_HTTP_Handler(srv))
 	r.Handle("POST", "/api/v1/cron-workflows/{namespace}/{name}/run", _CronWorkflowService_RunNow0_HTTP_Handler(srv))
-	r.Handle("POST", "/api/v1/cron-workflows/{namespace}/lint", _CronWorkflowService_Lint0_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/cron-workflows/{namespace}/lint", _CronWorkflowService_Lint3_HTTP_Handler(srv))
 }
 
-func _CronWorkflowService_List0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_List4_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ListCronWorkflowRequest
 		if err := ctx.BindQuery(&in); err != nil {
@@ -73,7 +73,7 @@ func _CronWorkflowService_List0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) 
 	}
 }
 
-func _CronWorkflowService_Get0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_Get4_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in GetCronWorkflowRequest
 		if err := ctx.BindQuery(&in); err != nil {
@@ -95,7 +95,7 @@ func _CronWorkflowService_Get0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) f
 	}
 }
 
-func _CronWorkflowService_Create0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_Create3_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in CreateCronWorkflowRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -117,7 +117,7 @@ func _CronWorkflowService_Create0_HTTP_Handler(srv CronWorkflowServiceHTTPServer
 	}
 }
 
-func _CronWorkflowService_Update0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_Update2_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in UpdateCronWorkflowRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -139,7 +139,7 @@ func _CronWorkflowService_Update0_HTTP_Handler(srv CronWorkflowServiceHTTPServer
 	}
 }
 
-func _CronWorkflowService_Delete0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_Delete4_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in DeleteCronWorkflowRequest
 		if err := ctx.BindQuery(&in); err != nil {
@@ -161,7 +161,7 @@ func _CronWorkflowService_Delete0_HTTP_Handler(srv CronWorkflowServiceHTTPServer
 	}
 }
 
-func _CronWorkflowService_Suspend0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_Suspend1_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in CronWorkflowActionRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -183,7 +183,7 @@ func _CronWorkflowService_Suspend0_HTTP_Handler(srv CronWorkflowServiceHTTPServe
 	}
 }
 
-func _CronWorkflowService_Resume0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_Resume1_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in CronWorkflowActionRequest
 		if err := ctx.Bind(&in); err != nil {
@@ -227,7 +227,7 @@ func _CronWorkflowService_RunNow0_HTTP_Handler(srv CronWorkflowServiceHTTPServer
 	}
 }
 
-func _CronWorkflowService_Lint0_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_Lint3_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in LintCronWorkflowRequest
 		if err := ctx.Bind(&in); err != nil {

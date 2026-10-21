@@ -1,0 +1,105 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "github.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto";
+import "api/v1/workflowtemplate.proto";
+
+// ClusterWorkflowTemplateService manages cluster-scoped templates. Grants on a cluster template cover
+// its definition; runs created from it belong to the namespace they run in.
+service ClusterWorkflowTemplateService {
+  rpc List (ListClusterWorkflowTemplateRequest) returns (ListClusterWorkflowTemplateReply) {
+    option (google.api.http) = {
+      get: "/api/v1/cluster-workflow-templates"
+    };
+  };
+  rpc Get (GetClusterWorkflowTemplateRequest) returns (ClusterWorkflowTemplateReply) {
+    option (google.api.http) = {
+      get: "/api/v1/cluster-workflow-templates/{name}"
+    };
+  };
+  rpc Create (CreateClusterWorkflowTemplateRequest) returns (ClusterWorkflowTemplateReply) {
+    option (google.api.http) = {
+      post: "/api/v1/cluster-workflow-templates"
+      body: "*"
+    };
+  };
+  rpc Update (UpdateClusterWorkflowTemplateRequest) returns (ClusterWorkflowTemplateReply) {
+    option (google.api.http) = {
+      put: "/api/v1/cluster-workflow-templates/{name}"
+      body: "*"
+    };
+  };
+  rpc Delete (GetClusterWorkflowTemplateRequest) returns (DeleteClusterWorkflowTemplateReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/cluster-workflow-templates/{name}"
+    };
+  };
+  rpc Lint (LintClusterWorkflowTemplateRequest) returns (ClusterWorkflowTemplateReply) {
+    option (google.api.http) = {
+      post: "/api/v1/cluster-workflow-templates-lint"
+      body: "*"
+    };
+  };
+  rpc ListRevisions (GetClusterWorkflowTemplateRequest) returns (TemplateRevisionsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/cluster-workflow-templates/{name}/revisions"
+    };
+  };
+  rpc GetRevision (ClusterTemplateRevisionRequest) returns (TemplateRevisionReply) {
+    option (google.api.http) = {
+      get: "/api/v1/cluster-workflow-templates/{name}/revisions/{id}"
+    };
+  };
+  rpc Rollback (ClusterTemplateRollbackRequest) returns (ClusterWorkflowTemplateReply) {
+    option (google.api.http) = {
+      post: "/api/v1/cluster-workflow-templates/{name}/revisions/{id}/rollback"
+      body: "*"
+    };
+  };
+}
+
+message ListClusterWorkflowTemplateRequest {
+  optional string namePattern = 1;
+  optional string labelSelector = 2;
+  optional int64 limit = 3;
+  optional string continueToken = 4;
+}
+message ListClusterWorkflowTemplateReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.ClusterWorkflowTemplateList list = 1;
+}
+
+message GetClusterWorkflowTemplateRequest {
+  string name = 1;
+}
+message ClusterWorkflowTemplateReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.ClusterWorkflowTemplate template = 1;
+}
+
+message CreateClusterWorkflowTemplateRequest {
+  string manifest = 1;
+  optional string message = 2;
+}
+message UpdateClusterWorkflowTemplateRequest {
+  string name = 1;
+  string manifest = 2;
+  optional string message = 3;
+}
+message DeleteClusterWorkflowTemplateReply {}
+
+message LintClusterWorkflowTemplateRequest {
+  string manifest = 1;
+}
+
+message ClusterTemplateRevisionRequest {
+  string name = 1;
+  string id = 2;
+}
+message ClusterTemplateRollbackRequest {
+  string name = 1;
+  string id = 2;
+  string resourceVersion = 3;
+}

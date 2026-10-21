@@ -19,12 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkflowTemplateService_List_FullMethodName   = "/api.v1.WorkflowTemplateService/List"
-	WorkflowTemplateService_Get_FullMethodName    = "/api.v1.WorkflowTemplateService/Get"
-	WorkflowTemplateService_Create_FullMethodName = "/api.v1.WorkflowTemplateService/Create"
-	WorkflowTemplateService_Update_FullMethodName = "/api.v1.WorkflowTemplateService/Update"
-	WorkflowTemplateService_Delete_FullMethodName = "/api.v1.WorkflowTemplateService/Delete"
-	WorkflowTemplateService_Lint_FullMethodName   = "/api.v1.WorkflowTemplateService/Lint"
+	WorkflowTemplateService_List_FullMethodName           = "/api.v1.WorkflowTemplateService/List"
+	WorkflowTemplateService_Get_FullMethodName            = "/api.v1.WorkflowTemplateService/Get"
+	WorkflowTemplateService_Create_FullMethodName         = "/api.v1.WorkflowTemplateService/Create"
+	WorkflowTemplateService_Update_FullMethodName         = "/api.v1.WorkflowTemplateService/Update"
+	WorkflowTemplateService_Delete_FullMethodName         = "/api.v1.WorkflowTemplateService/Delete"
+	WorkflowTemplateService_Lint_FullMethodName           = "/api.v1.WorkflowTemplateService/Lint"
+	WorkflowTemplateService_ListRevisions_FullMethodName  = "/api.v1.WorkflowTemplateService/ListRevisions"
+	WorkflowTemplateService_GetRevision_FullMethodName    = "/api.v1.WorkflowTemplateService/GetRevision"
+	WorkflowTemplateService_Rollback_FullMethodName       = "/api.v1.WorkflowTemplateService/Rollback"
+	WorkflowTemplateService_ListComponents_FullMethodName = "/api.v1.WorkflowTemplateService/ListComponents"
 )
 
 // WorkflowTemplateServiceClient is the client API for WorkflowTemplateService service.
@@ -41,6 +45,14 @@ type WorkflowTemplateServiceClient interface {
 	Update(ctx context.Context, in *UpdateWorkflowTemplateRequest, opts ...grpc.CallOption) (*WorkflowTemplateReply, error)
 	Delete(ctx context.Context, in *DeleteWorkflowTemplateRequest, opts ...grpc.CallOption) (*DeleteWorkflowTemplateReply, error)
 	Lint(ctx context.Context, in *LintWorkflowTemplateRequest, opts ...grpc.CallOption) (*WorkflowTemplateReply, error)
+	// ListRevisions returns a template's recorded history, newest first (manifests omitted).
+	ListRevisions(ctx context.Context, in *TemplateRevisionsRequest, opts ...grpc.CallOption) (*TemplateRevisionsReply, error)
+	GetRevision(ctx context.Context, in *TemplateRevisionRequest, opts ...grpc.CallOption) (*TemplateRevisionReply, error)
+	// Rollback saves an old revision's spec as a new revision, guarded by the caller's resourceVersion.
+	Rollback(ctx context.Context, in *TemplateRollbackRequest, opts ...grpc.CallOption) (*WorkflowTemplateReply, error)
+	// ListComponents returns the component templates usable from a namespace: its own templates
+	// labelled argonaut.io/component=true, plus cluster templates with the same label.
+	ListComponents(ctx context.Context, in *ListComponentsRequest, opts ...grpc.CallOption) (*ListComponentsReply, error)
 }
 
 type workflowTemplateServiceClient struct {
@@ -111,6 +123,46 @@ func (c *workflowTemplateServiceClient) Lint(ctx context.Context, in *LintWorkfl
 	return out, nil
 }
 
+func (c *workflowTemplateServiceClient) ListRevisions(ctx context.Context, in *TemplateRevisionsRequest, opts ...grpc.CallOption) (*TemplateRevisionsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TemplateRevisionsReply)
+	err := c.cc.Invoke(ctx, WorkflowTemplateService_ListRevisions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowTemplateServiceClient) GetRevision(ctx context.Context, in *TemplateRevisionRequest, opts ...grpc.CallOption) (*TemplateRevisionReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TemplateRevisionReply)
+	err := c.cc.Invoke(ctx, WorkflowTemplateService_GetRevision_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowTemplateServiceClient) Rollback(ctx context.Context, in *TemplateRollbackRequest, opts ...grpc.CallOption) (*WorkflowTemplateReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkflowTemplateReply)
+	err := c.cc.Invoke(ctx, WorkflowTemplateService_Rollback_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowTemplateServiceClient) ListComponents(ctx context.Context, in *ListComponentsRequest, opts ...grpc.CallOption) (*ListComponentsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListComponentsReply)
+	err := c.cc.Invoke(ctx, WorkflowTemplateService_ListComponents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkflowTemplateServiceServer is the server API for WorkflowTemplateService service.
 // All implementations must embed UnimplementedWorkflowTemplateServiceServer
 // for forward compatibility.
@@ -125,6 +177,14 @@ type WorkflowTemplateServiceServer interface {
 	Update(context.Context, *UpdateWorkflowTemplateRequest) (*WorkflowTemplateReply, error)
 	Delete(context.Context, *DeleteWorkflowTemplateRequest) (*DeleteWorkflowTemplateReply, error)
 	Lint(context.Context, *LintWorkflowTemplateRequest) (*WorkflowTemplateReply, error)
+	// ListRevisions returns a template's recorded history, newest first (manifests omitted).
+	ListRevisions(context.Context, *TemplateRevisionsRequest) (*TemplateRevisionsReply, error)
+	GetRevision(context.Context, *TemplateRevisionRequest) (*TemplateRevisionReply, error)
+	// Rollback saves an old revision's spec as a new revision, guarded by the caller's resourceVersion.
+	Rollback(context.Context, *TemplateRollbackRequest) (*WorkflowTemplateReply, error)
+	// ListComponents returns the component templates usable from a namespace: its own templates
+	// labelled argonaut.io/component=true, plus cluster templates with the same label.
+	ListComponents(context.Context, *ListComponentsRequest) (*ListComponentsReply, error)
 	mustEmbedUnimplementedWorkflowTemplateServiceServer()
 }
 
@@ -152,6 +212,18 @@ func (UnimplementedWorkflowTemplateServiceServer) Delete(context.Context, *Delet
 }
 func (UnimplementedWorkflowTemplateServiceServer) Lint(context.Context, *LintWorkflowTemplateRequest) (*WorkflowTemplateReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method Lint not implemented")
+}
+func (UnimplementedWorkflowTemplateServiceServer) ListRevisions(context.Context, *TemplateRevisionsRequest) (*TemplateRevisionsReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRevisions not implemented")
+}
+func (UnimplementedWorkflowTemplateServiceServer) GetRevision(context.Context, *TemplateRevisionRequest) (*TemplateRevisionReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRevision not implemented")
+}
+func (UnimplementedWorkflowTemplateServiceServer) Rollback(context.Context, *TemplateRollbackRequest) (*WorkflowTemplateReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method Rollback not implemented")
+}
+func (UnimplementedWorkflowTemplateServiceServer) ListComponents(context.Context, *ListComponentsRequest) (*ListComponentsReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListComponents not implemented")
 }
 func (UnimplementedWorkflowTemplateServiceServer) mustEmbedUnimplementedWorkflowTemplateServiceServer() {
 }
@@ -283,6 +355,78 @@ func _WorkflowTemplateService_Lint_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkflowTemplateService_ListRevisions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TemplateRevisionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowTemplateServiceServer).ListRevisions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowTemplateService_ListRevisions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowTemplateServiceServer).ListRevisions(ctx, req.(*TemplateRevisionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowTemplateService_GetRevision_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TemplateRevisionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowTemplateServiceServer).GetRevision(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowTemplateService_GetRevision_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowTemplateServiceServer).GetRevision(ctx, req.(*TemplateRevisionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowTemplateService_Rollback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TemplateRollbackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowTemplateServiceServer).Rollback(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowTemplateService_Rollback_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowTemplateServiceServer).Rollback(ctx, req.(*TemplateRollbackRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowTemplateService_ListComponents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListComponentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowTemplateServiceServer).ListComponents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowTemplateService_ListComponents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowTemplateServiceServer).ListComponents(ctx, req.(*ListComponentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkflowTemplateService_ServiceDesc is the grpc.ServiceDesc for WorkflowTemplateService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -313,6 +457,22 @@ var WorkflowTemplateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Lint",
 			Handler:    _WorkflowTemplateService_Lint_Handler,
+		},
+		{
+			MethodName: "ListRevisions",
+			Handler:    _WorkflowTemplateService_ListRevisions_Handler,
+		},
+		{
+			MethodName: "GetRevision",
+			Handler:    _WorkflowTemplateService_GetRevision_Handler,
+		},
+		{
+			MethodName: "Rollback",
+			Handler:    _WorkflowTemplateService_Rollback_Handler,
+		},
+		{
+			MethodName: "ListComponents",
+			Handler:    _WorkflowTemplateService_ListComponents_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

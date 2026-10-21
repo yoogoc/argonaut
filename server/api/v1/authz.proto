@@ -39,6 +39,135 @@ service AuthzService {
       get: "/api/v1/authz/my-permissions"
     };
   };
+  // Actions lists what the caller may do on one resource. The UI shows buttons from this rather than
+  // re-implementing the policy, so it can never disagree with enforcement.
+  rpc Actions (ActionsRequest) returns (ActionsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/actions"
+    };
+  };
+  // Status reports the committed revision and which replicas have loaded it.
+  rpc Status (google.protobuf.Empty) returns (AuthzStatusReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/status"
+    };
+  };
+  // OrphanGrants lists grants on templates that no longer exist.
+  rpc OrphanGrants (google.protobuf.Empty) returns (ListGrantsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/orphan-grants"
+    };
+  };
+  rpc ListAudit (ListAuditRequest) returns (ListAuditReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/audit"
+    };
+  };
+  rpc ListPolicies (google.protobuf.Empty) returns (ListPoliciesReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/policies"
+    };
+  };
+  rpc CreatePolicy (CreatePolicyRequest) returns (PolicyReply) {
+    option (google.api.http) = {
+      post: "/api/v1/authz/policies"
+      body: "*"
+    };
+  };
+  rpc SetPolicyEnabled (SetPolicyEnabledRequest) returns (RevisionReply) {
+    option (google.api.http) = {
+      put: "/api/v1/authz/policies/{id}"
+      body: "*"
+    };
+  };
+  rpc DeletePolicy (DeletePolicyRequest) returns (RevisionReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/authz/policies/{id}"
+    };
+  };
+}
+
+message ActionsRequest {
+  optional string namespace = 1;
+  optional string template = 2;
+  optional string clusterTemplate = 3;
+}
+message ActionsReply {
+  repeated string actions = 1;
+  int64 revision = 2;
+}
+
+message Replica {
+  string id = 1;
+  int64 revision = 2;
+  string seenAt = 3;
+}
+message AuthzStatusReply {
+  int64 revision = 1;
+  repeated Replica replicas = 2;
+  AuditEvent lastChange = 3;
+}
+
+message AuditEvent {
+  string id = 1;
+  string at = 2;
+  string actor = 3;
+  string action = 4;
+  string resourceType = 5;
+  string namespace = 6;
+  string name = 7;
+  string result = 8;
+  string reason = 9;
+  string detail = 10;
+  int64 revision = 11;
+}
+message ListAuditRequest {
+  optional string actor = 1;
+  optional string action = 2;
+  optional string result = 3;
+  optional int32 limit = 4;
+  optional int32 offset = 5;
+}
+message ListAuditReply {
+  repeated AuditEvent events = 1;
+  int32 total = 2;
+}
+
+message Policy {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string body = 4;
+  bool enabled = 5;
+  string createdBy = 6;
+  string createdAt = 7;
+  int64 revision = 8;
+  // error is set when the loaded policy failed to compile and is being skipped.
+  string error = 9;
+}
+message ListPoliciesReply {
+  repeated Policy policies = 1;
+}
+message CreatePolicyRequest {
+  string name = 1;
+  string description = 2;
+  string body = 3;
+}
+message PolicyReply {
+  Policy policy = 1;
+  int64 revision = 2;
+}
+message SetPolicyEnabledRequest {
+  string id = 1;
+  string name = 2;
+  bool enabled = 3;
+}
+message DeletePolicyRequest {
+  string id = 1;
+  optional string name = 2;
+}
+message RevisionReply {
+  int64 revision = 1;
 }
 
 // Grant binds a subject to a role on a resource scope.
@@ -57,6 +186,8 @@ message Grant {
   string role = 7;
   string createdBy = 8;
   string createdAt = 9;
+  // revision is the authorization revision this grant was written at.
+  int64 revision = 10;
 }
 
 message ListGrantsRequest {
@@ -78,12 +209,15 @@ message CreateGrantRequest {
 }
 message GrantReply {
   Grant grant = 1;
+  int64 revision = 2;
 }
 
 message DeleteGrantRequest {
   string id = 1;
 }
-message DeleteGrantReply {}
+message DeleteGrantReply {
+  int64 revision = 1;
+}
 
 message Role {
   string name = 1;
@@ -98,4 +232,5 @@ message MyPermissionsReply {
   string subject = 1;
   bool superAdmin = 2;
   repeated Grant grants = 3;
+  int64 revision = 4;
 }

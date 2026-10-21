@@ -1,62 +1,49 @@
 package data
 
 import (
-	stdsql "database/sql"
+	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"argonaut/internal/conf"
-	"argonaut/internal/data/ent"
 
-	"entgo.io/ent/dialect/sql"
 	"github.com/google/wire"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ProviderSet is the data providers.
 var ProviderSet = wire.NewSet(
-	NewEntClient,
 	NewData,
-	NewGrantRepo,
+	NewAuthzRepo,
+	NewAuditRepo,
+	NewRevisionRepo,
 )
 
-// Data holds the database handle. argonaut persists only authorization grants — workflow, template
-// and cron data always come straight from Kubernetes.
+// Data holds the database pool. argonaut persists authorization data, the audit log and template
+// history; workflow, template and cron content always comes straight from Kubernetes.
 type Data struct {
-	log *slog.Logger
-	db  *ent.Client
+	log  *slog.Logger
+	pool *pgxpool.Pool
+	// source is kept for the dedicated LISTEN connection, which must not come from the pool: a pooled
+	// connection is returned and reused, and its LISTEN registration would leak to other users.
+	source string
 }
 
-func NewEntClient(dataConf *conf.Data, logger *slog.Logger) (*ent.Client, func(), error) {
-	l := logger.With("module", "data/ent")
-
-	driverName := dataConf.GetDatabase().GetDriver()
-	switch driverName {
-	case "postgres", "pg", "postgresql", "pgx":
-		driverName = "pgx"
-	}
-
-	db, err := stdsql.Open(driverName, dataConf.GetDatabase().GetSource())
+func NewData(dataConf *conf.Data, logger *slog.Logger) (*Data, func(), error) {
+	l := logger.With("module", "data")
+	source := dataConf.GetDatabase().GetSource()
+	cfg, err := pgxpool.ParseConfig(source)
 	if err != nil {
-		return nil, nil, fmt.Errorf("opening database connection: %w", err)
+		return nil, nil, fmt.Errorf("parsing database source: %w", err)
 	}
-
-	var opts []ent.Option
-	if dataConf.GetDatabase().GetEntDebug() {
-		opts = append(opts, ent.Debug())
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	// Connecting lazily keeps a slow database from failing startup: super admins can still work
+	// (DESIGN §4.2) and the health endpoint answers, while authorization reports the outage per request.
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("opening database pool: %w", err)
 	}
-	opts = append(opts, ent.Driver(sql.NewDriver(dataConf.GetDatabase().GetDriver(), sql.Conn{ExecQuerier: db})))
-
-	client := ent.NewClient(opts...)
-	cleanup := func() {
-		if err := db.Close(); err != nil {
-			l.Error("closing database", "err", err)
-		}
-	}
-	return client, cleanup, nil
-}
-
-func NewData(logger *slog.Logger, db *ent.Client) *Data {
-	return &Data{log: logger.With("module", "data"), db: db}
+	cleanup := func() { pool.Close() }
+	return &Data{log: l, pool: pool, source: source}, cleanup, nil
 }

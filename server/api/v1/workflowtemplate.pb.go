@@ -23,6 +23,535 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// TemplateRevision is one recorded version of a (cluster) workflow template.
+type TemplateRevision struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Seq             int32                  `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
+	ResourceVersion string                 `protobuf:"bytes,3,opt,name=resourceVersion,proto3" json:"resourceVersion,omitempty"`
+	Author          string                 `protobuf:"bytes,4,opt,name=author,proto3" json:"author,omitempty"`
+	External        bool                   `protobuf:"varint,5,opt,name=external,proto3" json:"external,omitempty"`
+	Message         string                 `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
+	CreatedAt       string                 `protobuf:"bytes,7,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	// manifest is the template as JSON; only GetRevision fills it.
+	Manifest      string `protobuf:"bytes,8,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateRevision) Reset() {
+	*x = TemplateRevision{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateRevision) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateRevision) ProtoMessage() {}
+
+func (x *TemplateRevision) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateRevision.ProtoReflect.Descriptor instead.
+func (*TemplateRevision) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *TemplateRevision) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TemplateRevision) GetSeq() int32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+func (x *TemplateRevision) GetResourceVersion() string {
+	if x != nil {
+		return x.ResourceVersion
+	}
+	return ""
+}
+
+func (x *TemplateRevision) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+func (x *TemplateRevision) GetExternal() bool {
+	if x != nil {
+		return x.External
+	}
+	return false
+}
+
+func (x *TemplateRevision) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *TemplateRevision) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *TemplateRevision) GetManifest() string {
+	if x != nil {
+		return x.Manifest
+	}
+	return ""
+}
+
+type TemplateRevisionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateRevisionsRequest) Reset() {
+	*x = TemplateRevisionsRequest{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateRevisionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateRevisionsRequest) ProtoMessage() {}
+
+func (x *TemplateRevisionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateRevisionsRequest.ProtoReflect.Descriptor instead.
+func (*TemplateRevisionsRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *TemplateRevisionsRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *TemplateRevisionsRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type TemplateRevisionsReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Revisions     []*TemplateRevision    `protobuf:"bytes,1,rep,name=revisions,proto3" json:"revisions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateRevisionsReply) Reset() {
+	*x = TemplateRevisionsReply{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateRevisionsReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateRevisionsReply) ProtoMessage() {}
+
+func (x *TemplateRevisionsReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateRevisionsReply.ProtoReflect.Descriptor instead.
+func (*TemplateRevisionsReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TemplateRevisionsReply) GetRevisions() []*TemplateRevision {
+	if x != nil {
+		return x.Revisions
+	}
+	return nil
+}
+
+type TemplateRevisionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Id            string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateRevisionRequest) Reset() {
+	*x = TemplateRevisionRequest{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateRevisionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateRevisionRequest) ProtoMessage() {}
+
+func (x *TemplateRevisionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateRevisionRequest.ProtoReflect.Descriptor instead.
+func (*TemplateRevisionRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *TemplateRevisionRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *TemplateRevisionRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TemplateRevisionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type TemplateRevisionReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Revision      *TemplateRevision      `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateRevisionReply) Reset() {
+	*x = TemplateRevisionReply{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateRevisionReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateRevisionReply) ProtoMessage() {}
+
+func (x *TemplateRevisionReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateRevisionReply.ProtoReflect.Descriptor instead.
+func (*TemplateRevisionReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *TemplateRevisionReply) GetRevision() *TemplateRevision {
+	if x != nil {
+		return x.Revision
+	}
+	return nil
+}
+
+type TemplateRollbackRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Namespace string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name      string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Id        string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
+	// resourceVersion is the version the caller is looking at; a newer one means 409.
+	ResourceVersion string `protobuf:"bytes,4,opt,name=resourceVersion,proto3" json:"resourceVersion,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *TemplateRollbackRequest) Reset() {
+	*x = TemplateRollbackRequest{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateRollbackRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateRollbackRequest) ProtoMessage() {}
+
+func (x *TemplateRollbackRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateRollbackRequest.ProtoReflect.Descriptor instead.
+func (*TemplateRollbackRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *TemplateRollbackRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *TemplateRollbackRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TemplateRollbackRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TemplateRollbackRequest) GetResourceVersion() string {
+	if x != nil {
+		return x.ResourceVersion
+	}
+	return ""
+}
+
+type ListComponentsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListComponentsRequest) Reset() {
+	*x = ListComponentsRequest{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListComponentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListComponentsRequest) ProtoMessage() {}
+
+func (x *ListComponentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListComponentsRequest.ProtoReflect.Descriptor instead.
+func (*ListComponentsRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListComponentsRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+type Component struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// cluster is true for a ClusterWorkflowTemplate.
+	Cluster bool `protobuf:"varint,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
+	// editable reports whether the caller may update the component.
+	Editable        bool                              `protobuf:"varint,2,opt,name=editable,proto3" json:"editable,omitempty"`
+	Template        *v1alpha1.WorkflowTemplate        `protobuf:"bytes,3,opt,name=template,proto3" json:"template,omitempty"`
+	ClusterTemplate *v1alpha1.ClusterWorkflowTemplate `protobuf:"bytes,4,opt,name=clusterTemplate,proto3" json:"clusterTemplate,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *Component) Reset() {
+	*x = Component{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Component) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Component) ProtoMessage() {}
+
+func (x *Component) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Component.ProtoReflect.Descriptor instead.
+func (*Component) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Component) GetCluster() bool {
+	if x != nil {
+		return x.Cluster
+	}
+	return false
+}
+
+func (x *Component) GetEditable() bool {
+	if x != nil {
+		return x.Editable
+	}
+	return false
+}
+
+func (x *Component) GetTemplate() *v1alpha1.WorkflowTemplate {
+	if x != nil {
+		return x.Template
+	}
+	return nil
+}
+
+func (x *Component) GetClusterTemplate() *v1alpha1.ClusterWorkflowTemplate {
+	if x != nil {
+		return x.ClusterTemplate
+	}
+	return nil
+}
+
+type ListComponentsReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Components    []*Component           `protobuf:"bytes,1,rep,name=components,proto3" json:"components,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListComponentsReply) Reset() {
+	*x = ListComponentsReply{}
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListComponentsReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListComponentsReply) ProtoMessage() {}
+
+func (x *ListComponentsReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListComponentsReply.ProtoReflect.Descriptor instead.
+func (*ListComponentsReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListComponentsReply) GetComponents() []*Component {
+	if x != nil {
+		return x.Components
+	}
+	return nil
+}
+
 type ListWorkflowTemplateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
@@ -36,7 +565,7 @@ type ListWorkflowTemplateRequest struct {
 
 func (x *ListWorkflowTemplateRequest) Reset() {
 	*x = ListWorkflowTemplateRequest{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[0]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -48,7 +577,7 @@ func (x *ListWorkflowTemplateRequest) String() string {
 func (*ListWorkflowTemplateRequest) ProtoMessage() {}
 
 func (x *ListWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[0]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -61,7 +590,7 @@ func (x *ListWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkflowTemplateRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkflowTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{0}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListWorkflowTemplateRequest) GetNamespace() string {
@@ -108,7 +637,7 @@ type ListWorkflowTemplateReply struct {
 
 func (x *ListWorkflowTemplateReply) Reset() {
 	*x = ListWorkflowTemplateReply{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[1]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -120,7 +649,7 @@ func (x *ListWorkflowTemplateReply) String() string {
 func (*ListWorkflowTemplateReply) ProtoMessage() {}
 
 func (x *ListWorkflowTemplateReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[1]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -133,7 +662,7 @@ func (x *ListWorkflowTemplateReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkflowTemplateReply.ProtoReflect.Descriptor instead.
 func (*ListWorkflowTemplateReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{1}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListWorkflowTemplateReply) GetList() *v1alpha1.WorkflowTemplateList {
@@ -153,7 +682,7 @@ type GetWorkflowTemplateRequest struct {
 
 func (x *GetWorkflowTemplateRequest) Reset() {
 	*x = GetWorkflowTemplateRequest{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[2]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -165,7 +694,7 @@ func (x *GetWorkflowTemplateRequest) String() string {
 func (*GetWorkflowTemplateRequest) ProtoMessage() {}
 
 func (x *GetWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[2]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -178,7 +707,7 @@ func (x *GetWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWorkflowTemplateRequest.ProtoReflect.Descriptor instead.
 func (*GetWorkflowTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{2}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetWorkflowTemplateRequest) GetNamespace() string {
@@ -204,7 +733,7 @@ type WorkflowTemplateReply struct {
 
 func (x *WorkflowTemplateReply) Reset() {
 	*x = WorkflowTemplateReply{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[3]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -216,7 +745,7 @@ func (x *WorkflowTemplateReply) String() string {
 func (*WorkflowTemplateReply) ProtoMessage() {}
 
 func (x *WorkflowTemplateReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[3]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -229,7 +758,7 @@ func (x *WorkflowTemplateReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowTemplateReply.ProtoReflect.Descriptor instead.
 func (*WorkflowTemplateReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{3}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *WorkflowTemplateReply) GetTemplate() *v1alpha1.WorkflowTemplate {
@@ -243,14 +772,16 @@ type CreateWorkflowTemplateRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Namespace string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// manifest is the WorkflowTemplate YAML or JSON.
-	Manifest      string `protobuf:"bytes,2,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	Manifest string `protobuf:"bytes,2,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	// message describes the change in the template's revision history.
+	Message       *string `protobuf:"bytes,3,opt,name=message,proto3,oneof" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateWorkflowTemplateRequest) Reset() {
 	*x = CreateWorkflowTemplateRequest{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[4]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +793,7 @@ func (x *CreateWorkflowTemplateRequest) String() string {
 func (*CreateWorkflowTemplateRequest) ProtoMessage() {}
 
 func (x *CreateWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[4]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +806,7 @@ func (x *CreateWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkflowTemplateRequest.ProtoReflect.Descriptor instead.
 func (*CreateWorkflowTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{4}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateWorkflowTemplateRequest) GetNamespace() string {
@@ -292,18 +823,27 @@ func (x *CreateWorkflowTemplateRequest) GetManifest() string {
 	return ""
 }
 
+func (x *CreateWorkflowTemplateRequest) GetMessage() string {
+	if x != nil && x.Message != nil {
+		return *x.Message
+	}
+	return ""
+}
+
 type UpdateWorkflowTemplateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Manifest      string                 `protobuf:"bytes,3,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Namespace string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name      string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// manifest must carry metadata.resourceVersion; a stale one is refused with 409.
+	Manifest      string  `protobuf:"bytes,3,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	Message       *string `protobuf:"bytes,4,opt,name=message,proto3,oneof" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateWorkflowTemplateRequest) Reset() {
 	*x = UpdateWorkflowTemplateRequest{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[5]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -315,7 +855,7 @@ func (x *UpdateWorkflowTemplateRequest) String() string {
 func (*UpdateWorkflowTemplateRequest) ProtoMessage() {}
 
 func (x *UpdateWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[5]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -328,7 +868,7 @@ func (x *UpdateWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWorkflowTemplateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWorkflowTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{5}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdateWorkflowTemplateRequest) GetNamespace() string {
@@ -352,6 +892,13 @@ func (x *UpdateWorkflowTemplateRequest) GetManifest() string {
 	return ""
 }
 
+func (x *UpdateWorkflowTemplateRequest) GetMessage() string {
+	if x != nil && x.Message != nil {
+		return *x.Message
+	}
+	return ""
+}
+
 type DeleteWorkflowTemplateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
@@ -362,7 +909,7 @@ type DeleteWorkflowTemplateRequest struct {
 
 func (x *DeleteWorkflowTemplateRequest) Reset() {
 	*x = DeleteWorkflowTemplateRequest{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[6]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -374,7 +921,7 @@ func (x *DeleteWorkflowTemplateRequest) String() string {
 func (*DeleteWorkflowTemplateRequest) ProtoMessage() {}
 
 func (x *DeleteWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[6]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -387,7 +934,7 @@ func (x *DeleteWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkflowTemplateRequest.ProtoReflect.Descriptor instead.
 func (*DeleteWorkflowTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{6}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeleteWorkflowTemplateRequest) GetNamespace() string {
@@ -412,7 +959,7 @@ type DeleteWorkflowTemplateReply struct {
 
 func (x *DeleteWorkflowTemplateReply) Reset() {
 	*x = DeleteWorkflowTemplateReply{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[7]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +971,7 @@ func (x *DeleteWorkflowTemplateReply) String() string {
 func (*DeleteWorkflowTemplateReply) ProtoMessage() {}
 
 func (x *DeleteWorkflowTemplateReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[7]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,7 +984,7 @@ func (x *DeleteWorkflowTemplateReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkflowTemplateReply.ProtoReflect.Descriptor instead.
 func (*DeleteWorkflowTemplateReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{7}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{16}
 }
 
 type LintWorkflowTemplateRequest struct {
@@ -450,7 +997,7 @@ type LintWorkflowTemplateRequest struct {
 
 func (x *LintWorkflowTemplateRequest) Reset() {
 	*x = LintWorkflowTemplateRequest{}
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[8]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +1009,7 @@ func (x *LintWorkflowTemplateRequest) String() string {
 func (*LintWorkflowTemplateRequest) ProtoMessage() {}
 
 func (x *LintWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_workflowtemplate_proto_msgTypes[8]
+	mi := &file_api_v1_workflowtemplate_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +1022,7 @@ func (x *LintWorkflowTemplateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LintWorkflowTemplateRequest.ProtoReflect.Descriptor instead.
 func (*LintWorkflowTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{8}
+	return file_api_v1_workflowtemplate_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *LintWorkflowTemplateRequest) GetNamespace() string {
@@ -496,7 +1043,43 @@ var File_api_v1_workflowtemplate_proto protoreflect.FileDescriptor
 
 const file_api_v1_workflowtemplate_proto_rawDesc = "" +
 	"\n" +
-	"\x1dapi/v1/workflowtemplate.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1aPgithub.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto\"\x91\x02\n" +
+	"\x1dapi/v1/workflowtemplate.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1aPgithub.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto\"\xe6\x01\n" +
+	"\x10TemplateRevision\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
+	"\x03seq\x18\x02 \x01(\x05R\x03seq\x12(\n" +
+	"\x0fresourceVersion\x18\x03 \x01(\tR\x0fresourceVersion\x12\x16\n" +
+	"\x06author\x18\x04 \x01(\tR\x06author\x12\x1a\n" +
+	"\bexternal\x18\x05 \x01(\bR\bexternal\x12\x18\n" +
+	"\amessage\x18\x06 \x01(\tR\amessage\x12\x1c\n" +
+	"\tcreatedAt\x18\a \x01(\tR\tcreatedAt\x12\x1a\n" +
+	"\bmanifest\x18\b \x01(\tR\bmanifest\"L\n" +
+	"\x18TemplateRevisionsRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"P\n" +
+	"\x16TemplateRevisionsReply\x126\n" +
+	"\trevisions\x18\x01 \x03(\v2\x18.api.v1.TemplateRevisionR\trevisions\"[\n" +
+	"\x17TemplateRevisionRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\"M\n" +
+	"\x15TemplateRevisionReply\x124\n" +
+	"\brevision\x18\x01 \x01(\v2\x18.api.v1.TemplateRevisionR\brevision\"\x85\x01\n" +
+	"\x17TemplateRollbackRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\x12(\n" +
+	"\x0fresourceVersion\x18\x04 \x01(\tR\x0fresourceVersion\"5\n" +
+	"\x15ListComponentsRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\"\xb7\x02\n" +
+	"\tComponent\x12\x18\n" +
+	"\acluster\x18\x01 \x01(\bR\acluster\x12\x1a\n" +
+	"\beditable\x18\x02 \x01(\bR\beditable\x12n\n" +
+	"\btemplate\x18\x03 \x01(\v2R.github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateR\btemplate\x12\x83\x01\n" +
+	"\x0fclusterTemplate\x18\x04 \x01(\v2Y.github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.ClusterWorkflowTemplateR\x0fclusterTemplate\"H\n" +
+	"\x13ListComponentsReply\x121\n" +
+	"\n" +
+	"components\x18\x01 \x03(\v2\x11.api.v1.ComponentR\n" +
+	"components\"\x91\x02\n" +
 	"\x1bListWorkflowTemplateRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12%\n" +
 	"\vnamePattern\x18\x02 \x01(\tH\x00R\vnamePattern\x88\x01\x01\x12)\n" +
@@ -513,28 +1096,39 @@ const file_api_v1_workflowtemplate_proto_rawDesc = "" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\x87\x01\n" +
 	"\x15WorkflowTemplateReply\x12n\n" +
-	"\btemplate\x18\x01 \x01(\v2R.github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateR\btemplate\"Y\n" +
+	"\btemplate\x18\x01 \x01(\v2R.github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateR\btemplate\"\x84\x01\n" +
 	"\x1dCreateWorkflowTemplateRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n" +
-	"\bmanifest\x18\x02 \x01(\tR\bmanifest\"m\n" +
+	"\bmanifest\x18\x02 \x01(\tR\bmanifest\x12\x1d\n" +
+	"\amessage\x18\x03 \x01(\tH\x00R\amessage\x88\x01\x01B\n" +
+	"\n" +
+	"\b_message\"\x98\x01\n" +
 	"\x1dUpdateWorkflowTemplateRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bmanifest\x18\x03 \x01(\tR\bmanifest\"Q\n" +
+	"\bmanifest\x18\x03 \x01(\tR\bmanifest\x12\x1d\n" +
+	"\amessage\x18\x04 \x01(\tH\x00R\amessage\x88\x01\x01B\n" +
+	"\n" +
+	"\b_message\"Q\n" +
 	"\x1dDeleteWorkflowTemplateRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\x1d\n" +
 	"\x1bDeleteWorkflowTemplateReply\"W\n" +
 	"\x1bLintWorkflowTemplateRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n" +
-	"\bmanifest\x18\x02 \x01(\tR\bmanifest2\xb0\x06\n" +
+	"\bmanifest\x18\x02 \x01(\tR\bmanifest2\xf0\n" +
+	"\n" +
 	"\x17WorkflowTemplateService\x12r\n" +
 	"\x04List\x12#.api.v1.ListWorkflowTemplateRequest\x1a!.api.v1.ListWorkflowTemplateReply\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/api/v1/workflow-templates\x12\x7f\n" +
 	"\x03Get\x12\".api.v1.GetWorkflowTemplateRequest\x1a\x1d.api.v1.WorkflowTemplateReply\"5\x82\xd3\xe4\x93\x02/\x12-/api/v1/workflow-templates/{namespace}/{name}\x12\x81\x01\n" +
 	"\x06Create\x12%.api.v1.CreateWorkflowTemplateRequest\x1a\x1d.api.v1.WorkflowTemplateReply\"1\x82\xd3\xe4\x93\x02+:\x01*\"&/api/v1/workflow-templates/{namespace}\x12\x88\x01\n" +
 	"\x06Update\x12%.api.v1.UpdateWorkflowTemplateRequest\x1a\x1d.api.v1.WorkflowTemplateReply\"8\x82\xd3\xe4\x93\x022:\x01*\x1a-/api/v1/workflow-templates/{namespace}/{name}\x12\x8b\x01\n" +
 	"\x06Delete\x12%.api.v1.DeleteWorkflowTemplateRequest\x1a#.api.v1.DeleteWorkflowTemplateReply\"5\x82\xd3\xe4\x93\x02/*-/api/v1/workflow-templates/{namespace}/{name}\x12\x82\x01\n" +
-	"\x04Lint\x12#.api.v1.LintWorkflowTemplateRequest\x1a\x1d.api.v1.WorkflowTemplateReply\"6\x82\xd3\xe4\x93\x020:\x01*\"+/api/v1/workflow-templates/{namespace}/lintB\x1e\n" +
+	"\x04Lint\x12#.api.v1.LintWorkflowTemplateRequest\x1a\x1d.api.v1.WorkflowTemplateReply\"6\x82\xd3\xe4\x93\x020:\x01*\"+/api/v1/workflow-templates/{namespace}/lint\x12\x92\x01\n" +
+	"\rListRevisions\x12 .api.v1.TemplateRevisionsRequest\x1a\x1e.api.v1.TemplateRevisionsReply\"?\x82\xd3\xe4\x93\x029\x127/api/v1/workflow-templates/{namespace}/{name}/revisions\x12\x93\x01\n" +
+	"\vGetRevision\x12\x1f.api.v1.TemplateRevisionRequest\x1a\x1d.api.v1.TemplateRevisionReply\"D\x82\xd3\xe4\x93\x02>\x12</api/v1/workflow-templates/{namespace}/{name}/revisions/{id}\x12\x9c\x01\n" +
+	"\bRollback\x12\x1f.api.v1.TemplateRollbackRequest\x1a\x1d.api.v1.WorkflowTemplateReply\"P\x82\xd3\xe4\x93\x02J:\x01*\"E/api/v1/workflow-templates/{namespace}/{name}/revisions/{id}/rollback\x12t\n" +
+	"\x0eListComponents\x12\x1d.api.v1.ListComponentsRequest\x1a\x1b.api.v1.ListComponentsReply\"&\x82\xd3\xe4\x93\x02 \x12\x1e/api/v1/components/{namespace}B\x1e\n" +
 	"\x06api.v1P\x01Z\x12argonaut/api/v1;v1b\x06proto3"
 
 var (
@@ -549,40 +1143,63 @@ func file_api_v1_workflowtemplate_proto_rawDescGZIP() []byte {
 	return file_api_v1_workflowtemplate_proto_rawDescData
 }
 
-var file_api_v1_workflowtemplate_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_api_v1_workflowtemplate_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_api_v1_workflowtemplate_proto_goTypes = []any{
-	(*ListWorkflowTemplateRequest)(nil),   // 0: api.v1.ListWorkflowTemplateRequest
-	(*ListWorkflowTemplateReply)(nil),     // 1: api.v1.ListWorkflowTemplateReply
-	(*GetWorkflowTemplateRequest)(nil),    // 2: api.v1.GetWorkflowTemplateRequest
-	(*WorkflowTemplateReply)(nil),         // 3: api.v1.WorkflowTemplateReply
-	(*CreateWorkflowTemplateRequest)(nil), // 4: api.v1.CreateWorkflowTemplateRequest
-	(*UpdateWorkflowTemplateRequest)(nil), // 5: api.v1.UpdateWorkflowTemplateRequest
-	(*DeleteWorkflowTemplateRequest)(nil), // 6: api.v1.DeleteWorkflowTemplateRequest
-	(*DeleteWorkflowTemplateReply)(nil),   // 7: api.v1.DeleteWorkflowTemplateReply
-	(*LintWorkflowTemplateRequest)(nil),   // 8: api.v1.LintWorkflowTemplateRequest
-	(*v1alpha1.WorkflowTemplateList)(nil), // 9: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateList
-	(*v1alpha1.WorkflowTemplate)(nil),     // 10: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplate
+	(*TemplateRevision)(nil),                 // 0: api.v1.TemplateRevision
+	(*TemplateRevisionsRequest)(nil),         // 1: api.v1.TemplateRevisionsRequest
+	(*TemplateRevisionsReply)(nil),           // 2: api.v1.TemplateRevisionsReply
+	(*TemplateRevisionRequest)(nil),          // 3: api.v1.TemplateRevisionRequest
+	(*TemplateRevisionReply)(nil),            // 4: api.v1.TemplateRevisionReply
+	(*TemplateRollbackRequest)(nil),          // 5: api.v1.TemplateRollbackRequest
+	(*ListComponentsRequest)(nil),            // 6: api.v1.ListComponentsRequest
+	(*Component)(nil),                        // 7: api.v1.Component
+	(*ListComponentsReply)(nil),              // 8: api.v1.ListComponentsReply
+	(*ListWorkflowTemplateRequest)(nil),      // 9: api.v1.ListWorkflowTemplateRequest
+	(*ListWorkflowTemplateReply)(nil),        // 10: api.v1.ListWorkflowTemplateReply
+	(*GetWorkflowTemplateRequest)(nil),       // 11: api.v1.GetWorkflowTemplateRequest
+	(*WorkflowTemplateReply)(nil),            // 12: api.v1.WorkflowTemplateReply
+	(*CreateWorkflowTemplateRequest)(nil),    // 13: api.v1.CreateWorkflowTemplateRequest
+	(*UpdateWorkflowTemplateRequest)(nil),    // 14: api.v1.UpdateWorkflowTemplateRequest
+	(*DeleteWorkflowTemplateRequest)(nil),    // 15: api.v1.DeleteWorkflowTemplateRequest
+	(*DeleteWorkflowTemplateReply)(nil),      // 16: api.v1.DeleteWorkflowTemplateReply
+	(*LintWorkflowTemplateRequest)(nil),      // 17: api.v1.LintWorkflowTemplateRequest
+	(*v1alpha1.WorkflowTemplate)(nil),        // 18: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplate
+	(*v1alpha1.ClusterWorkflowTemplate)(nil), // 19: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.ClusterWorkflowTemplate
+	(*v1alpha1.WorkflowTemplateList)(nil),    // 20: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateList
 }
 var file_api_v1_workflowtemplate_proto_depIdxs = []int32{
-	9,  // 0: api.v1.ListWorkflowTemplateReply.list:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateList
-	10, // 1: api.v1.WorkflowTemplateReply.template:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplate
-	0,  // 2: api.v1.WorkflowTemplateService.List:input_type -> api.v1.ListWorkflowTemplateRequest
-	2,  // 3: api.v1.WorkflowTemplateService.Get:input_type -> api.v1.GetWorkflowTemplateRequest
-	4,  // 4: api.v1.WorkflowTemplateService.Create:input_type -> api.v1.CreateWorkflowTemplateRequest
-	5,  // 5: api.v1.WorkflowTemplateService.Update:input_type -> api.v1.UpdateWorkflowTemplateRequest
-	6,  // 6: api.v1.WorkflowTemplateService.Delete:input_type -> api.v1.DeleteWorkflowTemplateRequest
-	8,  // 7: api.v1.WorkflowTemplateService.Lint:input_type -> api.v1.LintWorkflowTemplateRequest
-	1,  // 8: api.v1.WorkflowTemplateService.List:output_type -> api.v1.ListWorkflowTemplateReply
-	3,  // 9: api.v1.WorkflowTemplateService.Get:output_type -> api.v1.WorkflowTemplateReply
-	3,  // 10: api.v1.WorkflowTemplateService.Create:output_type -> api.v1.WorkflowTemplateReply
-	3,  // 11: api.v1.WorkflowTemplateService.Update:output_type -> api.v1.WorkflowTemplateReply
-	7,  // 12: api.v1.WorkflowTemplateService.Delete:output_type -> api.v1.DeleteWorkflowTemplateReply
-	3,  // 13: api.v1.WorkflowTemplateService.Lint:output_type -> api.v1.WorkflowTemplateReply
-	8,  // [8:14] is the sub-list for method output_type
-	2,  // [2:8] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	0,  // 0: api.v1.TemplateRevisionsReply.revisions:type_name -> api.v1.TemplateRevision
+	0,  // 1: api.v1.TemplateRevisionReply.revision:type_name -> api.v1.TemplateRevision
+	18, // 2: api.v1.Component.template:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplate
+	19, // 3: api.v1.Component.clusterTemplate:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.ClusterWorkflowTemplate
+	7,  // 4: api.v1.ListComponentsReply.components:type_name -> api.v1.Component
+	20, // 5: api.v1.ListWorkflowTemplateReply.list:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateList
+	18, // 6: api.v1.WorkflowTemplateReply.template:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplate
+	9,  // 7: api.v1.WorkflowTemplateService.List:input_type -> api.v1.ListWorkflowTemplateRequest
+	11, // 8: api.v1.WorkflowTemplateService.Get:input_type -> api.v1.GetWorkflowTemplateRequest
+	13, // 9: api.v1.WorkflowTemplateService.Create:input_type -> api.v1.CreateWorkflowTemplateRequest
+	14, // 10: api.v1.WorkflowTemplateService.Update:input_type -> api.v1.UpdateWorkflowTemplateRequest
+	15, // 11: api.v1.WorkflowTemplateService.Delete:input_type -> api.v1.DeleteWorkflowTemplateRequest
+	17, // 12: api.v1.WorkflowTemplateService.Lint:input_type -> api.v1.LintWorkflowTemplateRequest
+	1,  // 13: api.v1.WorkflowTemplateService.ListRevisions:input_type -> api.v1.TemplateRevisionsRequest
+	3,  // 14: api.v1.WorkflowTemplateService.GetRevision:input_type -> api.v1.TemplateRevisionRequest
+	5,  // 15: api.v1.WorkflowTemplateService.Rollback:input_type -> api.v1.TemplateRollbackRequest
+	6,  // 16: api.v1.WorkflowTemplateService.ListComponents:input_type -> api.v1.ListComponentsRequest
+	10, // 17: api.v1.WorkflowTemplateService.List:output_type -> api.v1.ListWorkflowTemplateReply
+	12, // 18: api.v1.WorkflowTemplateService.Get:output_type -> api.v1.WorkflowTemplateReply
+	12, // 19: api.v1.WorkflowTemplateService.Create:output_type -> api.v1.WorkflowTemplateReply
+	12, // 20: api.v1.WorkflowTemplateService.Update:output_type -> api.v1.WorkflowTemplateReply
+	16, // 21: api.v1.WorkflowTemplateService.Delete:output_type -> api.v1.DeleteWorkflowTemplateReply
+	12, // 22: api.v1.WorkflowTemplateService.Lint:output_type -> api.v1.WorkflowTemplateReply
+	2,  // 23: api.v1.WorkflowTemplateService.ListRevisions:output_type -> api.v1.TemplateRevisionsReply
+	4,  // 24: api.v1.WorkflowTemplateService.GetRevision:output_type -> api.v1.TemplateRevisionReply
+	12, // 25: api.v1.WorkflowTemplateService.Rollback:output_type -> api.v1.WorkflowTemplateReply
+	8,  // 26: api.v1.WorkflowTemplateService.ListComponents:output_type -> api.v1.ListComponentsReply
+	17, // [17:27] is the sub-list for method output_type
+	7,  // [7:17] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_workflowtemplate_proto_init() }
@@ -590,14 +1207,16 @@ func file_api_v1_workflowtemplate_proto_init() {
 	if File_api_v1_workflowtemplate_proto != nil {
 		return
 	}
-	file_api_v1_workflowtemplate_proto_msgTypes[0].OneofWrappers = []any{}
+	file_api_v1_workflowtemplate_proto_msgTypes[9].OneofWrappers = []any{}
+	file_api_v1_workflowtemplate_proto_msgTypes[13].OneofWrappers = []any{}
+	file_api_v1_workflowtemplate_proto_msgTypes[14].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_workflowtemplate_proto_rawDesc), len(file_api_v1_workflowtemplate_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

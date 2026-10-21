@@ -33,9 +33,11 @@ type GetInfoReply struct {
 	// nodeStatusOffloadEnabled reflects the runtime probe of the Argo controller ConfigMap.
 	NodeStatusOffloadEnabled bool `protobuf:"varint,4,opt,name=nodeStatusOffloadEnabled,proto3" json:"nodeStatusOffloadEnabled,omitempty"`
 	// links are the configured external links (Argo `links` config), rendered on detail pages.
-	Links         []*Link `protobuf:"bytes,5,rep,name=links,proto3" json:"links,omitempty"` // modals/columns are omitted deliberately; add only when the UI needs them.
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Links []*Link `protobuf:"bytes,5,rep,name=links,proto3" json:"links,omitempty"`
+	// archiveEnabled is true when the controller archives finished workflows to its database.
+	ArchiveEnabled bool `protobuf:"varint,6,opt,name=archiveEnabled,proto3" json:"archiveEnabled,omitempty"` // modals/columns are omitted deliberately; add only when the UI needs them.
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetInfoReply) Reset() {
@@ -103,6 +105,13 @@ func (x *GetInfoReply) GetLinks() []*Link {
 	return nil
 }
 
+func (x *GetInfoReply) GetArchiveEnabled() bool {
+	if x != nil {
+		return x.ArchiveEnabled
+	}
+	return false
+}
+
 type Link struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -168,7 +177,7 @@ var File_api_v1_info_proto protoreflect.FileDescriptor
 
 const file_api_v1_info_proto_rawDesc = "" +
 	"\n" +
-	"\x11api/v1/info.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xd4\x01\n" +
+	"\x11api/v1/info.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xfc\x01\n" +
 	"\fGetInfoReply\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12*\n" +
 	"\x10managedNamespace\x18\x02 \x01(\tR\x10managedNamespace\x12\x1e\n" +
@@ -176,7 +185,8 @@ const file_api_v1_info_proto_rawDesc = "" +
 	"namespaces\x18\x03 \x03(\tR\n" +
 	"namespaces\x12:\n" +
 	"\x18nodeStatusOffloadEnabled\x18\x04 \x01(\bR\x18nodeStatusOffloadEnabled\x12\"\n" +
-	"\x05links\x18\x05 \x03(\v2\f.api.v1.LinkR\x05links\"B\n" +
+	"\x05links\x18\x05 \x03(\v2\f.api.v1.LinkR\x05links\x12&\n" +
+	"\x0earchiveEnabled\x18\x06 \x01(\bR\x0earchiveEnabled\"B\n" +
 	"\x04Link\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05scope\x18\x02 \x01(\tR\x05scope\x12\x10\n" +

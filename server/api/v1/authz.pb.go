@@ -23,6 +23,911 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ActionsRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Namespace       *string                `protobuf:"bytes,1,opt,name=namespace,proto3,oneof" json:"namespace,omitempty"`
+	Template        *string                `protobuf:"bytes,2,opt,name=template,proto3,oneof" json:"template,omitempty"`
+	ClusterTemplate *string                `protobuf:"bytes,3,opt,name=clusterTemplate,proto3,oneof" json:"clusterTemplate,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ActionsRequest) Reset() {
+	*x = ActionsRequest{}
+	mi := &file_api_v1_authz_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActionsRequest) ProtoMessage() {}
+
+func (x *ActionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActionsRequest.ProtoReflect.Descriptor instead.
+func (*ActionsRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ActionsRequest) GetNamespace() string {
+	if x != nil && x.Namespace != nil {
+		return *x.Namespace
+	}
+	return ""
+}
+
+func (x *ActionsRequest) GetTemplate() string {
+	if x != nil && x.Template != nil {
+		return *x.Template
+	}
+	return ""
+}
+
+func (x *ActionsRequest) GetClusterTemplate() string {
+	if x != nil && x.ClusterTemplate != nil {
+		return *x.ClusterTemplate
+	}
+	return ""
+}
+
+type ActionsReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Actions       []string               `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
+	Revision      int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActionsReply) Reset() {
+	*x = ActionsReply{}
+	mi := &file_api_v1_authz_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActionsReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActionsReply) ProtoMessage() {}
+
+func (x *ActionsReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActionsReply.ProtoReflect.Descriptor instead.
+func (*ActionsReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ActionsReply) GetActions() []string {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+func (x *ActionsReply) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+type Replica struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Revision      int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	SeenAt        string                 `protobuf:"bytes,3,opt,name=seenAt,proto3" json:"seenAt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Replica) Reset() {
+	*x = Replica{}
+	mi := &file_api_v1_authz_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Replica) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Replica) ProtoMessage() {}
+
+func (x *Replica) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Replica.ProtoReflect.Descriptor instead.
+func (*Replica) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Replica) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Replica) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *Replica) GetSeenAt() string {
+	if x != nil {
+		return x.SeenAt
+	}
+	return ""
+}
+
+type AuthzStatusReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Revision      int64                  `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
+	Replicas      []*Replica             `protobuf:"bytes,2,rep,name=replicas,proto3" json:"replicas,omitempty"`
+	LastChange    *AuditEvent            `protobuf:"bytes,3,opt,name=lastChange,proto3" json:"lastChange,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthzStatusReply) Reset() {
+	*x = AuthzStatusReply{}
+	mi := &file_api_v1_authz_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthzStatusReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthzStatusReply) ProtoMessage() {}
+
+func (x *AuthzStatusReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthzStatusReply.ProtoReflect.Descriptor instead.
+func (*AuthzStatusReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *AuthzStatusReply) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *AuthzStatusReply) GetReplicas() []*Replica {
+	if x != nil {
+		return x.Replicas
+	}
+	return nil
+}
+
+func (x *AuthzStatusReply) GetLastChange() *AuditEvent {
+	if x != nil {
+		return x.LastChange
+	}
+	return nil
+}
+
+type AuditEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	At            string                 `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
+	Actor         string                 `protobuf:"bytes,3,opt,name=actor,proto3" json:"actor,omitempty"`
+	Action        string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`
+	ResourceType  string                 `protobuf:"bytes,5,opt,name=resourceType,proto3" json:"resourceType,omitempty"`
+	Namespace     string                 `protobuf:"bytes,6,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name          string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
+	Result        string                 `protobuf:"bytes,8,opt,name=result,proto3" json:"result,omitempty"`
+	Reason        string                 `protobuf:"bytes,9,opt,name=reason,proto3" json:"reason,omitempty"`
+	Detail        string                 `protobuf:"bytes,10,opt,name=detail,proto3" json:"detail,omitempty"`
+	Revision      int64                  `protobuf:"varint,11,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuditEvent) Reset() {
+	*x = AuditEvent{}
+	mi := &file_api_v1_authz_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuditEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuditEvent) ProtoMessage() {}
+
+func (x *AuditEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuditEvent.ProtoReflect.Descriptor instead.
+func (*AuditEvent) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AuditEvent) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetAt() string {
+	if x != nil {
+		return x.At
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetActor() string {
+	if x != nil {
+		return x.Actor
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetResourceType() string {
+	if x != nil {
+		return x.ResourceType
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetResult() string {
+	if x != nil {
+		return x.Result
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+func (x *AuditEvent) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+type ListAuditRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Actor         *string                `protobuf:"bytes,1,opt,name=actor,proto3,oneof" json:"actor,omitempty"`
+	Action        *string                `protobuf:"bytes,2,opt,name=action,proto3,oneof" json:"action,omitempty"`
+	Result        *string                `protobuf:"bytes,3,opt,name=result,proto3,oneof" json:"result,omitempty"`
+	Limit         *int32                 `protobuf:"varint,4,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	Offset        *int32                 `protobuf:"varint,5,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAuditRequest) Reset() {
+	*x = ListAuditRequest{}
+	mi := &file_api_v1_authz_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAuditRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAuditRequest) ProtoMessage() {}
+
+func (x *ListAuditRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAuditRequest.ProtoReflect.Descriptor instead.
+func (*ListAuditRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ListAuditRequest) GetActor() string {
+	if x != nil && x.Actor != nil {
+		return *x.Actor
+	}
+	return ""
+}
+
+func (x *ListAuditRequest) GetAction() string {
+	if x != nil && x.Action != nil {
+		return *x.Action
+	}
+	return ""
+}
+
+func (x *ListAuditRequest) GetResult() string {
+	if x != nil && x.Result != nil {
+		return *x.Result
+	}
+	return ""
+}
+
+func (x *ListAuditRequest) GetLimit() int32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+func (x *ListAuditRequest) GetOffset() int32 {
+	if x != nil && x.Offset != nil {
+		return *x.Offset
+	}
+	return 0
+}
+
+type ListAuditReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*AuditEvent          `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAuditReply) Reset() {
+	*x = ListAuditReply{}
+	mi := &file_api_v1_authz_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAuditReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAuditReply) ProtoMessage() {}
+
+func (x *ListAuditReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAuditReply.ProtoReflect.Descriptor instead.
+func (*ListAuditReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListAuditReply) GetEvents() []*AuditEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *ListAuditReply) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type Policy struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name        string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Body        string                 `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
+	Enabled     bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	CreatedBy   string                 `protobuf:"bytes,6,opt,name=createdBy,proto3" json:"createdBy,omitempty"`
+	CreatedAt   string                 `protobuf:"bytes,7,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	Revision    int64                  `protobuf:"varint,8,opt,name=revision,proto3" json:"revision,omitempty"`
+	// error is set when the loaded policy failed to compile and is being skipped.
+	Error         string `protobuf:"bytes,9,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Policy) Reset() {
+	*x = Policy{}
+	mi := &file_api_v1_authz_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Policy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Policy) ProtoMessage() {}
+
+func (x *Policy) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Policy.ProtoReflect.Descriptor instead.
+func (*Policy) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Policy) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Policy) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Policy) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Policy) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *Policy) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *Policy) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *Policy) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Policy) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *Policy) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type ListPoliciesReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policies      []*Policy              `protobuf:"bytes,1,rep,name=policies,proto3" json:"policies,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPoliciesReply) Reset() {
+	*x = ListPoliciesReply{}
+	mi := &file_api_v1_authz_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPoliciesReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPoliciesReply) ProtoMessage() {}
+
+func (x *ListPoliciesReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPoliciesReply.ProtoReflect.Descriptor instead.
+func (*ListPoliciesReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListPoliciesReply) GetPolicies() []*Policy {
+	if x != nil {
+		return x.Policies
+	}
+	return nil
+}
+
+type CreatePolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Body          string                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreatePolicyRequest) Reset() {
+	*x = CreatePolicyRequest{}
+	mi := &file_api_v1_authz_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreatePolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreatePolicyRequest) ProtoMessage() {}
+
+func (x *CreatePolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreatePolicyRequest.ProtoReflect.Descriptor instead.
+func (*CreatePolicyRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CreatePolicyRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreatePolicyRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreatePolicyRequest) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+type PolicyReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Policy        *Policy                `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
+	Revision      int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PolicyReply) Reset() {
+	*x = PolicyReply{}
+	mi := &file_api_v1_authz_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PolicyReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PolicyReply) ProtoMessage() {}
+
+func (x *PolicyReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PolicyReply.ProtoReflect.Descriptor instead.
+func (*PolicyReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PolicyReply) GetPolicy() *Policy {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
+func (x *PolicyReply) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+type SetPolicyEnabledRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Enabled       bool                   `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPolicyEnabledRequest) Reset() {
+	*x = SetPolicyEnabledRequest{}
+	mi := &file_api_v1_authz_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPolicyEnabledRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPolicyEnabledRequest) ProtoMessage() {}
+
+func (x *SetPolicyEnabledRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPolicyEnabledRequest.ProtoReflect.Descriptor instead.
+func (*SetPolicyEnabledRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SetPolicyEnabledRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SetPolicyEnabledRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SetPolicyEnabledRequest) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+type DeletePolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePolicyRequest) Reset() {
+	*x = DeletePolicyRequest{}
+	mi := &file_api_v1_authz_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePolicyRequest) ProtoMessage() {}
+
+func (x *DeletePolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePolicyRequest.ProtoReflect.Descriptor instead.
+func (*DeletePolicyRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *DeletePolicyRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeletePolicyRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+type RevisionReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Revision      int64                  `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevisionReply) Reset() {
+	*x = RevisionReply{}
+	mi := &file_api_v1_authz_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevisionReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevisionReply) ProtoMessage() {}
+
+func (x *RevisionReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevisionReply.ProtoReflect.Descriptor instead.
+func (*RevisionReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *RevisionReply) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
 // Grant binds a subject to a role on a resource scope.
 type Grant struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -37,16 +942,18 @@ type Grant struct {
 	// name is a template name, or "*" for every template in the namespace.
 	Name string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
 	// role is one of viewer / operator / editor / admin.
-	Role          string `protobuf:"bytes,7,opt,name=role,proto3" json:"role,omitempty"`
-	CreatedBy     string `protobuf:"bytes,8,opt,name=createdBy,proto3" json:"createdBy,omitempty"`
-	CreatedAt     string `protobuf:"bytes,9,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	Role      string `protobuf:"bytes,7,opt,name=role,proto3" json:"role,omitempty"`
+	CreatedBy string `protobuf:"bytes,8,opt,name=createdBy,proto3" json:"createdBy,omitempty"`
+	CreatedAt string `protobuf:"bytes,9,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	// revision is the authorization revision this grant was written at.
+	Revision      int64 `protobuf:"varint,10,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Grant) Reset() {
 	*x = Grant{}
-	mi := &file_api_v1_authz_proto_msgTypes[0]
+	mi := &file_api_v1_authz_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -58,7 +965,7 @@ func (x *Grant) String() string {
 func (*Grant) ProtoMessage() {}
 
 func (x *Grant) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[0]
+	mi := &file_api_v1_authz_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -71,7 +978,7 @@ func (x *Grant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Grant.ProtoReflect.Descriptor instead.
 func (*Grant) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{0}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Grant) GetId() string {
@@ -137,6 +1044,13 @@ func (x *Grant) GetCreatedAt() string {
 	return ""
 }
 
+func (x *Grant) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
 type ListGrantsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Subject       *string                `protobuf:"bytes,1,opt,name=subject,proto3,oneof" json:"subject,omitempty"`
@@ -148,7 +1062,7 @@ type ListGrantsRequest struct {
 
 func (x *ListGrantsRequest) Reset() {
 	*x = ListGrantsRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[1]
+	mi := &file_api_v1_authz_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -160,7 +1074,7 @@ func (x *ListGrantsRequest) String() string {
 func (*ListGrantsRequest) ProtoMessage() {}
 
 func (x *ListGrantsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[1]
+	mi := &file_api_v1_authz_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -173,7 +1087,7 @@ func (x *ListGrantsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGrantsRequest.ProtoReflect.Descriptor instead.
 func (*ListGrantsRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{1}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListGrantsRequest) GetSubject() string {
@@ -206,7 +1120,7 @@ type ListGrantsReply struct {
 
 func (x *ListGrantsReply) Reset() {
 	*x = ListGrantsReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[2]
+	mi := &file_api_v1_authz_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -218,7 +1132,7 @@ func (x *ListGrantsReply) String() string {
 func (*ListGrantsReply) ProtoMessage() {}
 
 func (x *ListGrantsReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[2]
+	mi := &file_api_v1_authz_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -231,7 +1145,7 @@ func (x *ListGrantsReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGrantsReply.ProtoReflect.Descriptor instead.
 func (*ListGrantsReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{2}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListGrantsReply) GetGrants() []*Grant {
@@ -255,7 +1169,7 @@ type CreateGrantRequest struct {
 
 func (x *CreateGrantRequest) Reset() {
 	*x = CreateGrantRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[3]
+	mi := &file_api_v1_authz_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -267,7 +1181,7 @@ func (x *CreateGrantRequest) String() string {
 func (*CreateGrantRequest) ProtoMessage() {}
 
 func (x *CreateGrantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[3]
+	mi := &file_api_v1_authz_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -280,7 +1194,7 @@ func (x *CreateGrantRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGrantRequest.ProtoReflect.Descriptor instead.
 func (*CreateGrantRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{3}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CreateGrantRequest) GetSubjectType() string {
@@ -328,13 +1242,14 @@ func (x *CreateGrantRequest) GetRole() string {
 type GrantReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Grant         *Grant                 `protobuf:"bytes,1,opt,name=grant,proto3" json:"grant,omitempty"`
+	Revision      int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GrantReply) Reset() {
 	*x = GrantReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[4]
+	mi := &file_api_v1_authz_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -346,7 +1261,7 @@ func (x *GrantReply) String() string {
 func (*GrantReply) ProtoMessage() {}
 
 func (x *GrantReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[4]
+	mi := &file_api_v1_authz_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -359,7 +1274,7 @@ func (x *GrantReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantReply.ProtoReflect.Descriptor instead.
 func (*GrantReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{4}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GrantReply) GetGrant() *Grant {
@@ -367,6 +1282,13 @@ func (x *GrantReply) GetGrant() *Grant {
 		return x.Grant
 	}
 	return nil
+}
+
+func (x *GrantReply) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
 }
 
 type DeleteGrantRequest struct {
@@ -378,7 +1300,7 @@ type DeleteGrantRequest struct {
 
 func (x *DeleteGrantRequest) Reset() {
 	*x = DeleteGrantRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[5]
+	mi := &file_api_v1_authz_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -390,7 +1312,7 @@ func (x *DeleteGrantRequest) String() string {
 func (*DeleteGrantRequest) ProtoMessage() {}
 
 func (x *DeleteGrantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[5]
+	mi := &file_api_v1_authz_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -403,7 +1325,7 @@ func (x *DeleteGrantRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGrantRequest.ProtoReflect.Descriptor instead.
 func (*DeleteGrantRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{5}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DeleteGrantRequest) GetId() string {
@@ -415,13 +1337,14 @@ func (x *DeleteGrantRequest) GetId() string {
 
 type DeleteGrantReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Revision      int64                  `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeleteGrantReply) Reset() {
 	*x = DeleteGrantReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[6]
+	mi := &file_api_v1_authz_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -433,7 +1356,7 @@ func (x *DeleteGrantReply) String() string {
 func (*DeleteGrantReply) ProtoMessage() {}
 
 func (x *DeleteGrantReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[6]
+	mi := &file_api_v1_authz_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -446,7 +1369,14 @@ func (x *DeleteGrantReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGrantReply.ProtoReflect.Descriptor instead.
 func (*DeleteGrantReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{6}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *DeleteGrantReply) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
 }
 
 type Role struct {
@@ -460,7 +1390,7 @@ type Role struct {
 
 func (x *Role) Reset() {
 	*x = Role{}
-	mi := &file_api_v1_authz_proto_msgTypes[7]
+	mi := &file_api_v1_authz_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -472,7 +1402,7 @@ func (x *Role) String() string {
 func (*Role) ProtoMessage() {}
 
 func (x *Role) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[7]
+	mi := &file_api_v1_authz_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -485,7 +1415,7 @@ func (x *Role) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Role.ProtoReflect.Descriptor instead.
 func (*Role) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{7}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *Role) GetName() string {
@@ -518,7 +1448,7 @@ type ListRolesReply struct {
 
 func (x *ListRolesReply) Reset() {
 	*x = ListRolesReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[8]
+	mi := &file_api_v1_authz_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -530,7 +1460,7 @@ func (x *ListRolesReply) String() string {
 func (*ListRolesReply) ProtoMessage() {}
 
 func (x *ListRolesReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[8]
+	mi := &file_api_v1_authz_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -543,7 +1473,7 @@ func (x *ListRolesReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesReply.ProtoReflect.Descriptor instead.
 func (*ListRolesReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{8}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListRolesReply) GetRoles() []*Role {
@@ -558,13 +1488,14 @@ type MyPermissionsReply struct {
 	Subject       string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
 	SuperAdmin    bool                   `protobuf:"varint,2,opt,name=superAdmin,proto3" json:"superAdmin,omitempty"`
 	Grants        []*Grant               `protobuf:"bytes,3,rep,name=grants,proto3" json:"grants,omitempty"`
+	Revision      int64                  `protobuf:"varint,4,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MyPermissionsReply) Reset() {
 	*x = MyPermissionsReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[9]
+	mi := &file_api_v1_authz_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -576,7 +1507,7 @@ func (x *MyPermissionsReply) String() string {
 func (*MyPermissionsReply) ProtoMessage() {}
 
 func (x *MyPermissionsReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[9]
+	mi := &file_api_v1_authz_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -589,7 +1520,7 @@ func (x *MyPermissionsReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MyPermissionsReply.ProtoReflect.Descriptor instead.
 func (*MyPermissionsReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{9}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *MyPermissionsReply) GetSubject() string {
@@ -613,11 +1544,96 @@ func (x *MyPermissionsReply) GetGrants() []*Grant {
 	return nil
 }
 
+func (x *MyPermissionsReply) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
 var File_api_v1_authz_proto protoreflect.FileDescriptor
 
 const file_api_v1_authz_proto_rawDesc = "" +
 	"\n" +
-	"\x12api/v1/authz.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xf9\x01\n" +
+	"\x12api/v1/authz.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xb2\x01\n" +
+	"\x0eActionsRequest\x12!\n" +
+	"\tnamespace\x18\x01 \x01(\tH\x00R\tnamespace\x88\x01\x01\x12\x1f\n" +
+	"\btemplate\x18\x02 \x01(\tH\x01R\btemplate\x88\x01\x01\x12-\n" +
+	"\x0fclusterTemplate\x18\x03 \x01(\tH\x02R\x0fclusterTemplate\x88\x01\x01B\f\n" +
+	"\n" +
+	"_namespaceB\v\n" +
+	"\t_templateB\x12\n" +
+	"\x10_clusterTemplate\"D\n" +
+	"\fActionsReply\x12\x18\n" +
+	"\aactions\x18\x01 \x03(\tR\aactions\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x03R\brevision\"M\n" +
+	"\aReplica\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x03R\brevision\x12\x16\n" +
+	"\x06seenAt\x18\x03 \x01(\tR\x06seenAt\"\x8f\x01\n" +
+	"\x10AuthzStatusReply\x12\x1a\n" +
+	"\brevision\x18\x01 \x01(\x03R\brevision\x12+\n" +
+	"\breplicas\x18\x02 \x03(\v2\x0f.api.v1.ReplicaR\breplicas\x122\n" +
+	"\n" +
+	"lastChange\x18\x03 \x01(\v2\x12.api.v1.AuditEventR\n" +
+	"lastChange\"\x94\x02\n" +
+	"\n" +
+	"AuditEvent\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x0e\n" +
+	"\x02at\x18\x02 \x01(\tR\x02at\x12\x14\n" +
+	"\x05actor\x18\x03 \x01(\tR\x05actor\x12\x16\n" +
+	"\x06action\x18\x04 \x01(\tR\x06action\x12\"\n" +
+	"\fresourceType\x18\x05 \x01(\tR\fresourceType\x12\x1c\n" +
+	"\tnamespace\x18\x06 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04name\x18\a \x01(\tR\x04name\x12\x16\n" +
+	"\x06result\x18\b \x01(\tR\x06result\x12\x16\n" +
+	"\x06reason\x18\t \x01(\tR\x06reason\x12\x16\n" +
+	"\x06detail\x18\n" +
+	" \x01(\tR\x06detail\x12\x1a\n" +
+	"\brevision\x18\v \x01(\x03R\brevision\"\xd4\x01\n" +
+	"\x10ListAuditRequest\x12\x19\n" +
+	"\x05actor\x18\x01 \x01(\tH\x00R\x05actor\x88\x01\x01\x12\x1b\n" +
+	"\x06action\x18\x02 \x01(\tH\x01R\x06action\x88\x01\x01\x12\x1b\n" +
+	"\x06result\x18\x03 \x01(\tH\x02R\x06result\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\x04 \x01(\x05H\x03R\x05limit\x88\x01\x01\x12\x1b\n" +
+	"\x06offset\x18\x05 \x01(\x05H\x04R\x06offset\x88\x01\x01B\b\n" +
+	"\x06_actorB\t\n" +
+	"\a_actionB\t\n" +
+	"\a_resultB\b\n" +
+	"\x06_limitB\t\n" +
+	"\a_offset\"R\n" +
+	"\x0eListAuditReply\x12*\n" +
+	"\x06events\x18\x01 \x03(\v2\x12.api.v1.AuditEventR\x06events\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xea\x01\n" +
+	"\x06Policy\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04body\x18\x04 \x01(\tR\x04body\x12\x18\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x1c\n" +
+	"\tcreatedBy\x18\x06 \x01(\tR\tcreatedBy\x12\x1c\n" +
+	"\tcreatedAt\x18\a \x01(\tR\tcreatedAt\x12\x1a\n" +
+	"\brevision\x18\b \x01(\x03R\brevision\x12\x14\n" +
+	"\x05error\x18\t \x01(\tR\x05error\"?\n" +
+	"\x11ListPoliciesReply\x12*\n" +
+	"\bpolicies\x18\x01 \x03(\v2\x0e.api.v1.PolicyR\bpolicies\"_\n" +
+	"\x13CreatePolicyRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04body\x18\x03 \x01(\tR\x04body\"Q\n" +
+	"\vPolicyReply\x12&\n" +
+	"\x06policy\x18\x01 \x01(\v2\x0e.api.v1.PolicyR\x06policy\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x03R\brevision\"W\n" +
+	"\x17SetPolicyEnabledRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aenabled\x18\x03 \x01(\bR\aenabled\"G\n" +
+	"\x13DeletePolicyRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
+	"\x05_name\"+\n" +
+	"\rRevisionReply\x12\x1a\n" +
+	"\brevision\x18\x01 \x01(\x03R\brevision\"\x95\x02\n" +
 	"\x05Grant\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\vsubjectType\x18\x02 \x01(\tR\vsubjectType\x12\x18\n" +
@@ -627,7 +1643,9 @@ const file_api_v1_authz_proto_rawDesc = "" +
 	"\x04name\x18\x06 \x01(\tR\x04name\x12\x12\n" +
 	"\x04role\x18\a \x01(\tR\x04role\x12\x1c\n" +
 	"\tcreatedBy\x18\b \x01(\tR\tcreatedBy\x12\x1c\n" +
-	"\tcreatedAt\x18\t \x01(\tR\tcreatedAt\"\x91\x01\n" +
+	"\tcreatedAt\x18\t \x01(\tR\tcreatedAt\x12\x1a\n" +
+	"\brevision\x18\n" +
+	" \x01(\x03R\brevision\"\x91\x01\n" +
 	"\x11ListGrantsRequest\x12\x1d\n" +
 	"\asubject\x18\x01 \x01(\tH\x00R\asubject\x88\x01\x01\x12!\n" +
 	"\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12\x17\n" +
@@ -648,32 +1666,44 @@ const file_api_v1_authz_proto_rawDesc = "" +
 	"\x04role\x18\x06 \x01(\tR\x04roleB\f\n" +
 	"\n" +
 	"_namespaceB\a\n" +
-	"\x05_name\"1\n" +
+	"\x05_name\"M\n" +
 	"\n" +
 	"GrantReply\x12#\n" +
-	"\x05grant\x18\x01 \x01(\v2\r.api.v1.GrantR\x05grant\"$\n" +
+	"\x05grant\x18\x01 \x01(\v2\r.api.v1.GrantR\x05grant\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x03R\brevision\"$\n" +
 	"\x12DeleteGrantRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x12\n" +
-	"\x10DeleteGrantReply\"V\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\".\n" +
+	"\x10DeleteGrantReply\x12\x1a\n" +
+	"\brevision\x18\x01 \x01(\x03R\brevision\"V\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aactions\x18\x02 \x03(\tR\aactions\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\"4\n" +
 	"\x0eListRolesReply\x12\"\n" +
-	"\x05roles\x18\x01 \x03(\v2\f.api.v1.RoleR\x05roles\"u\n" +
+	"\x05roles\x18\x01 \x03(\v2\f.api.v1.RoleR\x05roles\"\x91\x01\n" +
 	"\x12MyPermissionsReply\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x1e\n" +
 	"\n" +
 	"superAdmin\x18\x02 \x01(\bR\n" +
 	"superAdmin\x12%\n" +
-	"\x06grants\x18\x03 \x03(\v2\r.api.v1.GrantR\x06grants2\xfb\x03\n" +
+	"\x06grants\x18\x03 \x03(\v2\r.api.v1.GrantR\x06grants\x12\x1a\n" +
+	"\brevision\x18\x04 \x01(\x03R\brevision2\x94\n" +
+	"\n" +
 	"\fAuthzService\x12^\n" +
 	"\n" +
 	"ListGrants\x12\x19.api.v1.ListGrantsRequest\x1a\x17.api.v1.ListGrantsReply\"\x1c\x82\xd3\xe4\x93\x02\x16\x12\x14/api/v1/authz/grants\x12^\n" +
 	"\vCreateGrant\x12\x1a.api.v1.CreateGrantRequest\x1a\x12.api.v1.GrantReply\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/api/v1/authz/grants\x12f\n" +
 	"\vDeleteGrant\x12\x1a.api.v1.DeleteGrantRequest\x1a\x18.api.v1.DeleteGrantReply\"!\x82\xd3\xe4\x93\x02\x1b*\x19/api/v1/authz/grants/{id}\x12X\n" +
 	"\tListRoles\x12\x16.google.protobuf.Empty\x1a\x16.api.v1.ListRolesReply\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/api/v1/authz/roles\x12i\n" +
-	"\rMyPermissions\x12\x16.google.protobuf.Empty\x1a\x1a.api.v1.MyPermissionsReply\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/authz/my-permissionsB\x1e\n" +
+	"\rMyPermissions\x12\x16.google.protobuf.Empty\x1a\x1a.api.v1.MyPermissionsReply\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/authz/my-permissions\x12V\n" +
+	"\aActions\x12\x16.api.v1.ActionsRequest\x1a\x14.api.v1.ActionsReply\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/api/v1/authz/actions\x12X\n" +
+	"\x06Status\x12\x16.google.protobuf.Empty\x1a\x18.api.v1.AuthzStatusReply\"\x1c\x82\xd3\xe4\x93\x02\x16\x12\x14/api/v1/authz/status\x12d\n" +
+	"\fOrphanGrants\x12\x16.google.protobuf.Empty\x1a\x17.api.v1.ListGrantsReply\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/api/v1/authz/orphan-grants\x12Z\n" +
+	"\tListAudit\x12\x18.api.v1.ListAuditRequest\x1a\x16.api.v1.ListAuditReply\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/api/v1/authz/audit\x12a\n" +
+	"\fListPolicies\x12\x16.google.protobuf.Empty\x1a\x19.api.v1.ListPoliciesReply\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/api/v1/authz/policies\x12c\n" +
+	"\fCreatePolicy\x12\x1b.api.v1.CreatePolicyRequest\x1a\x13.api.v1.PolicyReply\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/api/v1/authz/policies\x12r\n" +
+	"\x10SetPolicyEnabled\x12\x1f.api.v1.SetPolicyEnabledRequest\x1a\x15.api.v1.RevisionReply\"&\x82\xd3\xe4\x93\x02 :\x01*\x1a\x1b/api/v1/authz/policies/{id}\x12g\n" +
+	"\fDeletePolicy\x12\x1b.api.v1.DeletePolicyRequest\x1a\x15.api.v1.RevisionReply\"#\x82\xd3\xe4\x93\x02\x1d*\x1b/api/v1/authz/policies/{id}B\x1e\n" +
 	"\x06api.v1P\x01Z\x12argonaut/api/v1;v1b\x06proto3"
 
 var (
@@ -688,40 +1718,75 @@ func file_api_v1_authz_proto_rawDescGZIP() []byte {
 	return file_api_v1_authz_proto_rawDescData
 }
 
-var file_api_v1_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_api_v1_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_api_v1_authz_proto_goTypes = []any{
-	(*Grant)(nil),              // 0: api.v1.Grant
-	(*ListGrantsRequest)(nil),  // 1: api.v1.ListGrantsRequest
-	(*ListGrantsReply)(nil),    // 2: api.v1.ListGrantsReply
-	(*CreateGrantRequest)(nil), // 3: api.v1.CreateGrantRequest
-	(*GrantReply)(nil),         // 4: api.v1.GrantReply
-	(*DeleteGrantRequest)(nil), // 5: api.v1.DeleteGrantRequest
-	(*DeleteGrantReply)(nil),   // 6: api.v1.DeleteGrantReply
-	(*Role)(nil),               // 7: api.v1.Role
-	(*ListRolesReply)(nil),     // 8: api.v1.ListRolesReply
-	(*MyPermissionsReply)(nil), // 9: api.v1.MyPermissionsReply
-	(*emptypb.Empty)(nil),      // 10: google.protobuf.Empty
+	(*ActionsRequest)(nil),          // 0: api.v1.ActionsRequest
+	(*ActionsReply)(nil),            // 1: api.v1.ActionsReply
+	(*Replica)(nil),                 // 2: api.v1.Replica
+	(*AuthzStatusReply)(nil),        // 3: api.v1.AuthzStatusReply
+	(*AuditEvent)(nil),              // 4: api.v1.AuditEvent
+	(*ListAuditRequest)(nil),        // 5: api.v1.ListAuditRequest
+	(*ListAuditReply)(nil),          // 6: api.v1.ListAuditReply
+	(*Policy)(nil),                  // 7: api.v1.Policy
+	(*ListPoliciesReply)(nil),       // 8: api.v1.ListPoliciesReply
+	(*CreatePolicyRequest)(nil),     // 9: api.v1.CreatePolicyRequest
+	(*PolicyReply)(nil),             // 10: api.v1.PolicyReply
+	(*SetPolicyEnabledRequest)(nil), // 11: api.v1.SetPolicyEnabledRequest
+	(*DeletePolicyRequest)(nil),     // 12: api.v1.DeletePolicyRequest
+	(*RevisionReply)(nil),           // 13: api.v1.RevisionReply
+	(*Grant)(nil),                   // 14: api.v1.Grant
+	(*ListGrantsRequest)(nil),       // 15: api.v1.ListGrantsRequest
+	(*ListGrantsReply)(nil),         // 16: api.v1.ListGrantsReply
+	(*CreateGrantRequest)(nil),      // 17: api.v1.CreateGrantRequest
+	(*GrantReply)(nil),              // 18: api.v1.GrantReply
+	(*DeleteGrantRequest)(nil),      // 19: api.v1.DeleteGrantRequest
+	(*DeleteGrantReply)(nil),        // 20: api.v1.DeleteGrantReply
+	(*Role)(nil),                    // 21: api.v1.Role
+	(*ListRolesReply)(nil),          // 22: api.v1.ListRolesReply
+	(*MyPermissionsReply)(nil),      // 23: api.v1.MyPermissionsReply
+	(*emptypb.Empty)(nil),           // 24: google.protobuf.Empty
 }
 var file_api_v1_authz_proto_depIdxs = []int32{
-	0,  // 0: api.v1.ListGrantsReply.grants:type_name -> api.v1.Grant
-	0,  // 1: api.v1.GrantReply.grant:type_name -> api.v1.Grant
-	7,  // 2: api.v1.ListRolesReply.roles:type_name -> api.v1.Role
-	0,  // 3: api.v1.MyPermissionsReply.grants:type_name -> api.v1.Grant
-	1,  // 4: api.v1.AuthzService.ListGrants:input_type -> api.v1.ListGrantsRequest
-	3,  // 5: api.v1.AuthzService.CreateGrant:input_type -> api.v1.CreateGrantRequest
-	5,  // 6: api.v1.AuthzService.DeleteGrant:input_type -> api.v1.DeleteGrantRequest
-	10, // 7: api.v1.AuthzService.ListRoles:input_type -> google.protobuf.Empty
-	10, // 8: api.v1.AuthzService.MyPermissions:input_type -> google.protobuf.Empty
-	2,  // 9: api.v1.AuthzService.ListGrants:output_type -> api.v1.ListGrantsReply
-	4,  // 10: api.v1.AuthzService.CreateGrant:output_type -> api.v1.GrantReply
-	6,  // 11: api.v1.AuthzService.DeleteGrant:output_type -> api.v1.DeleteGrantReply
-	8,  // 12: api.v1.AuthzService.ListRoles:output_type -> api.v1.ListRolesReply
-	9,  // 13: api.v1.AuthzService.MyPermissions:output_type -> api.v1.MyPermissionsReply
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	2,  // 0: api.v1.AuthzStatusReply.replicas:type_name -> api.v1.Replica
+	4,  // 1: api.v1.AuthzStatusReply.lastChange:type_name -> api.v1.AuditEvent
+	4,  // 2: api.v1.ListAuditReply.events:type_name -> api.v1.AuditEvent
+	7,  // 3: api.v1.ListPoliciesReply.policies:type_name -> api.v1.Policy
+	7,  // 4: api.v1.PolicyReply.policy:type_name -> api.v1.Policy
+	14, // 5: api.v1.ListGrantsReply.grants:type_name -> api.v1.Grant
+	14, // 6: api.v1.GrantReply.grant:type_name -> api.v1.Grant
+	21, // 7: api.v1.ListRolesReply.roles:type_name -> api.v1.Role
+	14, // 8: api.v1.MyPermissionsReply.grants:type_name -> api.v1.Grant
+	15, // 9: api.v1.AuthzService.ListGrants:input_type -> api.v1.ListGrantsRequest
+	17, // 10: api.v1.AuthzService.CreateGrant:input_type -> api.v1.CreateGrantRequest
+	19, // 11: api.v1.AuthzService.DeleteGrant:input_type -> api.v1.DeleteGrantRequest
+	24, // 12: api.v1.AuthzService.ListRoles:input_type -> google.protobuf.Empty
+	24, // 13: api.v1.AuthzService.MyPermissions:input_type -> google.protobuf.Empty
+	0,  // 14: api.v1.AuthzService.Actions:input_type -> api.v1.ActionsRequest
+	24, // 15: api.v1.AuthzService.Status:input_type -> google.protobuf.Empty
+	24, // 16: api.v1.AuthzService.OrphanGrants:input_type -> google.protobuf.Empty
+	5,  // 17: api.v1.AuthzService.ListAudit:input_type -> api.v1.ListAuditRequest
+	24, // 18: api.v1.AuthzService.ListPolicies:input_type -> google.protobuf.Empty
+	9,  // 19: api.v1.AuthzService.CreatePolicy:input_type -> api.v1.CreatePolicyRequest
+	11, // 20: api.v1.AuthzService.SetPolicyEnabled:input_type -> api.v1.SetPolicyEnabledRequest
+	12, // 21: api.v1.AuthzService.DeletePolicy:input_type -> api.v1.DeletePolicyRequest
+	16, // 22: api.v1.AuthzService.ListGrants:output_type -> api.v1.ListGrantsReply
+	18, // 23: api.v1.AuthzService.CreateGrant:output_type -> api.v1.GrantReply
+	20, // 24: api.v1.AuthzService.DeleteGrant:output_type -> api.v1.DeleteGrantReply
+	22, // 25: api.v1.AuthzService.ListRoles:output_type -> api.v1.ListRolesReply
+	23, // 26: api.v1.AuthzService.MyPermissions:output_type -> api.v1.MyPermissionsReply
+	1,  // 27: api.v1.AuthzService.Actions:output_type -> api.v1.ActionsReply
+	3,  // 28: api.v1.AuthzService.Status:output_type -> api.v1.AuthzStatusReply
+	16, // 29: api.v1.AuthzService.OrphanGrants:output_type -> api.v1.ListGrantsReply
+	6,  // 30: api.v1.AuthzService.ListAudit:output_type -> api.v1.ListAuditReply
+	8,  // 31: api.v1.AuthzService.ListPolicies:output_type -> api.v1.ListPoliciesReply
+	10, // 32: api.v1.AuthzService.CreatePolicy:output_type -> api.v1.PolicyReply
+	13, // 33: api.v1.AuthzService.SetPolicyEnabled:output_type -> api.v1.RevisionReply
+	13, // 34: api.v1.AuthzService.DeletePolicy:output_type -> api.v1.RevisionReply
+	22, // [22:35] is the sub-list for method output_type
+	9,  // [9:22] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_authz_proto_init() }
@@ -729,15 +1794,18 @@ func file_api_v1_authz_proto_init() {
 	if File_api_v1_authz_proto != nil {
 		return
 	}
-	file_api_v1_authz_proto_msgTypes[1].OneofWrappers = []any{}
-	file_api_v1_authz_proto_msgTypes[3].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[0].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[5].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[12].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[15].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_authz_proto_rawDesc), len(file_api_v1_authz_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

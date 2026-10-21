@@ -6,7 +6,9 @@ import "github.com/google/wire"
 var ProviderSet = wire.NewSet(
 	NewOauth2Service,
 	NewWorkflowService,
+	NewArchivedWorkflowService,
 	NewWorkflowTemplateService,
+	NewClusterWorkflowTemplateService,
 	NewCronWorkflowService,
 	NewAuthzService,
 	NewInfoService,

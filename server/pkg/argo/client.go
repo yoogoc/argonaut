@@ -16,8 +16,10 @@ import (
 
 	"github.com/argoproj/argo-workflows/v4/config"
 	persist "github.com/argoproj/argo-workflows/v4/persist/sqldb"
+	clusterwftmplpkg "github.com/argoproj/argo-workflows/v4/pkg/apiclient/clusterworkflowtemplate"
 	cronworkflowpkg "github.com/argoproj/argo-workflows/v4/pkg/apiclient/cronworkflow"
 	workflowpkg "github.com/argoproj/argo-workflows/v4/pkg/apiclient/workflow"
+	workflowarchivepkg "github.com/argoproj/argo-workflows/v4/pkg/apiclient/workflowarchive"
 	workflowtemplatepkg "github.com/argoproj/argo-workflows/v4/pkg/apiclient/workflowtemplate"
 	wfv1 "github.com/argoproj/argo-workflows/v4/pkg/apis/workflow/v1alpha1"
 	wfclientset "github.com/argoproj/argo-workflows/v4/pkg/client/clientset/versioned"
@@ -26,6 +28,7 @@ import (
 	servertypes "github.com/argoproj/argo-workflows/v4/server/types"
 	workflowserver "github.com/argoproj/argo-workflows/v4/server/workflow"
 	"github.com/argoproj/argo-workflows/v4/server/workflow/store"
+	"github.com/argoproj/argo-workflows/v4/server/workflowarchive"
 	workflowtemplateserver "github.com/argoproj/argo-workflows/v4/server/workflowtemplate"
 	"github.com/argoproj/argo-workflows/v4/util/instanceid"
 	"github.com/argoproj/argo-workflows/v4/util/logging"
@@ -40,7 +43,7 @@ import (
 )
 
 // ProviderSet is the argo providers.
-var ProviderSet = wire.NewSet(NewClients, NewServers)
+var ProviderSet = wire.NewSet(NewClients, NewServers, NewCache)
 
 // argoLogger adapts to Argo's own logging interface, which v4 requires when constructing the
 // persistence repositories. Its output goes through slog like everything else.
@@ -157,6 +160,7 @@ type Servers struct {
 	Workflow         workflowpkg.WorkflowServiceServer
 	WorkflowTemplate workflowtemplatepkg.WorkflowTemplateServiceServer
 	CronWorkflow     cronworkflowpkg.CronWorkflowServiceServer
+	ClusterTemplate  clusterwftmplpkg.ClusterWorkflowTemplateServiceServer
 	// Artifacts reads artifacts straight from the object store. We use our own reader rather than
 	// mounting Argo's ArtifactServer: its handlers parse fixed URL path offsets and authorize via
 	// Kubernetes SelfSubjectAccessReview, neither of which fits argonaut's routes or its OPA model.
@@ -170,6 +174,12 @@ type Servers struct {
 	// OffloadEnabled records whether the controller ConfigMap declared node status offload, which
 	// is surfaced to the UI so large workflows aren't silently truncated.
 	OffloadEnabled bool
+	// Archive reads the workflow archive in the persistence database; it is Argo's null archive
+	// (always empty) when no persistence is configured. ArchiveEnabled says whether the controller
+	// archives finished workflows, which the UI uses to decide whether to offer the archive at all.
+	Archive        persist.WorkflowArchive
+	ArchiveEnabled bool
+	ArchivedServer workflowarchivepkg.ArchivedWorkflowServiceServer
 
 	log     *slog.Logger
 	stopCh  chan struct{}
@@ -208,7 +218,11 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 	offloadRepo := persist.ExplosiveOffloadNodeStatusRepo
 	wfArchive := persist.NullWorkflowArchive
 	offloadEnabled := false
+	archiveEnabled := false
 	if persistence := argoConfig.Persistence; persistence != nil {
+		// Argo v4 resolves its logger from the context everywhere, including while it opens the
+		// database session; without one it panics.
+		ctx := WithClients(ctx, clients)
 		// v4 reaches the persistence database through a SessionProxy, which reconnects and refreshes
 		// cloud database credentials on its own.
 		sessionProxy, err := sqldb.NewSessionProxy(ctx, sqldb.SessionProxyConfig{
@@ -231,6 +245,7 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 		}
 		wfArchive = persist.NewWorkflowArchive(sessionProxy, persistence.GetClusterName(), clients.Namespace, instanceIDService)
 		offloadEnabled = persistence.NodeStatusOffload
+		archiveEnabled = persistence.Archive
 		log.Info("argo persistence detected", "nodeStatusOffload", persistence.NodeStatusOffload, "archive", persistence.Archive)
 	} else {
 		log.Info("argo persistence not configured; node status offload and archive unavailable")
@@ -246,10 +261,14 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 		return nil, nil, fmt.Errorf("creating workflow template informer: %w", err)
 	}
 	var wftmplStore servertypes.WorkflowTemplateStore = wftmplInformer
-	// ClusterWorkflowTemplates are not a argonaut feature, so we use the lazy client store rather
-	// than a cluster-scoped informer: nothing is cached or watched cluster-wide, but a template
-	// that does reference a ClusterWorkflowTemplate still resolves when RBAC permits it.
-	cwftmplStore := clusterworkflowtemplate.NewClientStore()
+	// ClusterWorkflowTemplates are first-class in argonaut (DESIGN §8), so they get an informer too:
+	// validation resolves references to them from memory, like it does for namespaced templates.
+	cwftmplInformer, err := clusterworkflowtemplate.NewInformer(clients.RestConfig)
+	if err != nil {
+		close(stopCh)
+		return nil, nil, fmt.Errorf("creating cluster workflow template informer: %w", err)
+	}
+	var cwftmplStore servertypes.ClusterWorkflowTemplateStore = cwftmplInformer
 
 	artifactRepositories := artifactrepositories.New(clients.Kubernetes, controllerNamespace, &argoConfig.ArtifactRepository)
 	wfHydrator := hydrator.New(offloadRepo)
@@ -281,6 +300,7 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 		),
 		WorkflowTemplate: workflowtemplateserver.NewServer(instanceIDService, wftmplStore, cwftmplStore),
 		CronWorkflow:     cronworkflowserver.NewCronWorkflowServer(instanceIDService, wftmplStore, cwftmplStore, argoConfig.WorkflowDefaults),
+		ClusterTemplate:  clusterworkflowtemplate.NewClusterWorkflowTemplateServer(instanceIDService, cwftmplStore, argoConfig.WorkflowDefaults),
 		Artifacts:        NewArtifactReader(clients, artifactRepositories),
 
 		Clients:        clients,
@@ -289,10 +309,18 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 		Instance:       instanceIDService,
 		Namespace:      clients.Namespace,
 		OffloadEnabled: offloadEnabled,
+		Archive:        wfArchive,
+		ArchiveEnabled: archiveEnabled,
+		// Resubmit and retry of an archived run reuse Argo's own implementation, so the new run is
+		// formulated exactly as argo-server would.
+		ArchivedServer: workflowarchive.NewWorkflowArchiveServer(wfArchive, offloadRepo, argoConfig.WorkflowDefaults),
 
-		log:     log,
-		stopCh:  stopCh,
-		tmplRun: func(stop <-chan struct{}) { wftmplInformer.Run(ctx, stop) },
+		log:    log,
+		stopCh: stopCh,
+		tmplRun: func(stop <-chan struct{}) {
+			wftmplInformer.Run(ctx, stop)
+			cwftmplInformer.Run(ctx, stop)
+		},
 	}
 
 	servers.tmplRun(stopCh)
