@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="migrate" type="GoApplicationRunConfiguration" factoryName="Go Application" folderName="server">
+    <module name="argonaut" />
+    <working_directory value="$PROJECT_DIR$/server" />
+    <parameters value="migrate up -c ./configs/dev" />
+    <kind value="DIRECTORY" />
+    <package value="argonaut/cmd" />
+    <directory value="$PROJECT_DIR$/server/cmd" />
+    <filePath value="$PROJECT_DIR$" />
+    <method v="2">
+    </method>
+  </configuration>
+</component>

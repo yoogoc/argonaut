@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="argonaut (dev-archive)" type="CompoundRunConfigurationType">
+    <toRun name="server (dev-archive)" type="GoApplicationRunConfiguration" />
+    <toRun name="ui (vite)" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>
