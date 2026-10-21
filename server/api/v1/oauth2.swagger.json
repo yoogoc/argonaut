@@ -1,0 +1,184 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api/v1/oauth2.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "Oauth2Service"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/oauth2/callback": {
+      "get": {
+        "operationId": "Oauth2Service_Callback",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Oauth2CallbackReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Oauth2Service"
+        ]
+      }
+    },
+    "/api/v1/oauth2/redirect": {
+      "get": {
+        "operationId": "Oauth2Service_Redirect",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Oauth2RedirectReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "redirect",
+            "description": "redirect is the UI location to return to after a successful login.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Oauth2Service"
+        ]
+      }
+    },
+    "/api/v1/oauth2/userinfo": {
+      "get": {
+        "operationId": "Oauth2Service_UserInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1Oauth2UserInfoReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "Oauth2Service"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "googlerpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "v1Oauth2CallbackReply": {
+      "type": "object",
+      "properties": {
+        "authorization": {
+          "type": "string",
+          "description": "authorization is the argonaut-signed JWT the UI sends back as the Authorization header."
+        },
+        "redirectUri": {
+          "type": "string"
+        }
+      }
+    },
+    "v1Oauth2RedirectReply": {
+      "type": "object",
+      "properties": {
+        "redirectUri": {
+          "type": "string"
+        }
+      }
+    },
+    "v1Oauth2UserInfoReply": {
+      "type": "object",
+      "properties": {
+        "issuer": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string",
+          "description": "subject is the OIDC `sub`: the identity all authz grants are keyed on."
+        },
+        "email": {
+          "type": "string"
+        },
+        "emailVerified": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "superAdmin": {
+          "type": "boolean",
+          "description": "superAdmin is true when the subject is bootstrapped via authz.superAdmins config."
+        }
+      }
+    }
+  }
+}

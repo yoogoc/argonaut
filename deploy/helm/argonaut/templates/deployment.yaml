@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "argonaut.fullname" . }}
+  labels: {{- include "argonaut.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "argonaut.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "argonaut.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "argonaut.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+      initContainers:
+        # Migrations are idempotent (goose), so every pod may run them; the first one wins.
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["migrate", "up", "-c", "/app/configs", "--dir", "/app/db/migration"]
+          envFrom:
+            - secretRef:
+                name: {{ include "argonaut.secretName" . }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+      containers:
+        - name: argonaut
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["server", "-c", "/app/configs"]
+          ports:
+            - name: http
+              containerPort: 4100
+          envFrom:
+            - secretRef:
+                name: {{ include "argonaut.secretName" . }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "argonaut.fullname" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

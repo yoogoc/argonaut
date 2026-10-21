@@ -1,0 +1,6 @@
+version: v2
+modules:
+  - path: .
+    excludes: [third_party]
+  - path: third_party
+    excludes: [third_party/google/protobuf]

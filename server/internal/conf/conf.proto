@@ -1,0 +1,99 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "internal/conf;conf";
+
+import "google/protobuf/duration.proto";
+
+message Bootstrap {
+    Server server = 1;
+    Data data = 2;
+    Log log = 3;
+    SSO sso = 4;
+    Kube kube = 5;
+    Argo argo = 6;
+    Authz authz = 7;
+}
+
+message Server {
+  message HTTP {
+    string network = 1;
+    string addr = 2;
+    google.protobuf.Duration timeout = 3;
+  }
+  message GRPC {
+    string network = 1;
+    string addr = 2;
+    google.protobuf.Duration timeout = 3;
+  }
+  HTTP http = 1;
+  GRPC grpc = 2;
+}
+
+message Data {
+  message Database {
+    string driver = 1;
+    string source = 2;
+    bool ent_debug = 3;
+  }
+  // database holds the authz grants; no workflow content is ever persisted here.
+  Database database = 1;
+}
+
+message Log {
+  string type = 1;
+  string level = 2;
+}
+
+message SSO {
+  string issuer = 1;
+  string client_id = 2;
+  string client_secret = 3;
+  string redirect_url = 4;
+  google.protobuf.Duration session_expiry = 5;
+  string jwt_secret = 6;
+  bool enabled = 7;
+  // issuer_alias allows the token issuer to differ from the discovery URL (in-cluster IdPs).
+  string issuer_alias = 8;
+}
+
+// Kube configures the direct Kubernetes connection. argonaut never talks to argo-server.
+message Kube {
+  // kubeconfig path; empty uses in-cluster config then the default loading rules.
+  string kubeconfig = 1;
+  // context pins which kubeconfig context to use. Without it the server follows whatever context
+  // happens to be current, so a `kubectl config use-context` elsewhere can silently repoint the
+  // console at a different cluster. Ignored when running in-cluster.
+  string context = 6;
+  // managed_namespace restricts the server to one namespace; empty means cluster-wide.
+  string managed_namespace = 2;
+  // namespaces the UI offers in pickers; empty lets the UI discover them from listed resources.
+  repeated string namespaces = 3;
+  // qps/burst raise client-go's default rate limits, which detail pages blow through.
+  double qps = 4;
+  int32 burst = 5;
+}
+
+// Argo points at the workflow controller's ConfigMap. Artifact repositories and node-status
+// offload are NOT configured here: they are probed from that ConfigMap at runtime, the same way
+// argo-server resolves them.
+message Argo {
+  string controller_namespace = 1;
+  string controller_configmap = 2;
+  // instance_id scopes the server to workflows carrying a matching instance ID label.
+  string instance_id = 3;
+}
+
+message Authz {
+  // super_admins bootstraps the first administrators, e.g. "user:<oidc-sub>". Without this nobody
+  // could ever grant the first permission.
+  repeated string super_admins = 1;
+  // dev_subject makes the server usable with sso.enabled=false by treating every request as this
+  // subject. It exists so the API can be exercised locally without an identity provider; setting it
+  // in a deployment hands that subject's permissions to anyone who can reach the port.
+  string dev_subject = 4;
+  // policy_path overrides the embedded rego policy with a file on disk.
+  string policy_path = 2;
+  // reload_interval controls how often grants are re-read into OPA (multi-replica staleness).
+  google.protobuf.Duration reload_interval = 3;
+}

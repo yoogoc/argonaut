@@ -1,0 +1,333 @@
+// These types mirror xyflow-server's api/v1/*.proto, which is the single source of truth for the
+// contract. Workflow-shaped payloads are Argo's own CRD types passed through unchanged, so they are
+// typed loosely here: modelling every Argo field would duplicate the CRD and go stale, and the UI
+// reads them the same way Argo's own console does.
+
+export interface ObjectMeta {
+  name: string;
+  generateName?: string;
+  namespace: string;
+  uid?: string;
+  resourceVersion?: string;
+  creationTimestamp?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+}
+
+export type NodePhase =
+  | "Pending"
+  | "Running"
+  | "Succeeded"
+  | "Failed"
+  | "Error"
+  | "Omitted"
+  | "Skipped";
+
+export interface Parameter {
+  name: string;
+  value?: string;
+  default?: string;
+  enum?: string[];
+  description?: string;
+}
+
+/** A stored input or output. Only the backends Argo can report are modelled; all are optional. */
+export interface Artifact {
+  name: string;
+  /** Where the artifact was mounted inside the container. */
+  path?: string;
+  optional?: boolean;
+  /** Argo wraps directories in an archive unless the template opts out. */
+  archive?: { none?: object; tar?: { compressionLevel?: number }; zip?: object };
+  s3?: { bucket?: string; key?: string; endpoint?: string };
+  gcs?: { bucket?: string; key?: string };
+  oss?: { bucket?: string; key?: string; endpoint?: string };
+  azure?: { container?: string; blob?: string; endpoint?: string };
+  http?: { url?: string };
+  git?: { repo?: string; revision?: string };
+  raw?: { data?: string };
+}
+
+export interface Inputs {
+  parameters?: Parameter[];
+  artifacts?: Artifact[];
+}
+
+export interface Outputs {
+  parameters?: Parameter[];
+  artifacts?: Artifact[];
+  exitCode?: string;
+  result?: string;
+}
+
+export interface NodeStatus {
+  id: string;
+  name: string;
+  displayName: string;
+  type: string;
+  /** Which resource the node's template came from; needed to resolve it (see lib/template.ts). */
+  templateScope?: string;
+  phase?: NodePhase;
+  message?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  progress?: string;
+  templateName?: string;
+  templateRef?: { name: string; template: string };
+  boundaryID?: string;
+  children?: string[];
+  outboundNodes?: string[];
+  inputs?: Inputs;
+  outputs?: Outputs;
+  hostNodeName?: string;
+  podIP?: string;
+  estimatedDuration?: number;
+  resourcesDuration?: Record<string, number>;
+  /**
+   * Present when the node's template is memoized. `hit` means the step never ran and these outputs
+   * came from the cache, which is otherwise indistinguishable from a very fast success.
+   */
+  memoizationStatus?: { hit?: boolean; key?: string; cacheName?: string };
+}
+
+/** A container Argo runs, plus the extra fields a `script` template adds. */
+export interface ContainerSpec {
+  name?: string;
+  image?: string;
+  command?: string[];
+  args?: string[];
+  workingDir?: string;
+  /** Present on script templates: the program Argo writes into the container and runs. */
+  source?: string;
+  env?: { name: string; value?: string; valueFrom?: unknown }[];
+  resources?: { limits?: Record<string, string>; requests?: Record<string, string> };
+  /** Set by templateContainers for sidecars, so the panel can label them. */
+  sidecar?: boolean;
+}
+
+/** An `http` template: Argo performs the request itself, with no pod. */
+export interface HttpSpec {
+  method?: string;
+  url?: string;
+  headers?: { name: string; value?: string; valueFrom?: unknown }[];
+  body?: string;
+  timeoutSeconds?: number;
+  successCondition?: string;
+  insecureSkipVerify?: boolean;
+}
+
+/** One entry of a workflow's template list, or a stored copy of a referenced template. */
+export interface Template {
+  name?: string;
+  inputs?: Inputs;
+  outputs?: Outputs;
+  /** Set when this template only points at another one; resolution follows these. */
+  template?: string;
+  templateRef?: { name: string; template: string; clusterScope?: boolean };
+  container?: ContainerSpec;
+  script?: ContainerSpec;
+  containerSet?: { containers: ContainerSpec[] };
+  sidecars?: ContainerSpec[];
+  http?: HttpSpec;
+  resource?: { action?: string; manifest?: string; successCondition?: string; failureCondition?: string };
+  data?: { source?: unknown; transformation?: unknown[] };
+  dag?: { tasks: { name: string; template?: string; dependencies?: string[] }[] };
+  steps?: { name: string; template?: string }[][];
+  suspend?: { duration?: string };
+  /** Caches this template's outputs under `key`, so a later run with the same key skips execution. */
+  memoize?: {
+    key?: string;
+    maxAge?: string;
+    cache?: { configMap?: { name?: string; key?: string } };
+  };
+  retryStrategy?: unknown;
+  activeDeadlineSeconds?: unknown;
+  serviceAccountName?: string;
+  nodeSelector?: Record<string, string>;
+  [key: string]: unknown;
+}
+
+export interface WorkflowStatus {
+  phase?: NodePhase;
+  message?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  progress?: string;
+  nodes?: Record<string, NodeStatus>;
+  conditions?: { type: string; status: string; message?: string }[];
+  resourcesDuration?: Record<string, number>;
+  estimatedDuration?: number;
+  outputs?: Outputs;
+  /** Copies of referenced templates, keyed by a scope-qualified name. */
+  storedTemplates?: Record<string, Template>;
+  /** The spec of the WorkflowTemplate this run came from, when it was submitted from one. */
+  storedWorkflowTemplateSpec?: { templates?: Template[]; entrypoint?: string };
+  artifactRepositoryRef?: unknown;
+}
+
+export interface WorkflowSpec {
+  entrypoint?: string;
+  arguments?: { parameters?: Parameter[]; artifacts?: Artifact[] };
+  templates?: Template[];
+  workflowTemplateRef?: { name: string; clusterScope?: boolean };
+  suspend?: boolean;
+  serviceAccountName?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowTemplateSpecTemplate {
+  name: string;
+  inputs?: Inputs;
+  outputs?: Outputs;
+  dag?: { tasks: { name: string; template?: string; dependencies?: string[] }[] };
+  steps?: { name: string; template?: string }[][];
+  container?: { image?: string; command?: string[]; args?: string[] };
+  script?: { image?: string; source?: string };
+  suspend?: unknown;
+  [key: string]: unknown;
+}
+
+export interface Workflow {
+  metadata: ObjectMeta;
+  spec: WorkflowSpec;
+  status?: WorkflowStatus;
+}
+
+export interface WorkflowTemplate {
+  metadata: ObjectMeta;
+  spec: WorkflowSpec;
+}
+
+export interface CronWorkflowSpec {
+  schedules?: string[];
+  /** Argo before 3.6 used a single `schedule`; both are accepted so older objects still render. */
+  schedule?: string;
+  timezone?: string;
+  suspend?: boolean;
+  concurrencyPolicy?: string;
+  startingDeadlineSeconds?: number;
+  successfulJobsHistoryLimit?: number;
+  failedJobsHistoryLimit?: number;
+  workflowSpec: WorkflowSpec;
+  [key: string]: unknown;
+}
+
+export interface CronWorkflowStatus {
+  active?: { name: string; namespace: string }[];
+  lastScheduledTime?: string;
+  conditions?: { type: string; status: string; message?: string }[];
+}
+
+export interface CronWorkflow {
+  metadata: ObjectMeta;
+  spec: CronWorkflowSpec;
+  status?: CronWorkflowStatus;
+}
+
+export interface ListMeta {
+  resourceVersion?: string;
+  continue?: string | null;
+  remainingItemCount?: number | null;
+}
+
+export interface List<T> {
+  metadata?: ListMeta;
+  items: T[] | null;
+}
+
+export interface WorkflowWatchEvent {
+  type: "ADDED" | "MODIFIED" | "DELETED";
+  /** The workflow arrives pre-serialized; see the note on WorkflowWatchEvent in workflow.proto. */
+  workflowJson: string;
+}
+
+export interface WorkflowEvent {
+  type: string;
+  reason: string;
+  message: string;
+  objectName: string;
+  objectKind: string;
+  firstTimestamp: string;
+  lastTimestamp: string;
+  count: number;
+}
+
+export interface LogEntry {
+  content: string;
+  podName: string;
+}
+
+export interface UserInfo {
+  issuer: string;
+  subject: string;
+  email?: string;
+  emailVerified?: boolean;
+  name?: string;
+  superAdmin?: boolean;
+}
+
+export interface Info {
+  version: string;
+  managedNamespace?: string;
+  namespaces?: string[];
+  nodeStatusOffloadEnabled?: boolean;
+  links?: { name: string; scope: string; url: string }[];
+}
+
+export type Role = "viewer" | "operator" | "editor" | "admin";
+
+export interface Grant {
+  id: string;
+  subjectType: string;
+  subject: string;
+  resourceType: "global" | "namespace" | "template" | "cluster_template";
+  namespace: string;
+  name: string;
+  role: Role;
+  createdBy: string;
+  createdAt: string;
+  /** The authorization revision this grant was written at. */
+  revision: number;
+  /** Set on orphan listings: the template this grant names no longer exists. */
+  orphan?: boolean;
+}
+
+export interface RoleInfo {
+  name: Role;
+  actions: string[];
+  description: string;
+}
+
+export interface MyPermissions {
+  subject: string;
+  superAdmin?: boolean;
+  revision: number;
+  grants: Grant[] | null;
+}
+
+/** What a permission question is asked about (see DESIGN §4.4 for how runs map onto these). */
+export interface ResourceRef {
+  namespace?: string;
+  template?: string;
+  clusterTemplate?: string;
+}
+
+export interface AuthzStatus {
+  revision: number;
+  replicas: { id: string; revision: number; seenAt: string }[];
+  lastChange?: AuditEvent;
+}
+
+export interface AuditEvent {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;
+  resourceType: string;
+  namespace: string;
+  name: string;
+  result: "allowed" | "denied" | "recorded";
+  reason?: string;
+  detail?: string;
+  revision: number;
+}

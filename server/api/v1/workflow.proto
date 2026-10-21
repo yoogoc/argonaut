@@ -1,0 +1,286 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "github.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto";
+
+// WorkflowService exposes Argo Workflow runtime operations. It is backed by Argo's own server
+// packages running in-process against the Kubernetes API (argonaut never calls argo-server), and
+// every RPC is gated by the OPA authz layer before reaching Argo.
+service WorkflowService {
+  rpc List (ListWorkflowRequest) returns (ListWorkflowReply) {
+    option (google.api.http) = {
+      get: "/api/v1/workflows"
+    };
+  };
+  rpc Get (GetWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      get: "/api/v1/workflows/{namespace}/{name}"
+    };
+  };
+  // Watch streams live status updates as SSE (Argo WatchWorkflows). It lives under its own path
+  // prefix rather than /workflows/{namespace}/watch, because that would be indistinguishable from
+  // Get with a workflow literally named "watch".
+  rpc Watch (WatchWorkflowRequest) returns (stream WorkflowWatchEvent) {
+    option (google.api.http) = {
+      get: "/api/v1/watch/workflows/{namespace}"
+    };
+  };
+  // Events streams Kubernetes events for a workflow, powering the detail page Events tab.
+  rpc Events (WorkflowEventsRequest) returns (stream WorkflowEvent) {
+    option (google.api.http) = {
+      get: "/api/v1/workflows/{namespace}/{name}/events"
+    };
+  };
+  // Logs streams container logs as SSE. When the pod is gone it falls back to the archived
+  // main.log artifact, mirroring what argo-server's UI does client-side.
+  rpc Logs (WorkflowLogRequest) returns (stream WorkflowLogEntry) {
+    option (google.api.http) = {
+      get: "/api/v1/workflows/{namespace}/{name}/log"
+    };
+  };
+  // Submit creates a workflow from a WorkflowTemplate or CronWorkflow.
+  rpc Submit (SubmitWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      post: "/api/v1/workflows/{namespace}/submit"
+      body: "*"
+    };
+  };
+  // Create submits a raw workflow manifest.
+  rpc Create (CreateWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      post: "/api/v1/workflows/{namespace}"
+      body: "*"
+    };
+  };
+  rpc Lint (LintWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      post: "/api/v1/workflows/{namespace}/lint"
+      body: "*"
+    };
+  };
+  rpc Retry (RetryWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflows/{namespace}/{name}/retry"
+      body: "*"
+    };
+  };
+  rpc Resubmit (ResubmitWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflows/{namespace}/{name}/resubmit"
+      body: "*"
+    };
+  };
+  rpc Suspend (WorkflowActionRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflows/{namespace}/{name}/suspend"
+      body: "*"
+    };
+  };
+  rpc Resume (ResumeWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflows/{namespace}/{name}/resume"
+      body: "*"
+    };
+  };
+  // Set writes node output parameters / phase; the UI uses it to supply a suspend node's inputs
+  // before resuming (official "Resume with inputs").
+  rpc Set (SetWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflows/{namespace}/{name}/set"
+      body: "*"
+    };
+  };
+  rpc Stop (StopWorkflowRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflows/{namespace}/{name}/stop"
+      body: "*"
+    };
+  };
+  rpc Terminate (WorkflowActionRequest) returns (WorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflows/{namespace}/{name}/terminate"
+      body: "*"
+    };
+  };
+  rpc Delete (DeleteWorkflowRequest) returns (DeleteWorkflowReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/workflows/{namespace}/{name}"
+    };
+  };
+}
+
+// Artifact downloads are deliberately NOT an RPC: a google.api.HttpBody reply would buffer the whole
+// artifact in memory, and artifacts can be gigabytes. They are served by raw streaming handlers
+// registered in internal/server, which run the same authz check as the RPCs above:
+//
+//	GET /api/v1/artifacts/{namespace}/{name}/{nodeId}/{artifactName}
+//	GET /api/v1/input-artifacts/{namespace}/{name}/{nodeId}/{artifactName}
+
+message ListWorkflowRequest {
+  string namespace = 1;
+  // namePattern matches workflow names by substring (Argo nameFilter).
+  optional string namePattern = 2;
+  optional string labelSelector = 3;
+  // phases filters status.phase (Pending/Running/Succeeded/Failed/Error).
+  repeated string phases = 4;
+  optional string createdAfter = 5;
+  optional string finishedBefore = 6;
+  optional int64 limit = 7;
+  optional string continueToken = 8;
+}
+message ListWorkflowReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowList list = 1;
+}
+
+message GetWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  // fields narrows the returned object (Argo supports a fields mask; used to skip node status).
+  optional string fields = 3;
+}
+
+// WorkflowReply is the common reply for get and for actions returning the updated workflow.
+message WorkflowReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.Workflow workflow = 1;
+}
+
+message WatchWorkflowRequest {
+  string namespace = 1;
+  // name watches a single workflow; empty watches the whole namespace (list page live updates).
+  optional string name = 2;
+  optional string labelSelector = 3;
+  // fields trims each streamed workflow, e.g.
+  // "result.object.metadata,result.object.status.phase". A namespace-wide watch otherwise streams
+  // every workflow in full, node status included, which is megabytes per second on a busy cluster.
+  //
+  // Whatever is requested must keep metadata.labels and spec.workflowTemplateRef: the server
+  // authorizes each event by the template the workflow came from, and trimming those away would
+  // change that decision.
+  optional string fields = 4;
+}
+
+// WorkflowWatchEvent carries a live update. The workflow is a pre-serialized JSON string because
+// protojson chokes on Argo's custom scalar types (e.g. EstimatedDuration) inside the SSE encoder.
+message WorkflowWatchEvent {
+  string type = 1;
+  string workflowJson = 2;
+}
+
+message WorkflowEventsRequest {
+  string namespace = 1;
+  string name = 2;
+}
+message WorkflowEvent {
+  string type = 1;
+  string reason = 2;
+  string message = 3;
+  string objectName = 4;
+  string objectKind = 5;
+  string firstTimestamp = 6;
+  string lastTimestamp = 7;
+  int32 count = 8;
+}
+
+message WorkflowLogRequest {
+  string namespace = 1;
+  string name = 2;
+  // podName selects one pod; empty streams every pod of the workflow (Argo WorkflowLogs).
+  optional string podName = 3;
+  optional string nodeId = 4;
+  optional string container = 5;
+  optional string grep = 6;
+  bool follow = 7;
+  optional int64 tailLines = 8;
+  bool timestamps = 9;
+}
+message WorkflowLogEntry {
+  string content = 1;
+  string podName = 2;
+}
+
+message SubmitWorkflowRequest {
+  string namespace = 1;
+  // resourceKind is WorkflowTemplate or CronWorkflow.
+  string resourceKind = 2;
+  string resourceName = 3;
+  optional string entryPoint = 4;
+  // parameters are "name=value" pairs, matching Argo's submit options.
+  repeated string parameters = 5;
+  repeated string labels = 6;
+  optional string generateName = 7;
+  optional string serviceAccount = 8;
+  bool dryRun = 9;
+}
+
+message CreateWorkflowRequest {
+  string namespace = 1;
+  // manifest is the workflow YAML or JSON.
+  string manifest = 2;
+  bool dryRun = 3;
+}
+
+message LintWorkflowRequest {
+  string namespace = 1;
+  string manifest = 2;
+}
+
+message WorkflowActionRequest {
+  string namespace = 1;
+  string name = 2;
+}
+
+message RetryWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  // restartSuccessful re-runs steps that already succeeded. Leaving it false is what makes a retry
+  // reuse previous results, so it is the field the UI's "memoized" choice maps to (inverted): Argo's
+  // retry API has no `memoized` of its own, unlike resubmit.
+  bool restartSuccessful = 3;
+  // nodeFieldSelector targets specific nodes, e.g. "id=<nodeId>" for retrying a single node.
+  optional string nodeFieldSelector = 4;
+  // parameters override workflow arguments as "name=value", so a retry can be re-run with new input.
+  repeated string parameters = 5;
+}
+
+message ResubmitWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  // memoized reuses the successful steps of the original run instead of executing them again.
+  bool memoized = 3;
+  // parameters override workflow arguments as "name=value".
+  repeated string parameters = 4;
+}
+
+message ResumeWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  optional string nodeFieldSelector = 3;
+}
+
+message SetWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  string nodeFieldSelector = 3;
+  // outputParameters is a JSON object of parameter name to value.
+  optional string outputParameters = 4;
+  optional string phase = 5;
+  optional string message = 6;
+}
+
+message StopWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  optional string nodeFieldSelector = 3;
+  optional string message = 4;
+}
+
+message DeleteWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  bool force = 3;
+}
+message DeleteWorkflowReply {}

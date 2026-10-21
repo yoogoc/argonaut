@@ -1,0 +1,60 @@
+image:
+  repository: argonaut
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Replicas may be scaled freely: authorization decisions are consistent across replicas (DESIGN §4.3).
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  host: argonaut.example.com
+  tls: []
+
+# Namespaces argonaut manages. The chart creates a RoleBinding in each; ClusterWorkflowTemplates need
+# the cluster-scoped part of the ClusterRole.
+managedNamespaces:
+  - argo
+
+argo:
+  controllerNamespace: argo
+  controllerConfigMap: workflow-controller-configmap
+  instanceId: ""
+
+sso:
+  enabled: true
+  issuer: https://idp.example.com
+  issuerAlias: ""
+  clientId: ""
+  redirectUrl: https://argonaut.example.com/oauth2/callback
+  sessionExpiry: 43200s
+
+authz:
+  # OIDC subjects bootstrapped as platform administrators, e.g. "user:<sub>".
+  superAdmins: []
+  clusterTemplatesReadable: true
+
+# Secret holding ARGONAUT_DATABASE_URL, ARGONAUT_SSO_CLIENT_SECRET and ARGONAUT_JWT_SECRET. Create it yourself, or set
+# secrets.create with values (not recommended outside development).
+secrets:
+  existingSecret: ""
+  create: false
+  databaseUrl: ""
+  ssoClientSecret: ""
+  jwtSecret: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

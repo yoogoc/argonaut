@@ -1,0 +1,235 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Run phases: fg for text, bg for badge fills, solid for dots, bars and graph markers. */
+  --color-phase-ok: var(--phase-ok);
+  --color-phase-ok-bg: var(--phase-ok-bg);
+  --color-phase-ok-solid: var(--phase-ok-solid);
+  --color-phase-run: var(--phase-run);
+  --color-phase-run-bg: var(--phase-run-bg);
+  --color-phase-run-solid: var(--phase-run-solid);
+  --color-phase-fail: var(--phase-fail);
+  --color-phase-fail-bg: var(--phase-fail-bg);
+  --color-phase-fail-solid: var(--phase-fail-solid);
+  --color-phase-pend: var(--phase-pend);
+  --color-phase-pend-bg: var(--phase-pend-bg);
+  --color-phase-pend-solid: var(--phase-pend-solid);
+  --color-phase-susp: var(--phase-susp);
+  --color-phase-susp-bg: var(--phase-susp-bg);
+  --color-phase-susp-solid: var(--phase-susp-solid);
+
+  /* Three-way merge: whose change a line or node carries. */
+  --color-diff-mine: var(--diff-mine);
+  --color-diff-mine-bg: var(--diff-mine-bg);
+  --color-diff-theirs: var(--diff-theirs);
+  --color-diff-theirs-bg: var(--diff-theirs-bg);
+  --color-diff-conflict: var(--diff-conflict);
+  --color-diff-conflict-bg: var(--diff-conflict-bg);
+  --color-diff-add-bg: var(--diff-add-bg);
+  --color-diff-del-bg: var(--diff-del-bg);
+
+  /* Node kinds on the canvas and in the palette. */
+  --color-node-container: var(--node-container);
+  --color-node-container-bg: var(--node-container-bg);
+  --color-node-script: var(--node-script);
+  --color-node-script-bg: var(--node-script-bg);
+  --color-node-containerset: var(--node-containerset);
+  --color-node-containerset-bg: var(--node-containerset-bg);
+  --color-node-resource: var(--node-resource);
+  --color-node-resource-bg: var(--node-resource-bg);
+  --color-node-http: var(--node-http);
+  --color-node-http-bg: var(--node-http-bg);
+  --color-node-data: var(--node-data);
+  --color-node-data-bg: var(--node-data-bg);
+  --color-node-plugin: var(--node-plugin);
+  --color-node-plugin-bg: var(--node-plugin-bg);
+  --color-node-suspend: var(--node-suspend);
+  --color-node-suspend-bg: var(--node-suspend-bg);
+  --color-node-dag: var(--node-dag);
+  --color-node-dag-bg: var(--node-dag-bg);
+  --color-node-ref: var(--node-ref);
+  --color-node-ref-bg: var(--node-ref-bg);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --canvas: oklch(0.967 0.001 286.375);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.511 0.262 276.966);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.52 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.87 0.006 286.286);
+  --ring: oklch(0.585 0.233 277.117);
+
+  --phase-ok: oklch(0.448 0.119 151.328);
+  --phase-ok-bg: oklch(0.962 0.044 156.743);
+  --phase-ok-solid: oklch(0.627 0.194 149.214);
+  --phase-run: oklch(0.424 0.199 265.638);
+  --phase-run-bg: oklch(0.932 0.032 255.585);
+  --phase-run-solid: oklch(0.546 0.245 262.881);
+  --phase-fail: oklch(0.444 0.177 26.899);
+  --phase-fail-bg: oklch(0.936 0.032 17.717);
+  --phase-fail-solid: oklch(0.577 0.245 27.325);
+  --phase-pend: oklch(0.442 0.017 285.786);
+  --phase-pend-bg: oklch(0.967 0.001 286.375);
+  --phase-pend-solid: oklch(0.705 0.015 286.067);
+  --phase-susp: oklch(0.473 0.137 46.201);
+  --phase-susp-bg: oklch(0.962 0.059 95.617);
+  --phase-susp-solid: oklch(0.666 0.179 58.318);
+
+  --diff-mine: oklch(0.541 0.281 293.009);
+  --diff-mine-bg: oklch(0.943 0.029 294.588);
+  --diff-theirs: oklch(0.546 0.245 262.881);
+  --diff-theirs-bg: oklch(0.932 0.032 255.585);
+  --diff-conflict: oklch(0.577 0.245 27.325);
+  --diff-conflict-bg: oklch(0.936 0.032 17.717);
+  --diff-add-bg: oklch(0.982 0.018 155.826);
+  --diff-del-bg: oklch(0.971 0.013 17.38);
+
+  --node-container: oklch(0.5 0.134 242.749);
+  --node-container-bg: oklch(0.951 0.026 236.824);
+  --node-script: oklch(0.491 0.27 292.581);
+  --node-script-bg: oklch(0.943 0.029 294.588);
+  --node-containerset: oklch(0.52 0.105 223.128);
+  --node-containerset-bg: oklch(0.956 0.045 203.388);
+  --node-resource: oklch(0.37 0.013 285.805);
+  --node-resource-bg: oklch(0.967 0.001 286.375);
+  --node-http: oklch(0.527 0.154 150.069);
+  --node-http-bg: oklch(0.962 0.044 156.743);
+  --node-data: oklch(0.525 0.223 3.958);
+  --node-data-bg: oklch(0.948 0.028 342.258);
+  --node-plugin: oklch(0.553 0.195 38.402);
+  --node-plugin-bg: oklch(0.954 0.038 75.164);
+  --node-suspend: oklch(0.555 0.163 48.998);
+  --node-suspend-bg: oklch(0.962 0.059 95.617);
+  --node-dag: oklch(0.457 0.24 277.023);
+  --node-dag-bg: oklch(0.93 0.034 272.788);
+  --node-ref: oklch(0.457 0.24 277.023);
+  --node-ref-bg: oklch(0.962 0.018 272.314);
+}
+
+.dark {
+  --background: oklch(0.18 0.006 285.885);
+  --foreground: oklch(0.985 0 0);
+  --canvas: oklch(0.141 0.005 285.823);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.673 0.182 276.935);
+  --primary-foreground: oklch(0.141 0.005 285.823);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.75 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.673 0.182 276.935);
+
+  --phase-ok: oklch(0.871 0.15 154.449);
+  --phase-ok-bg: oklch(0.627 0.194 149.214 / 22%);
+  --phase-ok-solid: oklch(0.723 0.219 149.579);
+  --phase-run: oklch(0.809 0.105 251.813);
+  --phase-run-bg: oklch(0.546 0.245 262.881 / 25%);
+  --phase-run-solid: oklch(0.623 0.214 259.815);
+  --phase-fail: oklch(0.808 0.114 19.571);
+  --phase-fail-bg: oklch(0.577 0.245 27.325 / 25%);
+  --phase-fail-solid: oklch(0.637 0.237 25.331);
+  --phase-pend: oklch(0.871 0.006 286.286);
+  --phase-pend-bg: oklch(1 0 0 / 8%);
+  --phase-pend-solid: oklch(0.552 0.016 285.938);
+  --phase-susp: oklch(0.879 0.169 91.605);
+  --phase-susp-bg: oklch(0.666 0.179 58.318 / 25%);
+  --phase-susp-solid: oklch(0.769 0.188 70.08);
+
+  --diff-mine: oklch(0.714 0.203 305.504);
+  --diff-mine-bg: oklch(0.541 0.281 293.009 / 25%);
+  --diff-theirs: oklch(0.707 0.165 254.624);
+  --diff-theirs-bg: oklch(0.546 0.245 262.881 / 25%);
+  --diff-conflict: oklch(0.704 0.191 22.216);
+  --diff-conflict-bg: oklch(0.577 0.245 27.325 / 25%);
+  --diff-add-bg: oklch(0.627 0.194 149.214 / 15%);
+  --diff-del-bg: oklch(0.577 0.245 27.325 / 15%);
+
+  --node-container: oklch(0.828 0.111 230.318);
+  --node-container-bg: oklch(0.588 0.158 241.966 / 25%);
+  --node-script: oklch(0.811 0.111 293.571);
+  --node-script-bg: oklch(0.541 0.281 293.009 / 25%);
+  --node-containerset: oklch(0.865 0.127 207.078);
+  --node-containerset-bg: oklch(0.609 0.126 221.723 / 25%);
+  --node-resource: oklch(0.871 0.006 286.286);
+  --node-resource-bg: oklch(1 0 0 / 8%);
+  --node-http: oklch(0.871 0.15 154.449);
+  --node-http-bg: oklch(0.627 0.194 149.214 / 22%);
+  --node-data: oklch(0.823 0.12 346.018);
+  --node-data-bg: oklch(0.656 0.241 354.308 / 25%);
+  --node-plugin: oklch(0.837 0.128 66.29);
+  --node-plugin-bg: oklch(0.705 0.213 47.604 / 25%);
+  --node-suspend: oklch(0.879 0.169 91.605);
+  --node-suspend-bg: oklch(0.666 0.179 58.318 / 25%);
+  --node-dag: oklch(0.785 0.115 274.713);
+  --node-dag-bg: oklch(0.511 0.262 276.966 / 25%);
+  --node-ref: oklch(0.785 0.115 274.713);
+  --node-ref-bg: oklch(0.511 0.262 276.966 / 18%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-canvas text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+}

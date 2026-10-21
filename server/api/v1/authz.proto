@@ -1,0 +1,101 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// AuthzService manages the grant table that backs OPA decisions. Granting is itself a permission:
+// callers need the `authz:grant` action (role admin) on the target resource scope.
+service AuthzService {
+  rpc ListGrants (ListGrantsRequest) returns (ListGrantsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/grants"
+    };
+  };
+  rpc CreateGrant (CreateGrantRequest) returns (GrantReply) {
+    option (google.api.http) = {
+      post: "/api/v1/authz/grants"
+      body: "*"
+    };
+  };
+  rpc DeleteGrant (DeleteGrantRequest) returns (DeleteGrantReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/authz/grants/{id}"
+    };
+  };
+  // ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.
+  rpc ListRoles (google.protobuf.Empty) returns (ListRolesReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/roles"
+    };
+  };
+  // MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
+  // convenience, never the security boundary (every RPC is checked server-side).
+  rpc MyPermissions (google.protobuf.Empty) returns (MyPermissionsReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/my-permissions"
+    };
+  };
+}
+
+// Grant binds a subject to a role on a resource scope.
+message Grant {
+  string id = 1;
+  // subjectType is currently always "user" (OIDC `sub`); the field exists so group grants can be
+  // added once the IdP is settled without a schema change.
+  string subjectType = 2;
+  string subject = 3;
+  // resourceType is "template" or "global".
+  string resourceType = 4;
+  string namespace = 5;
+  // name is a template name, or "*" for every template in the namespace.
+  string name = 6;
+  // role is one of viewer / operator / editor / admin.
+  string role = 7;
+  string createdBy = 8;
+  string createdAt = 9;
+}
+
+message ListGrantsRequest {
+  optional string subject = 1;
+  optional string namespace = 2;
+  optional string name = 3;
+}
+message ListGrantsReply {
+  repeated Grant grants = 1;
+}
+
+message CreateGrantRequest {
+  string subjectType = 1;
+  string subject = 2;
+  string resourceType = 3;
+  optional string namespace = 4;
+  optional string name = 5;
+  string role = 6;
+}
+message GrantReply {
+  Grant grant = 1;
+}
+
+message DeleteGrantRequest {
+  string id = 1;
+}
+message DeleteGrantReply {}
+
+message Role {
+  string name = 1;
+  repeated string actions = 2;
+  string description = 3;
+}
+message ListRolesReply {
+  repeated Role roles = 1;
+}
+
+message MyPermissionsReply {
+  string subject = 1;
+  bool superAdmin = 2;
+  repeated Grant grants = 3;
+}

@@ -1,0 +1,38 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// InfoService reports server capabilities the UI needs at boot. Unlike Argo's InfoService this is
+// implemented locally (argonaut never talks to argo-server).
+service InfoService {
+  rpc GetInfo (google.protobuf.Empty) returns (GetInfoReply) {
+    option (google.api.http) = {
+      get: "/api/v1/info"
+    };
+  };
+}
+
+message GetInfoReply {
+  string version = 1;
+  // managedNamespace is non-empty when the server is restricted to a single namespace.
+  string managedNamespace = 2;
+  // namespaces the UI should offer in its namespace pickers.
+  repeated string namespaces = 3;
+  // nodeStatusOffloadEnabled reflects the runtime probe of the Argo controller ConfigMap.
+  bool nodeStatusOffloadEnabled = 4;
+  // links are the configured external links (Argo `links` config), rendered on detail pages.
+  repeated Link links = 5;
+  // modals/columns are omitted deliberately; add only when the UI needs them.
+}
+
+message Link {
+  string name = 1;
+  // scope is one of workflow / pod / pod-logs / workflow-list / chat.
+  string scope = 2;
+  string url = 3;
+}

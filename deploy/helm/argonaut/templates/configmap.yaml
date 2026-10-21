@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "argonaut.fullname" . }}
+  labels: {{- include "argonaut.labels" . | nindent 4 }}
+data:
+  # Secrets are not written here: ${VAR} placeholders are expanded from the Secret-backed environment.
+  config.yaml: |
+    server:
+      http:
+        addr: 0.0.0.0:4100
+        timeout: 30s
+    data:
+      database:
+        driver: postgres
+        source: ${DATABASE_URL}
+    log:
+      level: info
+    sso:
+      enabled: {{ .Values.sso.enabled }}
+      issuer: {{ .Values.sso.issuer | quote }}
+      issuer_alias: {{ .Values.sso.issuerAlias | quote }}
+      client_id: {{ .Values.sso.clientId | quote }}
+      client_secret: ${SSO_CLIENT_SECRET}
+      redirect_url: {{ .Values.sso.redirectUrl | quote }}
+      session_expiry: {{ .Values.sso.sessionExpiry }}
+      jwt_secret: ${JWT_SECRET}
+    kube:
+      kubeconfig: ""
+      context: ""
+      namespaces: {{- toYaml .Values.managedNamespaces | nindent 8 }}
+      qps: 50
+      burst: 100
+    argo:
+      controller_namespace: {{ .Values.argo.controllerNamespace | quote }}
+      controller_configmap: {{ .Values.argo.controllerConfigMap | quote }}
+      instance_id: {{ .Values.argo.instanceId | quote }}
+    authz:
+      super_admins: {{- toYaml .Values.authz.superAdmins | nindent 8 }}
+      cluster_templates_readable: {{ .Values.authz.clusterTemplatesReadable }}

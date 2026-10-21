@@ -1,0 +1,328 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api/v1/authz.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "AuthzService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/authz/grants": {
+      "get": {
+        "operationId": "AuthzService_ListGrants",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListGrantsReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "namespace",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "AuthzService"
+        ]
+      },
+      "post": {
+        "operationId": "AuthzService_CreateGrant",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GrantReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1CreateGrantRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthzService"
+        ]
+      }
+    },
+    "/api/v1/authz/grants/{id}": {
+      "delete": {
+        "operationId": "AuthzService_DeleteGrant",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeleteGrantReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "AuthzService"
+        ]
+      }
+    },
+    "/api/v1/authz/my-permissions": {
+      "get": {
+        "summary": "MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a\nconvenience, never the security boundary (every RPC is checked server-side).",
+        "operationId": "AuthzService_MyPermissions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1MyPermissionsReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "AuthzService"
+        ]
+      }
+    },
+    "/api/v1/authz/roles": {
+      "get": {
+        "summary": "ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.",
+        "operationId": "AuthzService_ListRoles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListRolesReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "AuthzService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "googlerpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "v1CreateGrantRequest": {
+      "type": "object",
+      "properties": {
+        "subjectType": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "resourceType": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      }
+    },
+    "v1DeleteGrantReply": {
+      "type": "object"
+    },
+    "v1Grant": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subjectType": {
+          "type": "string",
+          "description": "subjectType is currently always \"user\" (OIDC `sub`); the field exists so group grants can be\nadded once the IdP is settled without a schema change."
+        },
+        "subject": {
+          "type": "string"
+        },
+        "resourceType": {
+          "type": "string",
+          "description": "resourceType is \"template\" or \"global\"."
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "name is a template name, or \"*\" for every template in the namespace."
+        },
+        "role": {
+          "type": "string",
+          "description": "role is one of viewer / operator / editor / admin."
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "description": "Grant binds a subject to a role on a resource scope."
+    },
+    "v1GrantReply": {
+      "type": "object",
+      "properties": {
+        "grant": {
+          "$ref": "#/definitions/v1Grant"
+        }
+      }
+    },
+    "v1ListGrantsReply": {
+      "type": "object",
+      "properties": {
+        "grants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Grant"
+          }
+        }
+      }
+    },
+    "v1ListRolesReply": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Role"
+          }
+        }
+      }
+    },
+    "v1MyPermissionsReply": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string"
+        },
+        "superAdmin": {
+          "type": "boolean"
+        },
+        "grants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Grant"
+          }
+        }
+      }
+    },
+    "v1Role": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

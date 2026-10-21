@@ -1,0 +1,14 @@
+# Go
+server/bin/
+# UI
+ui/node_modules/
+ui/dist/
+ui/test-results/
+ui/playwright-report/
+ui/node_modules/.tmp/
+# The UI build lands here and is embedded into the server binary; only the placeholder is tracked.
+server/web/dist/*
+!server/web/dist/.gitkeep
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,118 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api/v1/info.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "InfoService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/info": {
+      "get": {
+        "operationId": "InfoService_GetInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetInfoReply"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "InfoService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "apiv1Link": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "description": "scope is one of workflow / pod / pod-logs / workflow-list / chat."
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "googlerpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "v1GetInfoReply": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "managedNamespace": {
+          "type": "string",
+          "description": "managedNamespace is non-empty when the server is restricted to a single namespace."
+        },
+        "namespaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "namespaces the UI should offer in its namespace pickers."
+        },
+        "nodeStatusOffloadEnabled": {
+          "type": "boolean",
+          "description": "nodeStatusOffloadEnabled reflects the runtime probe of the Argo controller ConfigMap."
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/apiv1Link"
+          },
+          "description": "links are the configured external links (Argo `links` config), rendered on detail pages.\n\nmodals/columns are omitted deliberately; add only when the UI needs them."
+        }
+      }
+    }
+  }
+}

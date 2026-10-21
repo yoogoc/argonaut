@@ -1,0 +1,71 @@
+package main
+
+import (
+	"argonaut/internal/conf"
+	"log/slog"
+	"os"
+
+	"github.com/pressly/goose/v3"
+	"github.com/spf13/cobra"
+)
+
+type MigrateCommand cobra.Command
+
+func NewMigrateCmd(logger *slog.Logger, conf *conf.Data) *MigrateCommand {
+
+	var table string
+	var dir string
+	var verbose bool
+
+	migrateCmd := &MigrateCommand{
+		Use:                "migrate",
+		Short:              "migrate database",
+		Long:               "migrate power by goose, show more in https://github.com/pressly/goose#usage",
+		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if verbose {
+				goose.SetVerbose(true)
+			}
+			goose.SetTableName(table)
+			if len(args) == 0 {
+				return cmd.Usage()
+			}
+
+			switch args[0] {
+			case "create":
+				return goose.Run("create", nil, dir, args[1:]...)
+			case "fix":
+				return goose.Run("fix", nil, dir)
+			}
+
+			command := args[0]
+
+			db, err := goose.OpenDBWithDriver(conf.Database.Driver, conf.Database.Source)
+			if err != nil {
+				logger.Error("failed opening db for migration", "driver", conf.Database.Driver, "source", conf.Database.Source, "err", err)
+				os.Exit(1)
+				return err
+			}
+			defer func() {
+				if err := db.Close(); err != nil {
+					logger.Error("goose: failed to close DB", "err", err)
+					os.Exit(1)
+				}
+			}()
+
+			var arguments []string
+			if len(args) > 3 {
+				arguments = append(arguments, args[3:]...)
+			}
+
+			return goose.Run(command, db, dir, arguments...)
+		},
+	}
+
+	flags := (*cobra.Command)(migrateCmd).PersistentFlags()
+	flags.StringVarP(&dir, "dir", "", "./db/migration", "enable verbose mode")
+	flags.StringVarP(&table, "table", "", "goose_db_version", "migrations table name")
+	flags.BoolVarP(&verbose, "verbose", "v", false, "enable verbose mode")
+
+	return migrateCmd
+}

@@ -1,0 +1,59 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// Oauth2Service implements the OIDC authorization-code login. The IdP is not fixed, so only
+// standard claims (sub/email/name) are relied on; `sub` is the stable user identity used by authz.
+service Oauth2Service {
+  rpc Redirect (Oauth2RedirectRequest) returns (Oauth2RedirectReply) {
+    option (google.api.http) = {
+      get: "/api/v1/oauth2/redirect"
+    };
+  };
+  rpc Callback (Oauth2CallbackRequest) returns (Oauth2CallbackReply) {
+    option (google.api.http) = {
+      get: "/api/v1/oauth2/callback"
+    };
+  };
+  rpc UserInfo (google.protobuf.Empty) returns (Oauth2UserInfoReply) {
+    option (google.api.http) = {
+      get: "/api/v1/oauth2/userinfo"
+    };
+  };
+}
+
+message Oauth2RedirectRequest {
+  // redirect is the UI location to return to after a successful login.
+  string redirect = 1;
+}
+
+message Oauth2RedirectReply {
+  string redirectUri = 1;
+}
+
+message Oauth2CallbackRequest {
+  string state = 1;
+  string code = 2;
+}
+
+message Oauth2CallbackReply {
+  // authorization is the argonaut-signed JWT the UI sends back as the Authorization header.
+  string authorization = 1;
+  string redirectUri = 2;
+}
+
+message Oauth2UserInfoReply {
+  string issuer = 1;
+  // subject is the OIDC `sub`: the identity all authz grants are keyed on.
+  string subject = 2;
+  string email = 3;
+  bool emailVerified = 4;
+  string name = 5;
+  // superAdmin is true when the subject is bootstrapped via authz.superAdmins config.
+  bool superAdmin = 6;
+}

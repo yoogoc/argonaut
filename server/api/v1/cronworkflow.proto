@@ -1,0 +1,117 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "github.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto";
+
+// CronWorkflowService manages scheduled workflows. Permissions follow the referenced
+// WorkflowTemplate when the spec uses workflowTemplateRef, otherwise the namespace wildcard.
+service CronWorkflowService {
+  rpc List (ListCronWorkflowRequest) returns (ListCronWorkflowReply) {
+    option (google.api.http) = {
+      get: "/api/v1/cron-workflows"
+    };
+  };
+  rpc Get (GetCronWorkflowRequest) returns (CronWorkflowReply) {
+    option (google.api.http) = {
+      get: "/api/v1/cron-workflows/{namespace}/{name}"
+    };
+  };
+  rpc Create (CreateCronWorkflowRequest) returns (CronWorkflowReply) {
+    option (google.api.http) = {
+      post: "/api/v1/cron-workflows/{namespace}"
+      body: "*"
+    };
+  };
+  rpc Update (UpdateCronWorkflowRequest) returns (CronWorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/cron-workflows/{namespace}/{name}"
+      body: "*"
+    };
+  };
+  rpc Delete (DeleteCronWorkflowRequest) returns (DeleteCronWorkflowReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/cron-workflows/{namespace}/{name}"
+    };
+  };
+  rpc Suspend (CronWorkflowActionRequest) returns (CronWorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/cron-workflows/{namespace}/{name}/suspend"
+      body: "*"
+    };
+  };
+  rpc Resume (CronWorkflowActionRequest) returns (CronWorkflowReply) {
+    option (google.api.http) = {
+      put: "/api/v1/cron-workflows/{namespace}/{name}/resume"
+      body: "*"
+    };
+  };
+  // RunNow triggers one immediate execution by submitting the cron's workflow spec. Argo has no
+  // such API; argonaut converts the CronWorkflow to a Workflow the same way the controller does.
+  rpc RunNow (CronWorkflowActionRequest) returns (RunNowReply) {
+    option (google.api.http) = {
+      post: "/api/v1/cron-workflows/{namespace}/{name}/run"
+      body: "*"
+    };
+  };
+  rpc Lint (LintCronWorkflowRequest) returns (CronWorkflowReply) {
+    option (google.api.http) = {
+      post: "/api/v1/cron-workflows/{namespace}/lint"
+      body: "*"
+    };
+  };
+}
+
+message ListCronWorkflowRequest {
+  string namespace = 1;
+  optional string namePattern = 2;
+  optional string labelSelector = 3;
+  optional int64 limit = 4;
+  optional string continueToken = 5;
+}
+message ListCronWorkflowReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.CronWorkflowList list = 1;
+}
+
+message GetCronWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+}
+
+message CronWorkflowReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.CronWorkflow cronWorkflow = 1;
+}
+
+message CreateCronWorkflowRequest {
+  string namespace = 1;
+  string manifest = 2;
+}
+
+message UpdateCronWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+  string manifest = 3;
+}
+
+message DeleteCronWorkflowRequest {
+  string namespace = 1;
+  string name = 2;
+}
+message DeleteCronWorkflowReply {}
+
+message CronWorkflowActionRequest {
+  string namespace = 1;
+  string name = 2;
+}
+
+message RunNowReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.Workflow workflow = 1;
+}
+
+message LintCronWorkflowRequest {
+  string namespace = 1;
+  string manifest = 2;
+}

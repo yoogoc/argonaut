@@ -1,0 +1,90 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "github.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto";
+
+// WorkflowTemplateService is the authz anchor of the whole platform: every grant is scoped to a
+// template (or a namespace wildcard), and workflows inherit permissions from the template they
+// were created from.
+service WorkflowTemplateService {
+  rpc List (ListWorkflowTemplateRequest) returns (ListWorkflowTemplateReply) {
+    option (google.api.http) = {
+      get: "/api/v1/workflow-templates"
+    };
+  };
+  rpc Get (GetWorkflowTemplateRequest) returns (WorkflowTemplateReply) {
+    option (google.api.http) = {
+      get: "/api/v1/workflow-templates/{namespace}/{name}"
+    };
+  };
+  rpc Create (CreateWorkflowTemplateRequest) returns (WorkflowTemplateReply) {
+    option (google.api.http) = {
+      post: "/api/v1/workflow-templates/{namespace}"
+      body: "*"
+    };
+  };
+  rpc Update (UpdateWorkflowTemplateRequest) returns (WorkflowTemplateReply) {
+    option (google.api.http) = {
+      put: "/api/v1/workflow-templates/{namespace}/{name}"
+      body: "*"
+    };
+  };
+  rpc Delete (DeleteWorkflowTemplateRequest) returns (DeleteWorkflowTemplateReply) {
+    option (google.api.http) = {
+      delete: "/api/v1/workflow-templates/{namespace}/{name}"
+    };
+  };
+  rpc Lint (LintWorkflowTemplateRequest) returns (WorkflowTemplateReply) {
+    option (google.api.http) = {
+      post: "/api/v1/workflow-templates/{namespace}/lint"
+      body: "*"
+    };
+  };
+}
+
+message ListWorkflowTemplateRequest {
+  string namespace = 1;
+  optional string namePattern = 2;
+  optional string labelSelector = 3;
+  optional int64 limit = 4;
+  optional string continueToken = 5;
+}
+message ListWorkflowTemplateReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplateList list = 1;
+}
+
+message GetWorkflowTemplateRequest {
+  string namespace = 1;
+  string name = 2;
+}
+
+message WorkflowTemplateReply {
+  github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowTemplate template = 1;
+}
+
+message CreateWorkflowTemplateRequest {
+  string namespace = 1;
+  // manifest is the WorkflowTemplate YAML or JSON.
+  string manifest = 2;
+}
+
+message UpdateWorkflowTemplateRequest {
+  string namespace = 1;
+  string name = 2;
+  string manifest = 3;
+}
+
+message DeleteWorkflowTemplateRequest {
+  string namespace = 1;
+  string name = 2;
+}
+message DeleteWorkflowTemplateReply {}
+
+message LintWorkflowTemplateRequest {
+  string namespace = 1;
+  string manifest = 2;
+}

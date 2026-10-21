@@ -1,0 +1,41 @@
+# Root entry points. The server and UI keep their own toolchains (make/go, pnpm); these targets just
+# run them in the right order.
+
+.PHONY: all build ui server gen dev-server dev-ui test lint image
+
+all: build
+
+## gen: regenerate every generated artifact (Go from proto, TS from the Argo schema, the route tree)
+gen:
+	$(MAKE) -C server api config
+	cd ui && pnpm gen:argo && pnpm exec tsr generate
+
+## ui: build the SPA into server/web/dist
+ui:
+	cd ui && pnpm install --frozen-lockfile && pnpm build
+
+## server: build the single binary (embeds whatever is in server/web/dist)
+server:
+	$(MAKE) -C server build
+
+## build: UI first, then the binary that embeds it
+build: ui server
+
+## dev-server: run the API against the current kube context with the dev config (no SSO)
+dev-server:
+	cd server && go run ./cmd server -c ./configs/dev
+
+## dev-ui: Vite dev server on :5173, proxying /api to dev-server
+dev-ui:
+	cd ui && pnpm dev
+
+test:
+	$(MAKE) -C server test
+	cd ui && pnpm test
+
+lint:
+	$(MAKE) -C server lint
+	cd ui && pnpm typecheck && pnpm lint
+
+image:
+	docker build -t argonaut:dev .
