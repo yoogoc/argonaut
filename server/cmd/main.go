@@ -122,7 +122,9 @@ func newConf(rootCmd *RootCommand) *conf.Bootstrap {
 		EnvPrefix:    "ARGONAUT_",
 	})
 	if err != nil {
-		panic(err)
+		// A bad --config path is a usage mistake, not a crash: say what to fix instead of panicking.
+		_, _ = fmt.Fprintf(os.Stderr, "loading config: %v\n(--config adds a file or directory over the built-in defaults and ./configs/local; omit it to run with those alone)\n", err)
+		os.Exit(2)
 	}
 	closeConf = closeConfig
 	return &bc
