@@ -2,7 +2,7 @@
   <configuration default="false" name="server (dev)" type="GoApplicationRunConfiguration" factoryName="Go Application" folderName="server">
     <module name="argonaut" />
     <working_directory value="$PROJECT_DIR$/server" />
-    <parameters value="server -c ./configs/dev" />
+    <parameters value="server" />
     <kind value="DIRECTORY" />
     <package value="argonaut/cmd" />
     <directory value="$PROJECT_DIR$/server/cmd" />

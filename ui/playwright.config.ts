@@ -1,7 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
 // End-to-end smoke tests against a running argonaut and a real cluster (DESIGN §7.1). They need the
-// server with a development identity (configs/dev or configs/dev-archive) and the built UI:
+// server with a development identity (sso disabled and authz.dev_subject set in
+// server/configs/local) and the built UI:
 //
 //   make build && (cd server && ./bin/argonaut server -c ./configs/dev-archive)
 //   pnpm e2e

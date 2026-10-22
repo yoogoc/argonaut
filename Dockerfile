@@ -24,4 +24,5 @@ COPY server/db/migration /app/db/migration
 USER nonroot:nonroot
 EXPOSE 4100
 ENTRYPOINT ["/app/argonaut"]
-CMD ["server", "-c", "/app/configs"]
+# Defaults are compiled in; a deployment adds its own file with --config (the Helm chart mounts one).
+CMD ["server"]

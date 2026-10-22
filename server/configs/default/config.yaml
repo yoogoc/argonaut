@@ -1,0 +1,71 @@
+# Defaults compiled into the binary. They are safe rather than convenient: no identity provider and
+# no development identity, so nothing is reachable until a deployment or configs/local says how
+# users sign in. Load order (later wins): these defaults, configs/local/, then --config. ARGONAUT_*
+# environment variables fill the ${VAR} placeholders below.
+server:
+  http:
+    addr: 0.0.0.0:4100
+    # Streaming endpoints (watch, logs) manage their own lifetime through the request context, so
+    # this timeout only bounds unary calls.
+    timeout: 30s
+
+data:
+  # The database holds authorization data and history only. Workflows, templates and cron workflows
+  # are always read from Kubernetes.
+  database:
+    driver: postgres
+    source: "${DATABASE_URL:postgres://argonaut:argonaut@127.0.0.1:5432/argonaut?sslmode=disable}"
+
+log:
+  level: info
+
+sso:
+  enabled: false
+  # Any standards-compliant OIDC provider works: only sub / email / name are consumed, and no groups
+  # claim is requested.
+  issuer: ""
+  # issuer_alias lets an in-cluster IdP be reached at a different URL than the issuer in its tokens.
+  issuer_alias: ""
+  client_id: ""
+  client_secret: "${SSO_CLIENT_SECRET:}"
+  # Must match the redirect URI registered with the provider, and points at the UI's callback route.
+  redirect_url: http://localhost:5173/oauth2/callback
+  # Lifetime of the session token argonaut signs after a successful login (12 hours).
+  session_expiry: 43200s
+  # Signs session tokens; use a strong random secret. Rotating it invalidates all sessions.
+  jwt_secret: "${JWT_SECRET:}"
+
+kube:
+  # Empty uses the in-cluster ServiceAccount, then falls back to the default kubeconfig rules.
+  kubeconfig: ""
+  # Pin the kubeconfig context so the console cannot follow someone else's `kubectl use-context`.
+  # Empty uses the current context (and is right in-cluster).
+  context: ""
+  # Set to pin the server to one namespace; empty serves the whole cluster.
+  managed_namespace: ""
+  # Namespaces offered in the UI's pickers.
+  namespaces: []
+  # client-go's defaults (5/10) are too low for a detail page that watches and streams logs at once.
+  qps: 50
+  burst: 100
+
+argo:
+  # The controller ConfigMap is read at startup to discover the artifact repository, the persistence
+  # database (offload and archive) and configured links, the same way argo-server bootstraps itself.
+  controller_namespace: argo
+  # A plain manifest install calls it workflow-controller-configmap; a Helm install prefixes the
+  # release name (e.g. argo-workflows-workflow-controller-configmap).
+  controller_configmap: workflow-controller-configmap
+  # Set to scope the server to workflows carrying a matching instance ID; empty takes it from the
+  # controller ConfigMap.
+  instance_id: ""
+
+authz:
+  # Bootstrap administrators by OIDC subject ("user:<sub>"). Without at least one entry nobody can
+  # issue the first grant.
+  super_admins: []
+  # Only used when sso.enabled is false: treats every request as this subject so the API can be
+  # exercised without an identity provider. Never set it in a real deployment.
+  dev_subject: ""
+  # How often each replica re-checks the authorization revision when it misses a notification.
+  poll_interval: 5s

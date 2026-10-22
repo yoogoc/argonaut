@@ -5,13 +5,12 @@ import (
 	"os"
 	"strings"
 
+	defaultconfigs "argonaut/configs"
 	"argonaut/internal/conf"
 	ilog "argonaut/internal/log"
 
-	"github.com/go-kratos/kratos/v3/config"
-	"github.com/go-kratos/kratos/v3/config/env"
-	"github.com/go-kratos/kratos/v3/config/file"
 	"github.com/spf13/cobra"
+	kitconfig "github.com/yoogoc/kratos-kit/config/loader"
 )
 
 // go build -ldflags "-X main.Version=x.y.z"
@@ -22,6 +21,8 @@ var (
 	Version string
 
 	flagconf string
+	// closeConf stops the config sources' watchers once the command returns.
+	closeConf func() error
 )
 
 type RootCommand cobra.Command
@@ -62,6 +63,11 @@ func main() {
 	if cleanup != nil {
 		defer cleanup()
 	}
+	defer func() {
+		if closeConf != nil {
+			_ = closeConf()
+		}
+	}()
 
 	if err := cmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
@@ -100,25 +106,25 @@ func usage() {
 
 func newConf(rootCmd *RootCommand) *conf.Bootstrap {
 	flags := (*cobra.Command)(rootCmd).PersistentFlags()
-	flags.StringVarP(&flagconf, "config", "c", "./configs", "config path, eg: --config=config.yaml")
+	flags.StringVarP(&flagconf, "config", "c", "", "additional config file or directory, applied over the defaults and configs/local")
 	_ = flags.Parse(os.Args[1:])
 
-	c := config.New(config.WithSource(
-		file.NewSource(flagconf),
-		// Environment overrides let deployments inject secrets without baking them into the file,
-		// e.g. kratos_sso_client_secret.
-		env.NewSource("kratos_"),
-		// ARGONAUT_X is what ${X} placeholders in the config file resolve to (the Helm chart writes
-		// ${DATABASE_URL}, ${JWT_SECRET} and ${SSO_CLIENT_SECRET} and mounts them from a Secret).
-		env.NewSource("ARGONAUT_"),
-	))
-	if err := c.Load(); err != nil {
-		panic(err)
-	}
+	// Layered like kratos-scaffold projects (later wins): the defaults compiled into the binary,
+	// Git-ignored overrides in ./configs/local, an explicit --config, then ARGONAUT_X environment
+	// variables, which fill ${X} placeholders (the Helm chart mounts DATABASE_URL, JWT_SECRET and
+	// SSO_CLIENT_SECRET from a Secret).
 	var bc conf.Bootstrap
-	if err := c.Scan(&bc); err != nil {
+	closeConfig, err := kitconfig.Load(&bc, kitconfig.Options{
+		Defaults:     defaultconfigs.DefaultFS,
+		DefaultRoots: []string{"default"},
+		LocalRoots:   []string{"./configs/local"},
+		ExplicitPath: flagconf,
+		EnvPrefix:    "ARGONAUT_",
+	})
+	if err != nil {
 		panic(err)
 	}
+	closeConf = closeConfig
 	return &bc
 }
 

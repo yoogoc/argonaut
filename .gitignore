@@ -12,3 +12,8 @@ server/web/dist/*
 .DS_Store
 .idea/
 .vscode/
+# Personal config overrides (kratos-scaffold convention); only the placeholder is tracked.
+server/configs/local/**
+!server/configs/local/
+!server/configs/local/**/
+!server/configs/local/**/.keep

@@ -433,7 +433,7 @@ ui/
 
 ## 6. 配置与部署
 
-- `configs/config.yaml`：`server`、`data.database`、`sso`、`kube`（kubeconfig/in-cluster、**显式 `context`**、受管 namespace 列表；单集群）、`argo`（controller configmap 位置、instanceId）、`authz`（superAdmins、`clusterTemplatesReadable`）。
+- 配置按 kratos-scaffold 的约定分层（后者覆盖前者）：编译进二进制的 `server/configs/default/config.yaml`（安全默认值：不启用 IdP、没有开发身份）→ Git 忽略的 `server/configs/local/`（个人覆盖，从 `configs/local.example.yaml` 复制）→ `--config` 指定的文件或目录（Helm 挂载的 ConfigMap、`configs/dev-archive`）→ `ARGONAUT_*` 环境变量（填充 `${DATABASE_URL}`、`${JWT_SECRET}`、`${SSO_CLIENT_SECRET}` 占位符），由 `kratos-kit/config/loader` 加载。配置项：`server`、`data.database`、`sso`、`kube`（kubeconfig/in-cluster、**显式 `context`**、受管 namespace 列表；单集群）、`argo`（controller configmap 位置、instanceId）、`authz`（superAdmins、devSubject、pollInterval、`clusterTemplatesReadable`）。
 - 单镜像：UI 构建产物通过 `embed.FS` 进入二进制，server 负责 SPA fallback。
 - 归档：与 argo-server 一样，从控制器 ConfigMap 的 `persistence` 段发现归档库（只读，不做迁移）；`persistence.archive` 为真时 UI 出现“归档”入口。本地开发用 `configs/dev-archive`：它读取 `argonaut-dev-controller-configmap`（真实 ConfigMap 的副本 + 指向本机 Postgres 的 persistence 段），用 `go run ./hack/archive-seed` 把集群里已结束的运行写入归档，不改动集群里的控制器。
 - Helm chart：Deployment（可多副本，一致性由 §4.3 保证）、SA + ClusterRole（含 clusterworkflowtemplates 读写）+ 各受管 namespace 的 RoleBinding（Argo CRD 读写、pods/log、events、configmap/secret 读）、PG 连接 Secret。

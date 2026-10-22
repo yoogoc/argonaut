@@ -17,7 +17,7 @@ internal/
   service/            HTTP handlers; proto <-> biz; SSE streams
   biz/                use cases: authorization decisions, list filtering, action orchestration
   data/               Ent repository for the grants table
-  authz/              OPA engine + the rego policy (policy.rego)
+  authz/              Cedar engine and the built-in role policies (policies/roles.cedar)
   oidc/               OIDC discovery, session tokens, auth middleware
   server/             HTTP server, middleware chain, artifact routes
 pkg/argo/             Argo servers wired to client-go; artifact reader; stream adapters
@@ -26,10 +26,10 @@ pkg/argo/             Argo servers wired to client-go; artifact reader; stream a
 ## Running
 
 ```sh
-make migrate          # create the grants table
+make migrate          # create or upgrade the tables
 make api              # regenerate from proto after changing api/v1
 make wire             # regenerate DI after changing providers
-go run ./cmd server   # start on :4000
+go run ./cmd server   # start on :4100
 ```
 
 The only persistent state is the `grants` table. Workflows, templates and cron workflows always come
@@ -37,7 +37,17 @@ from Kubernetes, so the database can be rebuilt without losing anything but perm
 
 ### Configuration
 
-`configs/config.yaml` is documented inline. Three settings deserve attention:
+Configuration is layered the kratos-scaffold way, later layers winning:
+
+1. `configs/default/config.yaml` — the defaults, compiled into the binary and documented inline. They
+   are deliberately safe: no identity provider and no development identity.
+2. `configs/local/` — your own overrides, Git-ignored. Start from `configs/local.example.yaml`.
+3. `--config <file or dir>` — an explicit overlay (the Helm chart mounts one; `configs/dev-archive`
+   switches to the local archive setup).
+4. `ARGONAUT_*` environment variables, which fill the `${VAR}` placeholders: `${DATABASE_URL}`,
+   `${JWT_SECRET}` and `${SSO_CLIENT_SECRET}`.
+
+Three settings deserve attention:
 
 - **`kube.context`** — pin it. Without a pinned context the server follows whatever kubeconfig context
   happens to be current, and can silently attach to a different cluster. The resolved context is
@@ -49,7 +59,8 @@ from Kubernetes, so the database can be rebuilt without losing anything but perm
 - **`authz.super_admins`** — bootstrap at least one OIDC subject, or nobody can issue the first grant.
 
 For local development without an identity provider, set `sso.enabled: false` and
-`authz.dev_subject: <subject>`; every request is then treated as that user. The server logs a warning
+`authz.dev_subject: <subject>` in `configs/local/config.yaml`; every request is then treated as that
+user. The server logs a warning
 each time it starts in that mode.
 
 ### Kubeconfig contexts that use a credential plugin

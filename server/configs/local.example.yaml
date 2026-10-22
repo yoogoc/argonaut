@@ -1,0 +1,35 @@
+# Personal overrides: cp configs/local.example.yaml configs/local/config.yaml (Git-ignored), then
+# adjust. Only the keys you set override the embedded defaults in configs/default/config.yaml. The
+# example lives outside configs/local because every file in that directory is loaded.
+
+# Development without an identity provider: every request acts as dev_subject.
+sso:
+  enabled: false
+authz:
+  dev_subject: "developer"
+  super_admins:
+    - "user:developer"
+
+# Or sign in through an OIDC provider instead (export ARGONAUT_SSO_CLIENT_SECRET and
+# ARGONAUT_JWT_SECRET rather than writing secrets here):
+# sso:
+#   enabled: true
+#   issuer: http://localhost:3001/oidc
+#   client_id: <client id>
+#   redirect_url: http://localhost:5173/oauth2/callback
+# authz:
+#   super_admins:
+#     - "user:<your OIDC sub>"
+
+kube:
+  # Pin the kubeconfig context of your development cluster.
+  context: "default"
+  namespaces:
+    - argo
+
+argo:
+  controller_configmap: argo-workflows-workflow-controller-configmap
+
+# data:
+#   database:
+#     source: postgres://argonaut:argonaut@127.0.0.1:5432/argonaut?sslmode=disable

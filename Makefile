@@ -21,9 +21,9 @@ server:
 ## build: UI first, then the binary that embeds it
 build: ui server
 
-## dev-server: run the API against the current kube context with the dev config (no SSO)
+## dev-server: run the API with the defaults plus server/configs/local (cp server/configs/local.example.yaml server/configs/local/config.yaml first)
 dev-server:
-	cd server && go run ./cmd server -c ./configs/dev
+	cd server && go run ./cmd server
 
 ## dev-ui: Vite dev server on :5173, proxying /api to dev-server
 dev-ui:

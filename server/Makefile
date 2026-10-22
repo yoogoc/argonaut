@@ -1,10 +1,10 @@
 .PHONY: migrate
 migrate:
-	go run ./cmd migrate up -c ./configs --dir ./db/migration
+	go run ./cmd migrate up --dir ./db/migration
 
 .PHONY: rollup
 rollup:
-	go run ./cmd migrate down -c ./configs --dir ./db/migration
+	go run ./cmd migrate down --dir ./db/migration
 
 .PHONY: wire
 wire:
