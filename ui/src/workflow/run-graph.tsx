@@ -267,6 +267,12 @@ export function RunGraph({
           type: n.data.kind === "group" ? "retryGroup" : n.data.kind,
           parentId: n.parent,
           position: parent ? { x: p.x - parent.x, y: p.y - parent.y } : { x: p.x, y: p.y },
+          // Explicit dimensions, not just a style: these node objects are rebuilt every second while a run
+          // is live, and React Flow drops the sizes it measured whenever a node object changes. Without
+          // width/height it would hide the nodes until a re-measure that never comes (their DOM size is
+          // unchanged), leaving the canvas empty and the auto-fit waiting forever.
+          width: p.width,
+          height: p.height,
           style: { width: p.width, height: p.height },
           draggable: false,
           selectable: true,

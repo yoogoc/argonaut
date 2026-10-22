@@ -81,7 +81,7 @@ export function SpecGraphView({
     .filter((n) => positions?.has(n.id))
     .map((n) => {
       const st = status?.(n.id);
-      return { id: n.id, type: "spec", position: positions!.get(n.id)!, style: { width: 200, height: 52 }, data: { node: n, phase: status ? (st?.phase ?? "") : undefined, count: st?.count, horizontal: direction === "RIGHT", badge: badge?.(n.id) } satisfies Data };
+      return { id: n.id, type: "spec", position: positions!.get(n.id)!, width: 200, height: 52, style: { width: 200, height: 52 }, data: { node: n, phase: status ? (st?.phase ?? "") : undefined, count: st?.count, horizontal: direction === "RIGHT", badge: badge?.(n.id) } satisfies Data };
     });
   const edges: Edge[] = graph.edges.map((e) => ({
     id: e.id,
