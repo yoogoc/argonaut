@@ -64,11 +64,16 @@ func (uc *WorkflowUsecase) List(ctx context.Context, opts pkgargo.ListOptions) (
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return nil, err
 	}
+	paramFilters, err := pkgargo.ParseParamFilters(opts.Parameters)
+	if err != nil {
+		return nil, errors.BadRequest("invalid_argument", err.Error())
+	}
 	all, err := uc.cache.ListWorkflows(ctx, pkgargo.WorkflowFilter{
 		Namespace:     uc.servers.NamespaceFor(opts.Namespace),
 		LabelSelector: opts.LabelSelector,
 		NamePattern:   opts.NamePattern,
 		Phases:        opts.Phases,
+		Parameters:    paramFilters,
 	})
 	if err != nil {
 		return nil, err

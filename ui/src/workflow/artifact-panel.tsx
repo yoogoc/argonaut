@@ -9,6 +9,7 @@ import { toYaml } from "@/lib/yaml";
 
 import { Code } from "./node-spec";
 import { useArtifactHref } from "./run-source";
+import { SidePanel } from "./side-panel";
 
 /** One artifact's details, with the download as a deliberate action (an archive can be large). */
 export function ArtifactPanel({ workflow, node, artifact, isInput, onClose, onSelectNode }: { workflow: Workflow; node: NodeStatus; artifact: Artifact; isInput: boolean; onClose: () => void; onSelectNode: (node: NodeStatus) => void }) {
@@ -17,7 +18,7 @@ export function ArtifactPanel({ workflow, node, artifact, isInput, onClose, onSe
   const artifactHref = useArtifactHref();
   const href = artifactHref(workflow, node.id, artifact.name, isInput);
   return (
-    <aside aria-label={t("Artifact details")} className="flex h-full min-h-0 w-full flex-col border-l bg-card lg:w-[440px] lg:shrink-0">
+    <SidePanel label={t("Artifact details")}>
       <div className="flex items-start gap-2 border-b px-5 py-4">
         <div className="min-w-0">
           <h2 className="truncate font-mono text-base font-semibold">{artifact.name}</h2>
@@ -55,6 +56,6 @@ export function ArtifactPanel({ workflow, node, artifact, isInput, onClose, onSe
           <Code text={toYaml(artifact)} />
         </section>
       </div>
-    </aside>
+    </SidePanel>
   );
 }

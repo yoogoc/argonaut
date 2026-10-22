@@ -258,7 +258,7 @@ function WorkflowDetailPage() {
       {watchError !== undefined && <ErrorState error={watchError} className="mx-4 mt-3 sm:mx-6" title={t("Live updates stopped")} />}
       {suspended && can("workflow:resume") && <SuspendInputs workflow={workflow} onDone={() => void query.refetch()} />}
 
-      <div className="flex min-h-[560px] flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-[560px] flex-1 flex-col lg:min-h-0 lg:flex-row">
         <div className="relative flex min-h-[420px] min-w-0 flex-1 flex-col bg-canvas">
           {tab === "graph" && (
             <>

@@ -17,6 +17,7 @@ import { toYaml } from "@/lib/yaml";
 import { LogViewer } from "./log-viewer";
 import { Code, NodeSpec } from "./node-spec";
 import { useArtifactHref } from "./run-source";
+import { SidePanel } from "./side-panel";
 
 /**
  * The node inspector. A node that belongs to a Retry shows its attempts as a switcher, and every tab
@@ -55,7 +56,7 @@ export function NodePanel({
   const logContainers = containers.length ? [...containers, "init", "wait"] : ["main", "init", "wait"];
 
   return (
-    <aside aria-label={t("Node details")} className="flex h-full min-h-0 w-full flex-col border-l bg-card lg:w-[480px] lg:shrink-0">
+    <SidePanel label={t("Node details")}>
       <div className="flex flex-col gap-3 px-5 pt-4">
         <div className="flex items-center gap-2.5">
           <h2 className="min-w-0 truncate font-mono text-base font-semibold">{node.displayName || node.name}</h2>
@@ -144,7 +145,7 @@ export function NodePanel({
           <Code text={toYaml(node)} className="max-h-none" />
         </TabsContent>
       </Tabs>
-    </aside>
+    </SidePanel>
   );
 }
 

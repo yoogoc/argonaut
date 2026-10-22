@@ -36,6 +36,8 @@ type ListOptions struct {
 	NamePattern string
 	// Phases filters workflow status; ignored for templates and cron workflows.
 	Phases []string
+	// Parameters filters workflows by run parameter; see ParseParamFilters.
+	Parameters []string
 	Limit  int64
 	// ContinueToken is an offset into the sorted result, not a Kubernetes continue token: the sort
 	// order is ours, so paging has to be ours too.

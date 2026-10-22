@@ -196,6 +196,7 @@ type WorkflowFilter struct {
 	LabelSelector string
 	NamePattern   string
 	Phases        []string
+	Parameters    []ParamFilter
 }
 
 // ListWorkflows returns matching (light) workflows, newest first.
@@ -224,6 +225,9 @@ func (c *Cache) ListWorkflows(ctx context.Context, f WorkflowFilter) ([]*wfv1.Wo
 				continue
 			}
 			if len(phases) > 0 && !phases[workflowPhase(wf)] {
+				continue
+			}
+			if !matchParams(wf, f.Parameters) {
 				continue
 			}
 			out = append(out, wf)
@@ -441,6 +445,30 @@ func (c *Cache) templateHandler(cluster bool) cache.ResourceEventHandler {
 
 // ---- transforms ----
 
+// runParameters is what a run was started with, for the list: the template's defaults (the stored
+// template spec, which Argo merges with the submitted arguments) overridden by the workflow's own.
+// Only names and values are kept; descriptions, enums and valueFrom are detail-page material.
+func runParameters(wf *wfv1.Workflow) []wfv1.Parameter {
+	var out []wfv1.Parameter
+	index := map[string]int{}
+	add := func(params []wfv1.Parameter) {
+		for _, p := range params {
+			light := wfv1.Parameter{Name: p.Name, Value: p.Value}
+			if i, ok := index[p.Name]; ok {
+				out[i] = light
+				continue
+			}
+			index[p.Name] = len(out)
+			out = append(out, light)
+		}
+	}
+	if stored := wf.Status.StoredWorkflowSpec; stored != nil {
+		add(stored.Arguments.Parameters)
+	}
+	add(wf.Spec.Arguments.Parameters)
+	return out
+}
+
 // lightWorkflow keeps what list rows, filters and authorization read, and drops the rest — chiefly
 // status.nodes and the stored template copies, which dominate a workflow's size.
 func lightWorkflow(obj any) (any, error) {
@@ -459,6 +487,7 @@ func lightWorkflow(obj any) (any, error) {
 			Entrypoint:          wf.Spec.Entrypoint,
 			Suspend:             wf.Spec.Suspend,
 			Shutdown:            wf.Spec.Shutdown,
+			Arguments:           wfv1.Arguments{Parameters: runParameters(wf)},
 		},
 		Status: wfv1.WorkflowStatus{
 			Phase:             wf.Status.Phase,

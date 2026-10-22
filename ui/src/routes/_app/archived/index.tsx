@@ -18,6 +18,7 @@ import { useNamespace } from "@/hooks/use-namespace";
 import { formatDuration, formatTimestamp } from "@/lib/format";
 import { sourceTemplate } from "@/lib/workflow";
 import { useSession } from "@/stores/session";
+import { RunParams } from "@/workflow/run-params";
 
 const PAGE_SIZE = 50;
 const PHASES = ["Succeeded", "Failed", "Error"] as const;
@@ -112,6 +113,7 @@ function ArchiveListPage() {
                     <TableHead>{t("Name")}</TableHead>
                     <TableHead>{t("Phase")}</TableHead>
                     <TableHead>{t("Template")}</TableHead>
+                    <TableHead>{t("Parameters")}</TableHead>
                     <TableHead>{t("Started")}</TableHead>
                     <TableHead>{t("Duration")}</TableHead>
                   </TableRow>
@@ -128,6 +130,9 @@ function ArchiveListPage() {
                         <PhaseBadge phase={wf.status?.phase} />
                       </TableCell>
                       <TableCell className="font-mono text-xs">{sourceTemplate(wf) ?? "—"}</TableCell>
+                      <TableCell>
+                        <RunParams params={wf.spec?.arguments?.parameters} />
+                      </TableCell>
                       <TableCell className="text-[13px]">{formatTimestamp(wf.status?.startedAt)}</TableCell>
                       <TableCell className="font-mono text-xs">{formatDuration(wf.status?.startedAt, wf.status?.finishedAt)}</TableCell>
                     </TableRow>

@@ -9,6 +9,7 @@ const en: Record<string, string> = {
   "{{count}} lines_one": "1 line",
   "{{count}} problems_one": "1 problem",
   "{{n}} problems_one": "1 problem",
+  "{{count}} parameters_one": "1 parameter",
   retried_one: "retried once",
   retried_other: "retried {{count}} times",
 };

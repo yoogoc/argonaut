@@ -34,6 +34,7 @@ func (s *WorkflowService) List(ctx context.Context, req *v1.ListWorkflowRequest)
 		LabelSelector: req.GetLabelSelector(),
 		NamePattern:   req.GetNamePattern(),
 		Phases:        req.GetPhases(),
+		Parameters:    req.GetParameters(),
 		Limit:         req.GetLimit(),
 		ContinueToken: req.GetContinueToken(),
 	})

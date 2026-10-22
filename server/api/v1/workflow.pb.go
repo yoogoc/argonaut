@@ -35,8 +35,12 @@ type ListWorkflowRequest struct {
 	FinishedBefore *string  `protobuf:"bytes,6,opt,name=finishedBefore,proto3,oneof" json:"finishedBefore,omitempty"`
 	Limit          *int64   `protobuf:"varint,7,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	ContinueToken  *string  `protobuf:"bytes,8,opt,name=continueToken,proto3,oneof" json:"continueToken,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// parameters filters by the run's parameters (template defaults under submitted values); every term
+	// must match: "name=value" is an exact value, "name~text" a case-insensitive substring, and a bare
+	// "name" means the parameter is present.
+	Parameters    []string `protobuf:"bytes,9,rep,name=parameters,proto3" json:"parameters,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListWorkflowRequest) Reset() {
@@ -123,6 +127,13 @@ func (x *ListWorkflowRequest) GetContinueToken() string {
 		return *x.ContinueToken
 	}
 	return ""
+}
+
+func (x *ListWorkflowRequest) GetParameters() []string {
+	if x != nil {
+		return x.Parameters
+	}
+	return nil
 }
 
 type ListWorkflowReply struct {
@@ -1457,7 +1468,7 @@ var File_api_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_api_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x15api/v1/workflow.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1aPgithub.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto\"\x9b\x03\n" +
+	"\x15api/v1/workflow.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1aPgithub.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto\"\xbb\x03\n" +
 	"\x13ListWorkflowRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12%\n" +
 	"\vnamePattern\x18\x02 \x01(\tH\x00R\vnamePattern\x88\x01\x01\x12)\n" +
@@ -1466,7 +1477,10 @@ const file_api_v1_workflow_proto_rawDesc = "" +
 	"\fcreatedAfter\x18\x05 \x01(\tH\x02R\fcreatedAfter\x88\x01\x01\x12+\n" +
 	"\x0efinishedBefore\x18\x06 \x01(\tH\x03R\x0efinishedBefore\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\a \x01(\x03H\x04R\x05limit\x88\x01\x01\x12)\n" +
-	"\rcontinueToken\x18\b \x01(\tH\x05R\rcontinueToken\x88\x01\x01B\x0e\n" +
+	"\rcontinueToken\x18\b \x01(\tH\x05R\rcontinueToken\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"parameters\x18\t \x03(\tR\n" +
+	"parametersB\x0e\n" +
 	"\f_namePatternB\x10\n" +
 	"\x0e_labelSelectorB\x0f\n" +
 	"\r_createdAfterB\x11\n" +

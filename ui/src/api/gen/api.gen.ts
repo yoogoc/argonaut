@@ -395,6 +395,8 @@ export interface ListWorkflowRequest {
   finishedBefore?: string;
   limit?: number;
   continueToken?: string;
+  /** parameters filters by the run's parameters (template defaults under submitted values); every term must match: "name=value" is an exact value, "name~text" a case-insensitive substring, and a bare "name" means the parameter is present. */
+  parameters?: string[];
 }
 
 /** (workflowtemplate.proto) */

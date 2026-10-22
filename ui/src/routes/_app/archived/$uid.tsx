@@ -171,7 +171,7 @@ function ArchivedDetailPage() {
           </Tabs>
         </section>
 
-        <div className="flex min-h-[560px] flex-1 flex-col lg:flex-row">
+        <div className="flex min-h-[560px] flex-1 flex-col lg:min-h-0 lg:flex-row">
           <div className="relative flex min-h-[420px] min-w-0 flex-1 flex-col bg-canvas">
             {tab === "graph" && (
               <>

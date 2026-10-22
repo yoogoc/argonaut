@@ -257,7 +257,7 @@ function Editor({ scope, templateRef, runNamespace }: { scope: TemplateScope; te
   const detailLink = templateRef ? (templateRef.cluster ? { to: "/cluster-templates/$name" as const, params: { name: templateRef.name } } : { to: "/templates/$namespace/$name" as const, params: { namespace: templateRef.namespace, name: templateRef.name } }) : undefined;
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
         <nav aria-label={t("Breadcrumb")} className="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
           <Link to={scope.cluster ? "/cluster-templates" : "/templates"} className="hover:text-foreground">

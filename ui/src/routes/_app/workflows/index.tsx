@@ -32,6 +32,8 @@ import { useNow } from "@/hooks/use-now";
 import { formatDuration, formatRelative, formatTimestamp, parseProgress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { isRunning, isSuspended, sourceTemplate } from "@/lib/workflow";
+import { ParamFilter } from "@/workflow/param-filter";
+import { RunParams } from "@/workflow/run-params";
 
 const PAGE_SIZE = 50;
 const PHASES = ["Running", "Pending", "Succeeded", "Failed", "Error"] as const;
@@ -40,6 +42,7 @@ const searchSchema = z.object({
   q: z.string().optional(),
   phases: z.array(z.string()).optional(),
   labels: z.string().optional(),
+  params: z.array(z.string()).optional(),
   offset: z.string().optional(),
 });
 
@@ -65,6 +68,7 @@ function WorkflowListPage() {
     namePattern: search.q || undefined,
     labelSelector: search.labels || undefined,
     phases: search.phases?.length ? search.phases : undefined,
+    parameters: search.params?.length ? search.params : undefined,
     limit: PAGE_SIZE,
     continueToken: search.offset,
   };
@@ -218,6 +222,7 @@ function WorkflowListPage() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <ParamFilter value={search.params ?? []} onChange={(terms) => setSearch({ params: terms.length ? terms : undefined })} />
         <form
           className="ml-auto flex items-center gap-2"
           onSubmit={(e) => {
@@ -286,11 +291,12 @@ function WorkflowListPage() {
                       onCheckedChange={(checked) => setSelected(checked ? new Set(items.map((wf) => wf.metadata.uid ?? wf.metadata.name)) : new Set())}
                     />
                   </TableHead>
-                  <TableHead>{t("Status")}</TableHead>
                   <TableHead>{t("Name")}</TableHead>
                   <TableHead>{t("Template")}</TableHead>
+                  <TableHead>{t("Parameters")}</TableHead>
                   <TableHead>{t("Started")}</TableHead>
                   <TableHead>{t("Duration")}</TableHead>
+                  <TableHead>{t("Status")}</TableHead>
                   <TableHead>{t("Progress")}</TableHead>
                   <TableHead>{t("Message")}</TableHead>
                 </TableRow>
@@ -299,7 +305,7 @@ function WorkflowListPage() {
                 {query.isPending &&
                   Array.from({ length: 8 }, (_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={8}>
+                      <TableCell colSpan={9}>
                         <Skeleton className="h-5 w-full" />
                       </TableCell>
                     </TableRow>
@@ -313,9 +319,6 @@ function WorkflowListPage() {
                     <TableRow key={key} data-state={selected.has(key) ? "selected" : undefined}>
                       <TableCell>
                         <Checkbox aria-label={t("Select {{name}}", { name: wf.metadata.name })} checked={selected.has(key)} onCheckedChange={() => toggle(wf)} />
-                      </TableCell>
-                      <TableCell>
-                        <PhaseBadge phase={wf.status?.phase} suspended={isSuspended(wf)} />
                       </TableCell>
                       <TableCell>
                         <Link
@@ -337,10 +340,16 @@ function WorkflowListPage() {
                           ) : "—"
                         )}
                       </TableCell>
+                      <TableCell>
+                        <RunParams params={wf.spec.arguments?.parameters} onFilter={(term) => setSearch({ params: [...(search.params ?? []).filter((t) => t !== term), term] })} />
+                      </TableCell>
                       <TableCell className="text-muted-foreground" title={formatTimestamp(wf.status?.startedAt ?? wf.metadata.creationTimestamp)}>
                         {formatRelative(wf.status?.startedAt ?? wf.metadata.creationTimestamp)}
                       </TableCell>
                       <TableCell className="font-mono text-[13px]">{formatDuration(wf.status?.startedAt, wf.status?.finishedAt, now)}</TableCell>
+                      <TableCell>
+                        <PhaseBadge phase={wf.status?.phase} suspended={isSuspended(wf)} />
+                      </TableCell>
                       <TableCell>
                         {progress ? (
                           <div className="flex items-center gap-2">

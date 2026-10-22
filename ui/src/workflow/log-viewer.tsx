@@ -159,7 +159,7 @@ export function LogViewer({
         </Button>
       </div>
       {error !== undefined && <ErrorState error={error} />}
-      <div ref={scroller} className="relative min-h-48 flex-1 overflow-auto rounded-lg bg-zinc-950 font-mono text-xs leading-5 text-zinc-200">
+      <div ref={scroller} className="relative max-h-[60vh] min-h-48 flex-1 overflow-auto rounded-lg bg-zinc-950 lg:max-h-none font-mono text-xs leading-5 text-zinc-200">
         {filtered.length === 0 ? (
           <p className="p-3 text-zinc-400">{grep && lines.length ? t("No lines match the filter.") : running && !ended ? t("Waiting for output…") : t("No log output.")}</p>
         ) : (

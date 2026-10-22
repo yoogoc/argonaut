@@ -16,6 +16,8 @@ export interface WorkflowListParams {
   namePattern?: string;
   labelSelector?: string;
   phases?: string[];
+  /** Run-parameter filter terms: name=value, name~text or name. */
+  parameters?: string[];
   createdAfter?: string;
   finishedBefore?: string;
   limit?: number;
@@ -24,7 +26,7 @@ export interface WorkflowListParams {
 
 export async function listWorkflows(params: WorkflowListParams): Promise<List<Workflow>> {
   const reply = await http
-    .get(`workflows${query({ ...params, phases: params.phases })}`)
+    .get(`workflows${query({ ...params })}`)
     .json<{ list: List<Workflow> }>();
   return reply.list;
 }
@@ -52,6 +54,7 @@ export async function getWorkflow(
 export const LIST_WATCH_FIELDS = [
   "result.object.metadata",
   "result.object.spec.workflowTemplateRef",
+  "result.object.spec.arguments",
   "result.object.status.phase",
   "result.object.status.message",
   "result.object.status.startedAt",

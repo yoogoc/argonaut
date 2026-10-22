@@ -14,11 +14,16 @@ export const Route = createFileRoute("/_app")({
   component: AppLayout,
 });
 
+// The layout is exactly the viewport tall and pages scroll inside it, so full-height views (run
+// details, the editor) get a bounded area: their panels and log views scroll rather than stretching
+// the page.
 function AppLayout() {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex h-dvh flex-col">
       <AppHeader />
-      <Outlet />
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+        <Outlet />
+      </div>
     </div>
   );
 }
