@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	wfv1 "github.com/argoproj/argo-workflows/v4/pkg/apis/workflow/v1alpha1"
+	"github.com/argoproj/argo-workflows/v4/workflow/common"
 )
 
 // ParamFilter is one term of a run-parameter filter on the workflow list.
@@ -60,4 +61,21 @@ func matchParams(wf *wfv1.Workflow, filters []ParamFilter) bool {
 		}
 	}
 	return true
+}
+
+// WorkflowSource identifies the template a run was started from, as the list's template filter
+// names it: the WorkflowTemplate name, "cluster/<name>" for a ClusterWorkflowTemplate, or "" for a
+// run with no template. spec.workflowTemplateRef wins over Argo's lineage labels, as it does for
+// permissions (biz.WorkflowResource).
+func WorkflowSource(wf *wfv1.Workflow) string {
+	if ref := wf.Spec.WorkflowTemplateRef; ref != nil && ref.Name != "" {
+		if ref.ClusterScope {
+			return "cluster/" + ref.Name
+		}
+		return ref.Name
+	}
+	if name := wf.Labels[common.LabelKeyClusterWorkflowTemplate]; name != "" {
+		return "cluster/" + name
+	}
+	return wf.Labels[common.LabelKeyWorkflowTemplate]
 }

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { archiveQueries } from "@/api/archive";
 import { Page, PageHeader } from "@/components/common/page";
 import { PhaseBadge } from "@/components/common/phase-badge";
+import { RunTime, TimeDisplayToggle } from "@/components/common/run-time";
 import { EmptyState, ErrorState } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useNamespace } from "@/hooks/use-namespace";
-import { formatDuration, formatTimestamp } from "@/lib/format";
+import { formatDuration } from "@/lib/format";
 import { sourceTemplate } from "@/lib/workflow";
 import { useSession } from "@/stores/session";
 import { RunParams } from "@/workflow/run-params";
@@ -114,7 +115,9 @@ function ArchiveListPage() {
                     <TableHead>{t("Phase")}</TableHead>
                     <TableHead>{t("Template")}</TableHead>
                     <TableHead>{t("Parameters")}</TableHead>
-                    <TableHead>{t("Started")}</TableHead>
+                    <TableHead>
+                      <TimeDisplayToggle label={t("Started")} />
+                    </TableHead>
                     <TableHead>{t("Duration")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -133,7 +136,9 @@ function ArchiveListPage() {
                       <TableCell>
                         <RunParams params={wf.spec?.arguments?.parameters} />
                       </TableCell>
-                      <TableCell className="text-[13px]">{formatTimestamp(wf.status?.startedAt)}</TableCell>
+                      <TableCell className="text-[13px]">
+                        <RunTime value={wf.status?.startedAt} />
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{formatDuration(wf.status?.startedAt, wf.status?.finishedAt)}</TableCell>
                     </TableRow>
                   ))}

@@ -55,11 +55,11 @@ type workflowSub struct {
 // TemplateChange reports a WorkflowTemplate or ClusterWorkflowTemplate being added, updated or
 // deleted. Initial is true for the adds that fill the cache at startup.
 type TemplateChange struct {
-	Cluster   bool
-	Namespace string
-	Name      string
-	Deleted   bool
-	Initial   bool
+	Cluster         bool
+	Namespace       string
+	Name            string
+	Deleted         bool
+	Initial         bool
 	Template        *wfv1.WorkflowTemplate
 	ClusterTemplate *wfv1.ClusterWorkflowTemplate
 }
@@ -197,6 +197,8 @@ type WorkflowFilter struct {
 	NamePattern   string
 	Phases        []string
 	Parameters    []ParamFilter
+	// Templates holds source keys as returned by WorkflowSource ("name" or "cluster/name").
+	Templates []string
 }
 
 // ListWorkflows returns matching (light) workflows, newest first.
@@ -207,6 +209,12 @@ func (c *Cache) ListWorkflows(ctx context.Context, f WorkflowFilter) ([]*wfv1.Wo
 	selector, err := parseSelector(f.LabelSelector)
 	if err != nil {
 		return nil, err
+	}
+	templates := map[string]bool{}
+	for _, t := range f.Templates {
+		if t = strings.TrimSpace(t); t != "" {
+			templates[t] = true
+		}
 	}
 	phases := map[string]bool{}
 	for _, p := range f.Phases {
@@ -228,6 +236,9 @@ func (c *Cache) ListWorkflows(ctx context.Context, f WorkflowFilter) ([]*wfv1.Wo
 				continue
 			}
 			if !matchParams(wf, f.Parameters) {
+				continue
+			}
+			if len(templates) > 0 && !templates[WorkflowSource(wf)] {
 				continue
 			}
 			out = append(out, wf)

@@ -10,6 +10,7 @@ const en: Record<string, string> = {
   "{{count}} problems_one": "1 problem",
   "{{n}} problems_one": "1 problem",
   "{{count}} parameters_one": "1 parameter",
+  "{{count}} templates_one": "1 template",
   retried_one: "retried once",
   retried_other: "retried {{count}} times",
 };

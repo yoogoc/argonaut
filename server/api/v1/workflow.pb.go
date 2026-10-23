@@ -38,7 +38,10 @@ type ListWorkflowRequest struct {
 	// parameters filters by the run's parameters (template defaults under submitted values); every term
 	// must match: "name=value" is an exact value, "name~text" a case-insensitive substring, and a bare
 	// "name" means the parameter is present.
-	Parameters    []string `protobuf:"bytes,9,rep,name=parameters,proto3" json:"parameters,omitempty"`
+	Parameters []string `protobuf:"bytes,9,rep,name=parameters,proto3" json:"parameters,omitempty"`
+	// templates keeps runs started from any of these templates: a WorkflowTemplate name, or
+	// "cluster/<name>" for a ClusterWorkflowTemplate.
+	Templates     []string `protobuf:"bytes,10,rep,name=templates,proto3" json:"templates,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -132,6 +135,13 @@ func (x *ListWorkflowRequest) GetContinueToken() string {
 func (x *ListWorkflowRequest) GetParameters() []string {
 	if x != nil {
 		return x.Parameters
+	}
+	return nil
+}
+
+func (x *ListWorkflowRequest) GetTemplates() []string {
+	if x != nil {
+		return x.Templates
 	}
 	return nil
 }
@@ -1468,7 +1478,7 @@ var File_api_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_api_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x15api/v1/workflow.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1aPgithub.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto\"\xbb\x03\n" +
+	"\x15api/v1/workflow.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1aPgithub.com/argoproj/argo_workflows/v4/pkg/apis/workflow/v1alpha1/generated.proto\"\xd9\x03\n" +
 	"\x13ListWorkflowRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12%\n" +
 	"\vnamePattern\x18\x02 \x01(\tH\x00R\vnamePattern\x88\x01\x01\x12)\n" +
@@ -1480,7 +1490,9 @@ const file_api_v1_workflow_proto_rawDesc = "" +
 	"\rcontinueToken\x18\b \x01(\tH\x05R\rcontinueToken\x88\x01\x01\x12\x1e\n" +
 	"\n" +
 	"parameters\x18\t \x03(\tR\n" +
-	"parametersB\x0e\n" +
+	"parameters\x12\x1c\n" +
+	"\ttemplates\x18\n" +
+	" \x03(\tR\ttemplatesB\x0e\n" +
 	"\f_namePatternB\x10\n" +
 	"\x0e_labelSelectorB\x0f\n" +
 	"\r_createdAfterB\x11\n" +

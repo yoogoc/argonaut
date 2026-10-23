@@ -19,6 +19,7 @@ import {
 import { ConfirmAction } from "@/components/common/confirm-action";
 import { Page, PageHeader } from "@/components/common/page";
 import { PhaseBadge, phaseTone, toneSolid } from "@/components/common/phase-badge";
+import { RunTime, TimeDisplayToggle } from "@/components/common/run-time";
 import { EmptyState, ErrorState, errorMessage } from "@/components/common/states";
 import { SubmitYamlDialog } from "@/components/common/submit-yaml-dialog";
 import { Button } from "@/components/ui/button";
@@ -29,11 +30,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useNamespace } from "@/hooks/use-namespace";
 import { useNow } from "@/hooks/use-now";
-import { formatDuration, formatRelative, formatTimestamp, parseProgress } from "@/lib/format";
+import { formatDuration, parseProgress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { isRunning, isSuspended, sourceTemplate } from "@/lib/workflow";
 import { ParamFilter } from "@/workflow/param-filter";
 import { RunParams } from "@/workflow/run-params";
+import { TemplateFilter } from "@/workflow/template-filter";
 
 const PAGE_SIZE = 50;
 const PHASES = ["Running", "Pending", "Succeeded", "Failed", "Error"] as const;
@@ -43,6 +45,7 @@ const searchSchema = z.object({
   phases: z.array(z.string()).optional(),
   labels: z.string().optional(),
   params: z.array(z.string()).optional(),
+  templates: z.array(z.string()).optional(),
   offset: z.string().optional(),
 });
 
@@ -69,6 +72,7 @@ function WorkflowListPage() {
     labelSelector: search.labels || undefined,
     phases: search.phases?.length ? search.phases : undefined,
     parameters: search.params?.length ? search.params : undefined,
+    templates: search.templates?.length ? search.templates : undefined,
     limit: PAGE_SIZE,
     continueToken: search.offset,
   };
@@ -222,6 +226,7 @@ function WorkflowListPage() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <TemplateFilter namespace={namespace} value={search.templates ?? []} onChange={(keys) => setSearch({ templates: keys.length ? keys : undefined })} />
         <ParamFilter value={search.params ?? []} onChange={(terms) => setSearch({ params: terms.length ? terms : undefined })} />
         <form
           className="ml-auto flex items-center gap-2"
@@ -294,7 +299,9 @@ function WorkflowListPage() {
                   <TableHead>{t("Name")}</TableHead>
                   <TableHead>{t("Template")}</TableHead>
                   <TableHead>{t("Parameters")}</TableHead>
-                  <TableHead>{t("Started")}</TableHead>
+                  <TableHead>
+                    <TimeDisplayToggle label={t("Started")} />
+                  </TableHead>
                   <TableHead>{t("Duration")}</TableHead>
                   <TableHead>{t("Status")}</TableHead>
                   <TableHead>{t("Progress")}</TableHead>
@@ -343,8 +350,8 @@ function WorkflowListPage() {
                       <TableCell>
                         <RunParams params={wf.spec.arguments?.parameters} onFilter={(term) => setSearch({ params: [...(search.params ?? []).filter((t) => t !== term), term] })} />
                       </TableCell>
-                      <TableCell className="text-muted-foreground" title={formatTimestamp(wf.status?.startedAt ?? wf.metadata.creationTimestamp)}>
-                        {formatRelative(wf.status?.startedAt ?? wf.metadata.creationTimestamp)}
+                      <TableCell className="text-muted-foreground">
+                        <RunTime value={wf.status?.startedAt ?? wf.metadata.creationTimestamp} />
                       </TableCell>
                       <TableCell className="font-mono text-[13px]">{formatDuration(wf.status?.startedAt, wf.status?.finishedAt, now)}</TableCell>
                       <TableCell>

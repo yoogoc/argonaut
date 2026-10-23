@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	wfv1 "github.com/argoproj/argo-workflows/v4/pkg/apis/workflow/v1alpha1"
+	"github.com/argoproj/argo-workflows/v4/workflow/common"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRunParametersMergesTemplateDefaultsUnderSubmittedValues(t *testing.T) {
@@ -68,5 +70,23 @@ func TestParamFilters(t *testing.T) {
 	}
 	if _, err := ParseParamFilters([]string{"=uat"}); err == nil {
 		t.Error("a term without a name was accepted")
+	}
+}
+
+func TestWorkflowSource(t *testing.T) {
+	cases := []struct {
+		wf   wfv1.Workflow
+		want string
+	}{
+		{wfv1.Workflow{Spec: wfv1.WorkflowSpec{WorkflowTemplateRef: &wfv1.WorkflowTemplateRef{Name: "etl"}}}, "etl"},
+		{wfv1.Workflow{Spec: wfv1.WorkflowSpec{WorkflowTemplateRef: &wfv1.WorkflowTemplateRef{Name: "spark", ClusterScope: true}}}, "cluster/spark"},
+		{wfv1.Workflow{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{common.LabelKeyWorkflowTemplate: "etl"}}}, "etl"},
+		{wfv1.Workflow{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{common.LabelKeyClusterWorkflowTemplate: "spark"}}}, "cluster/spark"},
+		{wfv1.Workflow{}, ""},
+	}
+	for i, c := range cases {
+		if got := WorkflowSource(&c.wf); got != c.want {
+			t.Errorf("case %d: got %q, want %q", i, got, c.want)
+		}
 	}
 }

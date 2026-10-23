@@ -18,6 +18,8 @@ export interface WorkflowListParams {
   phases?: string[];
   /** Run-parameter filter terms: name=value, name~text or name. */
   parameters?: string[];
+  /** Source templates: a WorkflowTemplate name, or cluster/<name>. */
+  templates?: string[];
   createdAfter?: string;
   finishedBefore?: string;
   limit?: number;

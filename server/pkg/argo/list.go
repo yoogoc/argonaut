@@ -38,7 +38,10 @@ type ListOptions struct {
 	Phases []string
 	// Parameters filters workflows by run parameter; see ParseParamFilters.
 	Parameters []string
-	Limit  int64
+	// Templates keeps runs started from any of these templates: a WorkflowTemplate name, or
+	// "cluster/<name>" for a ClusterWorkflowTemplate.
+	Templates []string
+	Limit     int64
 	// ContinueToken is an offset into the sorted result, not a Kubernetes continue token: the sort
 	// order is ours, so paging has to be ours too.
 	ContinueToken string

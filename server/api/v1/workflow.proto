@@ -135,6 +135,9 @@ message ListWorkflowRequest {
   // must match: "name=value" is an exact value, "name~text" a case-insensitive substring, and a bare
   // "name" means the parameter is present.
   repeated string parameters = 9;
+  // templates keeps runs started from any of these templates: a WorkflowTemplate name, or
+  // "cluster/<name>" for a ClusterWorkflowTemplate.
+  repeated string templates = 10;
 }
 message ListWorkflowReply {
   github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowList list = 1;

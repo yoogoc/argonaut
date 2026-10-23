@@ -74,6 +74,7 @@ func (uc *WorkflowUsecase) List(ctx context.Context, opts pkgargo.ListOptions) (
 		NamePattern:   opts.NamePattern,
 		Phases:        opts.Phases,
 		Parameters:    paramFilters,
+		Templates:     opts.Templates,
 	})
 	if err != nil {
 		return nil, err

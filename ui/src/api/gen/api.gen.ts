@@ -397,6 +397,8 @@ export interface ListWorkflowRequest {
   continueToken?: string;
   /** parameters filters by the run's parameters (template defaults under submitted values); every term must match: "name=value" is an exact value, "name~text" a case-insensitive substring, and a bare "name" means the parameter is present. */
   parameters?: string[];
+  /** templates keeps runs started from any of these templates: a WorkflowTemplate name, or "cluster/<name>" for a ClusterWorkflowTemplate. */
+  templates?: string[];
 }
 
 /** (workflowtemplate.proto) */
