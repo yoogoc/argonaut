@@ -12,6 +12,7 @@ import (
 	xoidc "argonaut/internal/oidc"
 	"argonaut/internal/service"
 	"argonaut/internal/viewer"
+	pkgargo "argonaut/pkg/argo"
 	km "argonaut/pkg/kratos/middleware"
 	"argonaut/web"
 
@@ -52,11 +53,14 @@ func NewHTTPServer(
 	authz *service.AuthzService,
 	info *service.InfoService,
 	artifacts *service.ArtifactHandler,
+	clusters *service.ClusterService,
+	sw *pkgargo.ClusterSwitch,
 ) *http.Server {
 	mws := []middleware.Middleware{
 		recovery.Recovery(),
 		logging.Server(logger),
 		km.ProtoValidate(),
+		pinCluster(sw),
 	}
 	needsAuth := func(_ context.Context, operation string) bool {
 		for _, skip := range skipAuthOperations {
@@ -90,7 +94,7 @@ func NewHTTPServer(
 		http.ResponseEncoder(responseEncoder),
 		http.Filter(handlers.CORS(
 			handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", service.RevisionHeader}),
-			handlers.ExposedHeaders([]string{service.RevisionHeader}),
+			handlers.ExposedHeaders([]string{service.RevisionHeader, service.ClusterHeader}),
 			handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS", "DELETE", "PATCH"}),
 			handlers.AllowedOrigins([]string{"*"}),
 		)),
@@ -122,10 +126,11 @@ func NewHTTPServer(
 	v1.RegisterCronWorkflowServiceHTTPServer(srv, cron)
 	v1.RegisterAuthzServiceHTTPServer(srv, authz)
 	v1.RegisterInfoServiceHTTPServer(srv, info)
+	v1.RegisterClusterServiceHTTPServer(srv, clusters)
 
 	// Artifact downloads bypass the Kratos codec so the payload can stream. The generated routes
 	// above use fixed paths, so these prefixes cannot collide with them.
-	registerArtifactRoutes(srv, sso, authzConf, signer, authzUC, artifacts)
+	registerArtifactRoutes(srv, sso, authzConf, signer, authzUC, artifacts, sw)
 
 	// Everything else is the UI. Registered last so the API routes above always win.
 	srv.HandlePrefix("/", web.Handler())
@@ -136,14 +141,14 @@ func NewHTTPServer(
 // registerArtifactRoutes mounts the streaming download handlers. They sit outside the Kratos
 // middleware chain, so the same authentication the RPCs get has to be applied explicitly here —
 // forgetting it would leave every artifact readable by anyone who can reach the port.
-func registerArtifactRoutes(srv *http.Server, sso *conf.SSO, authzConf *conf.Authz, signer *xoidc.Signer, authzUC *biz.AuthzUsecase, artifacts *service.ArtifactHandler) {
+func registerArtifactRoutes(srv *http.Server, sso *conf.SSO, authzConf *conf.Authz, signer *xoidc.Signer, authzUC *biz.AuthzUsecase, artifacts *service.ArtifactHandler, sw *pkgargo.ClusterSwitch) {
 	routes := map[string]stdhttp.HandlerFunc{
 		"/api/v1/artifacts/":          artifacts.Output,
 		"/api/v1/input-artifacts/":    artifacts.Input,
 		"/api/v1/archived-artifacts/": artifacts.Archived,
 	}
 	for prefix, handler := range routes {
-		srv.HandlePrefix(prefix, withIdentity(sso, authzConf, signer, freshHandler(authzUC, handler)))
+		srv.HandlePrefix(prefix, withIdentity(sso, authzConf, signer, freshHandler(authzUC, pinClusterHandler(sw, handler))))
 	}
 }
 
@@ -206,5 +211,33 @@ func freshHandler(uc *biz.AuthzUsecase, next stdhttp.HandlerFunc) stdhttp.Handle
 		}
 		w.Header().Set(service.RevisionHeader, strconv.FormatInt(uc.Revision(), 10))
 		next(w, r)
+	}
+}
+
+// pinCluster fixes the cluster a request runs against when it arrives (pkgargo.ClusterSwitch), so a
+// switch in the middle of a request cannot make it read one cluster and write another. With switching
+// enabled the reply names the cluster that answered.
+func pinCluster(sw *pkgargo.ClusterSwitch) middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
+		return func(ctx context.Context, req any) (any, error) {
+			ctx = sw.Pin(ctx)
+			if sw.Enabled() {
+				if tr, ok := transport.FromServerContext(ctx); ok {
+					tr.ReplyHeader().Set(service.ClusterHeader, sw.For(ctx).ID)
+				}
+			}
+			return handler(ctx, req)
+		}
+	}
+}
+
+// pinClusterHandler is pinCluster for the raw (non-Kratos) handlers.
+func pinClusterHandler(sw *pkgargo.ClusterSwitch, next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		ctx := sw.Pin(r.Context())
+		if sw.Enabled() {
+			w.Header().Set(service.ClusterHeader, sw.For(ctx).ID)
+		}
+		next(w, r.WithContext(ctx))
 	}
 }

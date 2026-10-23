@@ -6,6 +6,7 @@ option java_package = "api.v1";
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "api/v1/cluster.proto";
 
 // InfoService reports server capabilities the UI needs at boot. Unlike Argo's InfoService this is
 // implemented locally (argonaut never talks to argo-server).
@@ -29,6 +30,8 @@ message GetInfoReply {
   repeated Link links = 5;
   // archiveEnabled is true when the controller archives finished workflows to its database.
   bool archiveEnabled = 6;
+  // cluster is the connected cluster when the instance can be switched between several; unset otherwise.
+  ClusterInfo cluster = 7;
   // modals/columns are omitted deliberately; add only when the UI needs them.
 }
 

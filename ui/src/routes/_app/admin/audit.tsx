@@ -140,6 +140,7 @@ function Row({ e, open, onToggle }: { e: AuditEvent; open: boolean; onToggle: ()
           <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{e.action}</span>
         </TableCell>
         <TableCell className="max-w-80 truncate">
+          {e.cluster && <span className="mr-1.5 rounded bg-muted px-1 text-[11px] text-muted-foreground">{e.cluster}</span>}
           <span className="text-xs text-muted-foreground">{e.resourceType} </span>
           <span className="font-mono text-xs">{resource}</span>
         </TableCell>

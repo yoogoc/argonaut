@@ -33,3 +33,20 @@ argo:
 # data:
 #   database:
 #     source: postgres://argonaut:argonaut@127.0.0.1:5432/argonaut?sslmode=disable
+
+# Switch this instance between clusters from the UI (docs/multi-cluster.md). One cluster is connected at
+# a time; only super admins can switch. With from_kubeconfig every context in your kubeconfig is offered
+# (re-read each time the list opens); prod/uat are guessed from context names. The Argo controller
+# ConfigMap is found automatically when the configured name does not exist on a cluster.
+# cluster_switch:
+#   enabled: true
+#   from_kubeconfig: true
+#   default: default               # the context connected at startup (else kube.context, else current-context)
+#   clusters:                      # optional overrides, keyed by context name
+#     - id: default
+#       name: 本地 k3s
+#     - id: arn:aws:eks:us-east-1:123456789012:cluster/web-prod-cluster
+#       env: prod                  # prod / uat / dev: only colours the UI
+#       kube:
+#         exec_env:
+#           AWS_PROFILE: prod      # for `aws eks get-token`, however the server was started

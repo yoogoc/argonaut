@@ -12,6 +12,7 @@ var ProviderSet = wire.NewSet(
 	NewCronWorkflowService,
 	NewAuthzService,
 	NewInfoService,
+	NewClusterService,
 	NewArtifactHandler,
 )
 

@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	v1 "argonaut/api/v1"
-	"argonaut/internal/conf"
 	pkgargo "argonaut/pkg/argo"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -19,23 +18,24 @@ var Version = "dev"
 type InfoService struct {
 	v1.UnimplementedInfoServiceServer
 
-	log     *slog.Logger
-	servers *pkgargo.Servers
-	kube    *conf.Kube
+	log *slog.Logger
+	sw  *pkgargo.ClusterSwitch
 }
 
-func NewInfoService(servers *pkgargo.Servers, kubeConf *conf.Kube, logger *slog.Logger) *InfoService {
-	return &InfoService{log: logger.With("module", "service/info"), servers: servers, kube: kubeConf}
+func NewInfoService(sw *pkgargo.ClusterSwitch, logger *slog.Logger) *InfoService {
+	return &InfoService{log: logger.With("module", "service/info"), sw: sw}
 }
 
-func (s *InfoService) GetInfo(_ context.Context, _ *emptypb.Empty) (*v1.GetInfoReply, error) {
-	links := make([]*v1.Link, 0, len(s.servers.Config.Links))
-	for _, l := range s.servers.Config.Links {
+func (s *InfoService) GetInfo(ctx context.Context, _ *emptypb.Empty) (*v1.GetInfoReply, error) {
+	rt := s.sw.For(ctx)
+	servers := rt.Servers
+	links := make([]*v1.Link, 0, len(servers.Config.Links))
+	for _, l := range servers.Config.Links {
 		links = append(links, &v1.Link{Name: l.Name, Scope: l.Scope, Url: l.URL})
 	}
 
-	namespaces := s.kube.GetNamespaces()
-	if managed := s.servers.Namespace; managed != "" {
+	namespaces := rt.Kube.GetNamespaces()
+	if managed := servers.Namespace; managed != "" {
 		// A managed namespace is the only one that can be reached, so offering others would only
 		// produce empty pages.
 		namespaces = []string{managed}
@@ -43,10 +43,19 @@ func (s *InfoService) GetInfo(_ context.Context, _ *emptypb.Empty) (*v1.GetInfoR
 
 	return &v1.GetInfoReply{
 		Version:                  Version,
-		ManagedNamespace:         s.servers.Namespace,
+		ManagedNamespace:         servers.Namespace,
 		Namespaces:               namespaces,
-		NodeStatusOffloadEnabled: s.servers.OffloadEnabled,
+		NodeStatusOffloadEnabled: servers.OffloadEnabled,
 		Links:                    links,
-		ArchiveEnabled:           s.servers.ArchiveEnabled,
+		ArchiveEnabled:           servers.ArchiveEnabled,
+		Cluster:                  clusterInfo(rt, s.sw.Enabled()),
 	}, nil
+}
+
+// clusterInfo describes the connected cluster, when the instance can be switched between several.
+func clusterInfo(rt *pkgargo.Runtime, switchable bool) *v1.ClusterInfo {
+	if !switchable {
+		return nil
+	}
+	return &v1.ClusterInfo{Id: rt.ID, Name: rt.Name, Env: rt.Env}
 }

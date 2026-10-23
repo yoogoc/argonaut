@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"time"
 
 	"argonaut/internal/authz"
 	"argonaut/internal/viewer"
+	pkgargo "argonaut/pkg/argo"
 )
 
 // Audit results.
@@ -20,7 +22,10 @@ const (
 // AuditEvent is one row of the audit log: a write argonaut performed, a request it refused, or an
 // observation (a template changed outside argonaut).
 type AuditEvent struct {
-	ID           string
+	ID string
+	// Cluster is the switchable cluster the event happened on; empty for the single configured cluster
+	// and for authorization changes, which apply to every cluster.
+	Cluster      string
 	At           time.Time
 	Actor        string
 	Action       string
@@ -55,10 +60,11 @@ type AuditRepo interface {
 type Auditor struct {
 	log  *slog.Logger
 	repo AuditRepo
+	sw   *pkgargo.ClusterSwitch
 }
 
-func NewAuditor(repo AuditRepo, logger *slog.Logger) *Auditor {
-	return &Auditor{log: logger.With("module", "biz/audit"), repo: repo}
+func NewAuditor(repo AuditRepo, sw *pkgargo.ClusterSwitch, logger *slog.Logger) *Auditor {
+	return &Auditor{log: logger.With("module", "biz/audit"), repo: repo, sw: sw}
 }
 
 // Record writes an event for the caller in ctx.
@@ -75,6 +81,10 @@ func (a *Auditor) Record(ctx context.Context, action authz.Action, res authz.Res
 	}
 	if res.Kind() == authz.ResourceNamespace {
 		ev.Name = ""
+	}
+	// Grants are shared by every cluster; everything else happened on the request's cluster.
+	if !strings.HasPrefix(string(action), "authz:") {
+		ev.Cluster = a.sw.For(ctx).ID
 	}
 	if detail != nil {
 		if raw, err := json.Marshal(detail); err == nil {

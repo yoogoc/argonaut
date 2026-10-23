@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/stores/session";
 import { type ThemePreference, useTheme } from "@/stores/theme";
 
+import { ClusterChangedNotice, ClusterSwitcher, ProductionMarker } from "./cluster-switcher";
 import { Logo } from "./logo";
 import { NamespaceSwitcher } from "./namespace-switcher";
 
@@ -31,6 +32,7 @@ export function AppHeader() {
   const { t } = useTranslation();
   const { data: permissions } = useMyPermissions();
   const archiveEnabled = useSession((st) => !!st.info?.archiveEnabled);
+  const prod = useSession((st) => st.info?.cluster?.env === "prod");
   const showAdmin = !!permissions && (permissions.superAdmin || (permissions.grants ?? []).some((g) => g.role === "admin"));
 
   const items: { to: string; label: string }[] = [
@@ -45,22 +47,27 @@ export function AppHeader() {
   if (showAdmin) items.push({ to: "/admin/authz", label: t("Permissions") });
 
   return (
-    <header className="sticky top-0 z-40 flex flex-wrap items-center gap-x-5 gap-y-2 border-b bg-background px-4 py-2 sm:px-6">
-      <Link to="/workflows" aria-label="argonaut">
-        <Logo />
-      </Link>
-      <nav aria-label={t("Main")} className="flex flex-wrap gap-1">
-        {items.map((item) => (
-          <Link key={item.to} to={item.to} className={navClass} activeProps={{ className: cn(navClass, navActive) }}>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-      <div className="ml-auto flex items-center gap-2">
-        <NamespaceSwitcher />
-        <UserMenu />
-      </div>
-    </header>
+    <>
+      <header className={cn("sticky top-0 z-40 flex flex-wrap items-center gap-x-5 gap-y-2 border-b bg-background px-4 py-2 sm:px-6", prod && "border-t-2 border-t-phase-fail-solid")}>
+        <Link to="/workflows" aria-label="argonaut">
+          <Logo />
+        </Link>
+        <nav aria-label={t("Main")} className="flex flex-wrap gap-1">
+          {items.map((item) => (
+            <Link key={item.to} to={item.to} className={navClass} activeProps={{ className: cn(navClass, navActive) }}>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-2">
+          <ProductionMarker />
+          <ClusterSwitcher />
+          <NamespaceSwitcher />
+          <UserMenu />
+        </div>
+      </header>
+      <ClusterChangedNotice />
+    </>
   );
 }
 

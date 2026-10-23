@@ -394,12 +394,27 @@ func (c *Cache) SubscribeWorkflows(namespace string, fn func(eventType string, w
 	}
 }
 
-// OnTemplateChange registers fn for every template change, including the initial fill.
+// OnTemplateChange registers fn for every template change from now on, and first replays the
+// templates already in the cache as initial adds. Without the replay a subscriber that attaches after
+// the informers have started (every cluster switch, and a race at startup) would never see the
+// templates that existed before it, since the informers announce those only once.
 func (c *Cache) OnTemplateChange(fn func(TemplateChange)) {
 	c.mu.Lock()
 	c.tplSubs[c.nextID] = fn
 	c.nextID++
 	c.mu.Unlock()
+	for _, inf := range c.templates {
+		for _, obj := range inf.GetStore().List() {
+			if t, ok := obj.(*wfv1.WorkflowTemplate); ok {
+				fn(TemplateChange{Namespace: t.Namespace, Name: t.Name, Initial: true, Template: t})
+			}
+		}
+	}
+	for _, obj := range c.clusterTpl.GetStore().List() {
+		if t, ok := obj.(*wfv1.ClusterWorkflowTemplate); ok {
+			fn(TemplateChange{Cluster: true, Name: t.Name, Initial: true, ClusterTemplate: t})
+		}
+	}
 }
 
 func (c *Cache) dispatchWorkflow(eventType string, obj any) {

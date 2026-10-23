@@ -18,24 +18,32 @@ import (
 // definition only; runs created from it belong to the namespace they run in (DESIGN §4.4).
 type ClusterTemplateUsecase struct {
 	log     *slog.Logger
-	servers *pkgargo.Servers
-	cache   *pkgargo.Cache
+	sw      *pkgargo.ClusterSwitch
 	authz   *AuthzUsecase
 	history *TemplateHistory
 }
 
-func NewClusterTemplateUsecase(servers *pkgargo.Servers, cache *pkgargo.Cache, authzUC *AuthzUsecase, history *TemplateHistory, logger *slog.Logger) *ClusterTemplateUsecase {
+func NewClusterTemplateUsecase(sw *pkgargo.ClusterSwitch, authzUC *AuthzUsecase, history *TemplateHistory, logger *slog.Logger) *ClusterTemplateUsecase {
 	return &ClusterTemplateUsecase{
 		log:     logger.With("module", "biz/clusterworkflowtemplate"),
-		servers: servers,
-		cache:   cache,
+		sw:      sw,
 		authz:   authzUC,
 		history: history,
 	}
 }
 
+// servers and cache are the Argo servers and informer cache of the cluster the request was pinned to
+// (pkgargo.ClusterSwitch), so one request never spans two clusters.
+func (uc *ClusterTemplateUsecase) servers(ctx context.Context) *pkgargo.Servers {
+	return uc.sw.For(ctx).Servers
+}
+
+func (uc *ClusterTemplateUsecase) cache(ctx context.Context) *pkgargo.Cache {
+	return uc.sw.For(ctx).Cache
+}
+
 func (uc *ClusterTemplateUsecase) argoContext(ctx context.Context) context.Context {
-	ctx = pkgargo.WithClients(ctx, uc.servers.Clients)
+	ctx = pkgargo.WithClients(ctx, uc.servers(ctx).Clients)
 	if subject := uc.authz.Subject(ctx); subject != "" {
 		ctx = pkgargo.WithSubject(ctx, subject, "", "")
 	}
@@ -46,7 +54,7 @@ func (uc *ClusterTemplateUsecase) List(ctx context.Context, opts pkgargo.ListOpt
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return nil, err
 	}
-	all, err := uc.cache.ListClusterTemplates(ctx, opts.LabelSelector, opts.NamePattern)
+	all, err := uc.cache(ctx).ListClusterTemplates(ctx, opts.LabelSelector, opts.NamePattern)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +75,7 @@ func (uc *ClusterTemplateUsecase) Get(ctx context.Context, name string) (*wfv1.C
 	if err := uc.authz.Require(ctx, authz.TemplateGet, ClusterTemplateResource(name)); err != nil {
 		return nil, err
 	}
-	return uc.servers.ClusterTemplate.GetClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateGetRequest{Name: name})
+	return uc.servers(ctx).ClusterTemplate.GetClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateGetRequest{Name: name})
 }
 
 func (uc *ClusterTemplateUsecase) stamp(ctx context.Context, t *wfv1.ClusterWorkflowTemplate) {
@@ -89,7 +97,7 @@ func (uc *ClusterTemplateUsecase) Create(ctx context.Context, t *wfv1.ClusterWor
 		return nil, err
 	}
 	uc.stamp(ctx, t)
-	created, err := uc.servers.ClusterTemplate.CreateClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateCreateRequest{Template: t})
+	created, err := uc.servers(ctx).ClusterTemplate.CreateClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateCreateRequest{Template: t})
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +117,7 @@ func (uc *ClusterTemplateUsecase) Update(ctx context.Context, name string, t *wf
 		return nil, errors.BadRequest("invalid_argument", "metadata.resourceVersion is required to update a template; reload it and save again")
 	}
 	uc.stamp(ctx, t)
-	updated, err := uc.servers.ClusterTemplate.UpdateClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateUpdateRequest{Name: name, Template: t})
+	updated, err := uc.servers(ctx).ClusterTemplate.UpdateClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateUpdateRequest{Name: name, Template: t})
 	if err != nil {
 		return nil, conflictError(err)
 	}
@@ -123,7 +131,7 @@ func (uc *ClusterTemplateUsecase) Delete(ctx context.Context, name string) error
 	if err := uc.authz.Require(ctx, authz.TemplateDelete, res); err != nil {
 		return err
 	}
-	if _, err := uc.servers.ClusterTemplate.DeleteClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateDeleteRequest{Name: name}); err != nil {
+	if _, err := uc.servers(ctx).ClusterTemplate.DeleteClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateDeleteRequest{Name: name}); err != nil {
 		return err
 	}
 	uc.authz.Audit().Record(ctx, authz.TemplateDelete, res, AuditAllowed, "", nil, uc.authz.Revision())
@@ -132,7 +140,7 @@ func (uc *ClusterTemplateUsecase) Delete(ctx context.Context, name string) error
 }
 
 func (uc *ClusterTemplateUsecase) Lint(ctx context.Context, t *wfv1.ClusterWorkflowTemplate) (*wfv1.ClusterWorkflowTemplate, error) {
-	if _, exists := uc.cache.GetClusterTemplate(t.Name); exists && t.Name != "" {
+	if _, exists := uc.cache(ctx).GetClusterTemplate(t.Name); exists && t.Name != "" {
 		if err := uc.authz.Require(ctx, authz.TemplateUpdate, ClusterTemplateResource(t.Name)); err != nil {
 			return nil, err
 		}
@@ -142,7 +150,7 @@ func (uc *ClusterTemplateUsecase) Lint(ctx context.Context, t *wfv1.ClusterWorkf
 	if err := requireRefsReadable(ctx, uc.authz, "", &t.Spec); err != nil {
 		return nil, err
 	}
-	return uc.servers.ClusterTemplate.LintClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateLintRequest{Template: t})
+	return uc.servers(ctx).ClusterTemplate.LintClusterWorkflowTemplate(uc.argoContext(ctx), &clusterwftmplpkg.ClusterWorkflowTemplateLintRequest{Template: t})
 }
 
 func (uc *ClusterTemplateUsecase) Revisions(ctx context.Context, name string) ([]TemplateRevision, error) {

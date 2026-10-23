@@ -26,19 +26,32 @@ import (
 // happens with the platform ServiceAccount, but nothing is returned unless the check passes.
 // Second, list results are filtered rather than refused: a user sees the subset they may see.
 type WorkflowUsecase struct {
-	log     *slog.Logger
-	servers *pkgargo.Servers
-	cache   *pkgargo.Cache
-	authz   *AuthzUsecase
+	log   *slog.Logger
+	sw    *pkgargo.ClusterSwitch
+	authz *AuthzUsecase
 }
 
-func NewWorkflowUsecase(servers *pkgargo.Servers, cache *pkgargo.Cache, authzUC *AuthzUsecase, logger *slog.Logger) *WorkflowUsecase {
+func NewWorkflowUsecase(sw *pkgargo.ClusterSwitch, authzUC *AuthzUsecase, logger *slog.Logger) *WorkflowUsecase {
 	return &WorkflowUsecase{
-		log:     logger.With("module", "biz/workflow"),
-		servers: servers,
-		cache:   cache,
-		authz:   authzUC,
+		log:   logger.With("module", "biz/workflow"),
+		sw:    sw,
+		authz: authzUC,
 	}
+}
+
+// servers and cache are the Argo servers and informer cache of the cluster the request was pinned to
+// (pkgargo.ClusterSwitch), so one request never spans two clusters.
+func (uc *WorkflowUsecase) servers(ctx context.Context) *pkgargo.Servers {
+	return uc.sw.For(ctx).Servers
+}
+
+func (uc *WorkflowUsecase) cache(ctx context.Context) *pkgargo.Cache { return uc.sw.For(ctx).Cache }
+
+// bindStream pins a long-lived stream to the current cluster and ends it if that cluster is switched
+// away, so the client reconnects to the new one instead of watching a cluster nobody looks at.
+func (uc *WorkflowUsecase) bindStream(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx = uc.sw.Pin(ctx)
+	return uc.sw.For(ctx).Bind(ctx)
 }
 
 // done audits a write that succeeded.
@@ -50,7 +63,7 @@ func (uc *WorkflowUsecase) done(ctx context.Context, action authz.Action, wf *wf
 // argoContext decorates the context with the platform clients Argo's servers read from it, plus the
 // caller identity Argo stamps onto resources it creates.
 func (uc *WorkflowUsecase) argoContext(ctx context.Context) context.Context {
-	ctx = pkgargo.WithClients(ctx, uc.servers.Clients)
+	ctx = pkgargo.WithClients(ctx, uc.servers(ctx).Clients)
 	if subject := uc.authz.Subject(ctx); subject != "" {
 		ctx = pkgargo.WithSubject(ctx, subject, "", "")
 	}
@@ -68,8 +81,8 @@ func (uc *WorkflowUsecase) List(ctx context.Context, opts pkgargo.ListOptions) (
 	if err != nil {
 		return nil, errors.BadRequest("invalid_argument", err.Error())
 	}
-	all, err := uc.cache.ListWorkflows(ctx, pkgargo.WorkflowFilter{
-		Namespace:     uc.servers.NamespaceFor(opts.Namespace),
+	all, err := uc.cache(ctx).ListWorkflows(ctx, pkgargo.WorkflowFilter{
+		Namespace:     uc.servers(ctx).NamespaceFor(opts.Namespace),
 		LabelSelector: opts.LabelSelector,
 		NamePattern:   opts.NamePattern,
 		Phases:        opts.Phases,
@@ -108,9 +121,9 @@ func (uc *WorkflowUsecase) Get(ctx context.Context, namespace, name, fields stri
 
 // fetch reads a workflow without authorizing, for callers that authorize afterwards.
 func (uc *WorkflowUsecase) fetch(ctx context.Context, namespace, name, fields string) (*wfv1.Workflow, error) {
-	return uc.servers.Workflow.GetWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowGetRequest{
+	return uc.servers(ctx).Workflow.GetWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowGetRequest{
 		Name:      name,
-		Namespace: uc.servers.NamespaceFor(namespace),
+		Namespace: uc.servers(ctx).NamespaceFor(namespace),
 		Fields:    fields,
 	})
 }
@@ -139,10 +152,12 @@ func (uc *WorkflowUsecase) authorizeOn(ctx context.Context, namespace, name stri
 // A watch on one workflow (the detail page) goes through Argo, because it needs the full object with
 // node status — hydrated from the offload database when the controller offloads it.
 func (uc *WorkflowUsecase) Watch(ctx context.Context, namespace, name, labelSelector, fields string, send func(*workflowpkg.WorkflowWatchEvent) error) error {
+	ctx, stop := uc.bindStream(ctx)
+	defer stop()
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return err
 	}
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if name != "" {
 		return uc.watchOne(ctx, ns, name, fields, send)
 	}
@@ -164,7 +179,7 @@ func (uc *WorkflowUsecase) Watch(ctx context.Context, namespace, name, labelSele
 			cancel()
 		}
 	}
-	unsubscribe := uc.cache.SubscribeWorkflows(ns, func(eventType string, wf *wfv1.Workflow) {
+	unsubscribe := uc.cache(ctx).SubscribeWorkflows(ns, func(eventType string, wf *wfv1.Workflow) {
 		if !selector.Matches(labels.Set(wf.Labels)) {
 			return
 		}
@@ -247,7 +262,7 @@ func (uc *WorkflowUsecase) watchOne(ctx context.Context, namespace, name, fields
 		}
 		return send(event)
 	})
-	err = uc.servers.Workflow.WatchWorkflows(req, stream)
+	err = uc.servers(ctx).Workflow.WatchWorkflows(req, stream)
 	if ctx.Err() != nil && !uc.authz.Allow(context.WithoutCancel(ctx), authz.WorkflowGet, res) {
 		return errors.Forbidden("forbidden", "your access to this workflow was revoked")
 	}
@@ -256,6 +271,8 @@ func (uc *WorkflowUsecase) watchOne(ctx context.Context, namespace, name, fields
 
 // Events streams the Kubernetes events of one workflow.
 func (uc *WorkflowUsecase) Events(ctx context.Context, namespace, name string, send func(*corev1.Event) error) error {
+	ctx, stop := uc.bindStream(ctx)
+	defer stop()
 	wf, err := uc.authorizeOn(ctx, namespace, name, authz.WorkflowEvents)
 	if err != nil {
 		return err
@@ -266,7 +283,7 @@ func (uc *WorkflowUsecase) Events(ctx context.Context, namespace, name string, s
 			FieldSelector: "involvedObject.name=" + wf.Name + ",involvedObject.namespace=" + wf.Namespace,
 		},
 	}
-	return uc.servers.Workflow.WatchEvents(req, pkgargo.NewEventStream(uc.argoContext(ctx), send))
+	return uc.servers(ctx).Workflow.WatchEvents(req, pkgargo.NewEventStream(uc.argoContext(ctx), send))
 }
 
 // Logs streams container logs, from the live pods while they exist and from the stored log artifacts
@@ -277,6 +294,8 @@ func (uc *WorkflowUsecase) Events(ctx context.Context, namespace, name string, s
 // output". nodeID identifies which node's stored logs to read, and is required for the fallback to
 // address a single step.
 func (uc *WorkflowUsecase) Logs(ctx context.Context, namespace, name, nodeID string, req *workflowpkg.WorkflowLogRequest, send func(*workflowpkg.LogEntry) error) error {
+	ctx, stop := uc.bindStream(ctx)
+	defer stop()
 	wf, err := uc.authorizeOn(ctx, namespace, name, authz.WorkflowLogs)
 	if err != nil {
 		return err
@@ -285,7 +304,7 @@ func (uc *WorkflowUsecase) Logs(ctx context.Context, namespace, name, nodeID str
 	req.Namespace = wf.Namespace
 	argoCtx := uc.argoContext(ctx)
 
-	live, err := uc.servers.LogsAvailableLive(argoCtx, wf.Namespace, wf.Name, req.PodName)
+	live, err := uc.servers(ctx).LogsAvailableLive(argoCtx, wf.Namespace, wf.Name, req.PodName)
 	if err != nil {
 		return err
 	}
@@ -293,9 +312,9 @@ func (uc *WorkflowUsecase) Logs(ctx context.Context, namespace, name, nodeID str
 		stream := pkgargo.NewLogStream(argoCtx, send)
 		// PodLogs targets one pod; WorkflowLogs fans out across every pod of the workflow.
 		if req.PodName != "" {
-			return uc.servers.Workflow.PodLogs(req, stream)
+			return uc.servers(ctx).Workflow.PodLogs(req, stream)
 		}
-		return uc.servers.Workflow.WorkflowLogs(req, stream)
+		return uc.servers(ctx).Workflow.WorkflowLogs(req, stream)
 	}
 
 	// Artifact locations live on the node status, which authorizeOn deliberately did not fetch.
@@ -303,7 +322,7 @@ func (uc *WorkflowUsecase) Logs(ctx context.Context, namespace, name, nodeID str
 	if err != nil {
 		return err
 	}
-	err = uc.servers.StreamArchivedLogs(argoCtx, full, nodeID, req.Grep, func(line pkgargo.ArchivedLogLine) error {
+	err = uc.servers(ctx).StreamArchivedLogs(argoCtx, full, nodeID, req.Grep, func(line pkgargo.ArchivedLogLine) error {
 		return send(&workflowpkg.LogEntry{Content: line.Content, PodName: line.PodName})
 	})
 	if stderrors.Is(err, pkgargo.ErrNoArchivedLogs) {
@@ -318,7 +337,7 @@ func (uc *WorkflowUsecase) Logs(ctx context.Context, namespace, name, nodeID str
 
 // Submit creates a workflow from a WorkflowTemplate, ClusterWorkflowTemplate or CronWorkflow.
 func (uc *WorkflowUsecase) Submit(ctx context.Context, namespace, resourceKind, resourceName string, opts *wfv1.SubmitOpts) (*wfv1.Workflow, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	switch resourceKind {
 	case "WorkflowTemplate", "workflowtemplate":
 		if err := uc.authz.Require(ctx, authz.WorkflowSubmit, TemplateResource(ns, resourceName)); err != nil {
@@ -334,7 +353,7 @@ func (uc *WorkflowUsecase) Submit(ctx context.Context, namespace, resourceKind, 
 			return nil, err
 		}
 	case "CronWorkflow", "cronworkflow":
-		cron, err := uc.servers.GetCronWorkflow(uc.argoContext(ctx), ns, resourceName)
+		cron, err := uc.servers(ctx).GetCronWorkflow(uc.argoContext(ctx), ns, resourceName)
 		if err != nil {
 			return nil, err
 		}
@@ -345,7 +364,7 @@ func (uc *WorkflowUsecase) Submit(ctx context.Context, namespace, resourceKind, 
 		return nil, errors.BadRequest("invalid_argument",
 			fmt.Sprintf("unsupported submit source %q; expected WorkflowTemplate, ClusterWorkflowTemplate or CronWorkflow", resourceKind))
 	}
-	wf, err := uc.servers.Workflow.SubmitWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowSubmitRequest{
+	wf, err := uc.servers(ctx).Workflow.SubmitWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowSubmitRequest{
 		Namespace:     ns,
 		ResourceKind:  resourceKind,
 		ResourceName:  resourceName,
@@ -368,7 +387,7 @@ func submitParams(opts *wfv1.SubmitOpts) []string {
 // Create submits a raw manifest. There is no template to inherit from, so it needs a namespace-wide
 // grant — otherwise a single-template grant would be a way to run arbitrary workloads.
 func (uc *WorkflowUsecase) Create(ctx context.Context, namespace string, wf *wfv1.Workflow, dryRun bool) (*wfv1.Workflow, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if err := uc.authz.Require(ctx, authz.WorkflowSubmit, NamespaceResource(ns)); err != nil {
 		return nil, err
 	}
@@ -377,7 +396,7 @@ func (uc *WorkflowUsecase) Create(ctx context.Context, namespace string, wf *wfv
 	if dryRun {
 		req.CreateOptions = &metav1.CreateOptions{DryRun: []string{"All"}}
 	}
-	created, err := uc.servers.Workflow.CreateWorkflow(uc.argoContext(ctx), req)
+	created, err := uc.servers(ctx).Workflow.CreateWorkflow(uc.argoContext(ctx), req)
 	if err == nil && !dryRun {
 		uc.done(ctx, authz.WorkflowSubmit, created, map[string]any{"source": "manifest"})
 	}
@@ -386,11 +405,11 @@ func (uc *WorkflowUsecase) Create(ctx context.Context, namespace string, wf *wfv
 
 // Lint validates a manifest without creating anything.
 func (uc *WorkflowUsecase) Lint(ctx context.Context, namespace string, wf *wfv1.Workflow) (*wfv1.Workflow, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if err := uc.authz.Require(ctx, authz.WorkflowSubmit, NamespaceResource(ns)); err != nil {
 		return nil, err
 	}
-	return uc.servers.Workflow.LintWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowLintRequest{Namespace: ns, Workflow: wf})
+	return uc.servers(ctx).Workflow.LintWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowLintRequest{Namespace: ns, Workflow: wf})
 }
 
 func (uc *WorkflowUsecase) Retry(ctx context.Context, namespace, name string, restartSuccessful bool, nodeFieldSelector string, parameters []string) (*wfv1.Workflow, error) {
@@ -398,7 +417,7 @@ func (uc *WorkflowUsecase) Retry(ctx context.Context, namespace, name string, re
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.Workflow.RetryWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowRetryRequest{
+	out, err := uc.servers(ctx).Workflow.RetryWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowRetryRequest{
 		Name:              wf.Name,
 		Namespace:         wf.Namespace,
 		RestartSuccessful: restartSuccessful,
@@ -416,7 +435,7 @@ func (uc *WorkflowUsecase) Resubmit(ctx context.Context, namespace, name string,
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.Workflow.ResubmitWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowResubmitRequest{
+	out, err := uc.servers(ctx).Workflow.ResubmitWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowResubmitRequest{
 		Name:       wf.Name,
 		Namespace:  wf.Namespace,
 		Memoized:   memoized,
@@ -433,7 +452,7 @@ func (uc *WorkflowUsecase) Suspend(ctx context.Context, namespace, name string) 
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.Workflow.SuspendWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowSuspendRequest{
+	out, err := uc.servers(ctx).Workflow.SuspendWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowSuspendRequest{
 		Name:      wf.Name,
 		Namespace: wf.Namespace,
 	})
@@ -448,7 +467,7 @@ func (uc *WorkflowUsecase) Resume(ctx context.Context, namespace, name, nodeFiel
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.Workflow.ResumeWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowResumeRequest{
+	out, err := uc.servers(ctx).Workflow.ResumeWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowResumeRequest{
 		Name:              wf.Name,
 		Namespace:         wf.Namespace,
 		NodeFieldSelector: nodeFieldSelector,
@@ -466,7 +485,7 @@ func (uc *WorkflowUsecase) Set(ctx context.Context, namespace, name, nodeFieldSe
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.Workflow.SetWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowSetRequest{
+	out, err := uc.servers(ctx).Workflow.SetWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowSetRequest{
 		Name:              wf.Name,
 		Namespace:         wf.Namespace,
 		NodeFieldSelector: nodeFieldSelector,
@@ -485,7 +504,7 @@ func (uc *WorkflowUsecase) Stop(ctx context.Context, namespace, name, nodeFieldS
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.Workflow.StopWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowStopRequest{
+	out, err := uc.servers(ctx).Workflow.StopWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowStopRequest{
 		Name:              wf.Name,
 		Namespace:         wf.Namespace,
 		NodeFieldSelector: nodeFieldSelector,
@@ -502,7 +521,7 @@ func (uc *WorkflowUsecase) Terminate(ctx context.Context, namespace, name string
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.Workflow.TerminateWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowTerminateRequest{
+	out, err := uc.servers(ctx).Workflow.TerminateWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowTerminateRequest{
 		Name:      wf.Name,
 		Namespace: wf.Namespace,
 	})
@@ -517,7 +536,7 @@ func (uc *WorkflowUsecase) Delete(ctx context.Context, namespace, name string, f
 	if err != nil {
 		return err
 	}
-	_, err = uc.servers.Workflow.DeleteWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowDeleteRequest{
+	_, err = uc.servers(ctx).Workflow.DeleteWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowDeleteRequest{
 		Name:      wf.Name,
 		Namespace: wf.Namespace,
 		Force:     force,
@@ -538,7 +557,7 @@ func (uc *WorkflowUsecase) OpenArtifact(ctx context.Context, namespace, name, no
 	if err := uc.authz.Require(ctx, authz.WorkflowArtifacts, WorkflowResource(wf)); err != nil {
 		return nil, nil, err
 	}
-	art, reader, err := uc.servers.Artifacts.Open(uc.argoContext(ctx), wf, nodeID, artifactName, isInput)
+	art, reader, err := uc.servers(ctx).Artifacts.Open(uc.argoContext(ctx), wf, nodeID, artifactName, isInput)
 	if err != nil {
 		return nil, nil, err
 	}

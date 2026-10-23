@@ -31,6 +31,7 @@ var configProviders = wire.NewSet(
 	newSSOConf,
 	newKubeConf,
 	newArgoConf,
+	newClusterSwitchConf,
 	newAuthzConf,
 )
 

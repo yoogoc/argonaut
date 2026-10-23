@@ -4,6 +4,8 @@ import { getInfo, getUserInfo } from "@/api/auth";
 import type { Info, UserInfo } from "@/api/types";
 import { clearToken } from "@/lib/http";
 
+import { useClusterState } from "./cluster";
+
 type Status = "loading" | "authenticated" | "anonymous";
 
 interface SessionState {
@@ -30,6 +32,7 @@ export const useSession = create<SessionState>((set) => ({
     try {
       const [user, info] = await Promise.all([getUserInfo(), getInfo()]);
       set({ status: "authenticated", user, info, error: undefined });
+      useClusterState.getState().expect(info.cluster?.id);
     } catch (error) {
       clearToken();
       set({ status: "anonymous", error: error instanceof Error ? error.message : String(error) });

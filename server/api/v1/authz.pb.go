@@ -256,18 +256,20 @@ func (x *AuthzStatusReply) GetLastChange() *AuditEvent {
 }
 
 type AuditEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	At            string                 `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
-	Actor         string                 `protobuf:"bytes,3,opt,name=actor,proto3" json:"actor,omitempty"`
-	Action        string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`
-	ResourceType  string                 `protobuf:"bytes,5,opt,name=resourceType,proto3" json:"resourceType,omitempty"`
-	Namespace     string                 `protobuf:"bytes,6,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	Name          string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
-	Result        string                 `protobuf:"bytes,8,opt,name=result,proto3" json:"result,omitempty"`
-	Reason        string                 `protobuf:"bytes,9,opt,name=reason,proto3" json:"reason,omitempty"`
-	Detail        string                 `protobuf:"bytes,10,opt,name=detail,proto3" json:"detail,omitempty"`
-	Revision      int64                  `protobuf:"varint,11,opt,name=revision,proto3" json:"revision,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	At           string                 `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
+	Actor        string                 `protobuf:"bytes,3,opt,name=actor,proto3" json:"actor,omitempty"`
+	Action       string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`
+	ResourceType string                 `protobuf:"bytes,5,opt,name=resourceType,proto3" json:"resourceType,omitempty"`
+	Namespace    string                 `protobuf:"bytes,6,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name         string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
+	Result       string                 `protobuf:"bytes,8,opt,name=result,proto3" json:"result,omitempty"`
+	Reason       string                 `protobuf:"bytes,9,opt,name=reason,proto3" json:"reason,omitempty"`
+	Detail       string                 `protobuf:"bytes,10,opt,name=detail,proto3" json:"detail,omitempty"`
+	Revision     int64                  `protobuf:"varint,11,opt,name=revision,proto3" json:"revision,omitempty"`
+	// cluster is where the event happened, on an instance that can be switched between clusters.
+	Cluster       string `protobuf:"bytes,12,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -377,6 +379,13 @@ func (x *AuditEvent) GetRevision() int64 {
 		return x.Revision
 	}
 	return 0
+}
+
+func (x *AuditEvent) GetCluster() string {
+	if x != nil {
+		return x.Cluster
+	}
+	return ""
 }
 
 type ListAuditRequest struct {
@@ -1576,7 +1585,7 @@ const file_api_v1_authz_proto_rawDesc = "" +
 	"\breplicas\x18\x02 \x03(\v2\x0f.api.v1.ReplicaR\breplicas\x122\n" +
 	"\n" +
 	"lastChange\x18\x03 \x01(\v2\x12.api.v1.AuditEventR\n" +
-	"lastChange\"\x94\x02\n" +
+	"lastChange\"\xae\x02\n" +
 	"\n" +
 	"AuditEvent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x0e\n" +
@@ -1590,7 +1599,8 @@ const file_api_v1_authz_proto_rawDesc = "" +
 	"\x06reason\x18\t \x01(\tR\x06reason\x12\x16\n" +
 	"\x06detail\x18\n" +
 	" \x01(\tR\x06detail\x12\x1a\n" +
-	"\brevision\x18\v \x01(\x03R\brevision\"\xd4\x01\n" +
+	"\brevision\x18\v \x01(\x03R\brevision\x12\x18\n" +
+	"\acluster\x18\f \x01(\tR\acluster\"\xd4\x01\n" +
 	"\x10ListAuditRequest\x12\x19\n" +
 	"\x05actor\x18\x01 \x01(\tH\x00R\x05actor\x88\x01\x01\x12\x1b\n" +
 	"\x06action\x18\x02 \x01(\tH\x01R\x06action\x88\x01\x01\x12\x1b\n" +

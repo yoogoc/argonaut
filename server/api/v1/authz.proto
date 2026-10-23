@@ -120,6 +120,8 @@ message AuditEvent {
   string reason = 9;
   string detail = 10;
   int64 revision = 11;
+  // cluster is where the event happened, on an instance that can be switched between clusters.
+  string cluster = 12;
 }
 message ListAuditRequest {
   optional string actor = 1;

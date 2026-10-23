@@ -35,9 +35,11 @@ type GetInfoReply struct {
 	// links are the configured external links (Argo `links` config), rendered on detail pages.
 	Links []*Link `protobuf:"bytes,5,rep,name=links,proto3" json:"links,omitempty"`
 	// archiveEnabled is true when the controller archives finished workflows to its database.
-	ArchiveEnabled bool `protobuf:"varint,6,opt,name=archiveEnabled,proto3" json:"archiveEnabled,omitempty"` // modals/columns are omitted deliberately; add only when the UI needs them.
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	ArchiveEnabled bool `protobuf:"varint,6,opt,name=archiveEnabled,proto3" json:"archiveEnabled,omitempty"`
+	// cluster is the connected cluster when the instance can be switched between several; unset otherwise.
+	Cluster       *ClusterInfo `protobuf:"bytes,7,opt,name=cluster,proto3" json:"cluster,omitempty"` // modals/columns are omitted deliberately; add only when the UI needs them.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetInfoReply) Reset() {
@@ -112,6 +114,13 @@ func (x *GetInfoReply) GetArchiveEnabled() bool {
 	return false
 }
 
+func (x *GetInfoReply) GetCluster() *ClusterInfo {
+	if x != nil {
+		return x.Cluster
+	}
+	return nil
+}
+
 type Link struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -177,7 +186,7 @@ var File_api_v1_info_proto protoreflect.FileDescriptor
 
 const file_api_v1_info_proto_rawDesc = "" +
 	"\n" +
-	"\x11api/v1/info.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xfc\x01\n" +
+	"\x11api/v1/info.proto\x12\x06api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14api/v1/cluster.proto\"\xab\x02\n" +
 	"\fGetInfoReply\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12*\n" +
 	"\x10managedNamespace\x18\x02 \x01(\tR\x10managedNamespace\x12\x1e\n" +
@@ -186,7 +195,8 @@ const file_api_v1_info_proto_rawDesc = "" +
 	"namespaces\x12:\n" +
 	"\x18nodeStatusOffloadEnabled\x18\x04 \x01(\bR\x18nodeStatusOffloadEnabled\x12\"\n" +
 	"\x05links\x18\x05 \x03(\v2\f.api.v1.LinkR\x05links\x12&\n" +
-	"\x0earchiveEnabled\x18\x06 \x01(\bR\x0earchiveEnabled\"B\n" +
+	"\x0earchiveEnabled\x18\x06 \x01(\bR\x0earchiveEnabled\x12-\n" +
+	"\acluster\x18\a \x01(\v2\x13.api.v1.ClusterInfoR\acluster\"B\n" +
 	"\x04Link\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05scope\x18\x02 \x01(\tR\x05scope\x12\x10\n" +
@@ -211,17 +221,19 @@ var file_api_v1_info_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_api_v1_info_proto_goTypes = []any{
 	(*GetInfoReply)(nil),  // 0: api.v1.GetInfoReply
 	(*Link)(nil),          // 1: api.v1.Link
-	(*emptypb.Empty)(nil), // 2: google.protobuf.Empty
+	(*ClusterInfo)(nil),   // 2: api.v1.ClusterInfo
+	(*emptypb.Empty)(nil), // 3: google.protobuf.Empty
 }
 var file_api_v1_info_proto_depIdxs = []int32{
 	1, // 0: api.v1.GetInfoReply.links:type_name -> api.v1.Link
-	2, // 1: api.v1.InfoService.GetInfo:input_type -> google.protobuf.Empty
-	0, // 2: api.v1.InfoService.GetInfo:output_type -> api.v1.GetInfoReply
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: api.v1.GetInfoReply.cluster:type_name -> api.v1.ClusterInfo
+	3, // 2: api.v1.InfoService.GetInfo:input_type -> google.protobuf.Empty
+	0, // 3: api.v1.InfoService.GetInfo:output_type -> api.v1.GetInfoReply
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_info_proto_init() }
@@ -229,6 +241,7 @@ func file_api_v1_info_proto_init() {
 	if File_api_v1_info_proto != nil {
 		return
 	}
+	file_api_v1_cluster_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

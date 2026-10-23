@@ -31,9 +31,9 @@ func insertAudit(ctx context.Context, db execer, ev biz.AuditEvent) error {
 	if len(ev.Detail) > 0 {
 		detail = string(ev.Detail)
 	}
-	_, err := db.Exec(ctx, `INSERT INTO audit_events (id, actor, action, resource_type, namespace, name, result, reason, detail, revision)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)`,
-		id.Generate(), ev.Actor, ev.Action, ev.ResourceType, ev.Namespace, ev.Name, ev.Result, ev.Reason, detail, ev.Revision)
+	_, err := db.Exec(ctx, `INSERT INTO audit_events (id, cluster, actor, action, resource_type, namespace, name, result, reason, detail, revision)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)`,
+		id.Generate(), ev.Cluster, ev.Actor, ev.Action, ev.ResourceType, ev.Namespace, ev.Name, ev.Result, ev.Reason, detail, ev.Revision)
 	return err
 }
 
@@ -41,13 +41,13 @@ func (r *auditRepo) Record(ctx context.Context, ev biz.AuditEvent) error {
 	return insertAudit(ctx, r.data.pool, ev)
 }
 
-const auditColumns = `id, at, actor, action, resource_type, namespace, name, result, reason, COALESCE(detail::text, ''), revision`
+const auditColumns = `id, cluster, at, actor, action, resource_type, namespace, name, result, reason, COALESCE(detail::text, ''), revision`
 
 func scanAudit(row pgx.CollectableRow) (biz.AuditEvent, error) {
 	var ev biz.AuditEvent
 	var numeric int64
 	var detail string
-	err := row.Scan(&numeric, &ev.At, &ev.Actor, &ev.Action, &ev.ResourceType, &ev.Namespace, &ev.Name, &ev.Result, &ev.Reason, &detail, &ev.Revision)
+	err := row.Scan(&numeric, &ev.Cluster, &ev.At, &ev.Actor, &ev.Action, &ev.ResourceType, &ev.Namespace, &ev.Name, &ev.Result, &ev.Reason, &detail, &ev.Revision)
 	ev.ID = strconv.FormatInt(numeric, 10)
 	if detail != "" {
 		ev.Detail = []byte(detail)

@@ -9,6 +9,7 @@ import (
 	pkgargo "argonaut/pkg/argo"
 
 	wfv1 "github.com/argoproj/argo-workflows/v4/pkg/apis/workflow/v1alpha1"
+	"github.com/go-kratos/kratos/v3/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,11 +31,16 @@ type TemplateHistory struct {
 	log   *slog.Logger
 	repo  RevisionRepo
 	audit *Auditor
+	sw    *pkgargo.ClusterSwitch
 }
 
-func NewTemplateHistory(repo RevisionRepo, cache *pkgargo.Cache, auditor *Auditor, logger *slog.Logger) *TemplateHistory {
-	h := &TemplateHistory{log: logger.With("module", "biz/history"), repo: repo, audit: auditor}
-	cache.OnTemplateChange(h.observe)
+func NewTemplateHistory(repo RevisionRepo, sw *pkgargo.ClusterSwitch, auditor *Auditor, logger *slog.Logger) *TemplateHistory {
+	h := &TemplateHistory{log: logger.With("module", "biz/history"), repo: repo, audit: auditor, sw: sw}
+	// Follow whichever cluster is current: each runtime's templates are recorded under its id, so a
+	// same-named template on another cluster is a different history, not an outside edit.
+	sw.Subscribe(func(rt *pkgargo.Runtime) {
+		rt.Cache.OnTemplateChange(func(change pkgargo.TemplateChange) { h.observe(rt.ID, change) })
+	})
 	return h
 }
 
@@ -67,7 +73,7 @@ func snapshotManifest(kind string, meta metav1.ObjectMeta, spec wfv1.WorkflowSpe
 // RecordTemplate records a save made through argonaut.
 func (h *TemplateHistory) RecordTemplate(ctx context.Context, t *wfv1.WorkflowTemplate, author, message string) {
 	h.record(ctx, TemplateRevision{
-		Scope: ScopeNamespace, Namespace: t.Namespace, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
+		Cluster: h.sw.For(ctx).ID, Scope: ScopeNamespace, Namespace: t.Namespace, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
 		Manifest: snapshotManifest("WorkflowTemplate", t.ObjectMeta, t.Spec), Author: author, Message: message,
 	})
 }
@@ -75,7 +81,7 @@ func (h *TemplateHistory) RecordTemplate(ctx context.Context, t *wfv1.WorkflowTe
 // RecordClusterTemplate records a cluster template save made through argonaut.
 func (h *TemplateHistory) RecordClusterTemplate(ctx context.Context, t *wfv1.ClusterWorkflowTemplate, author, message string) {
 	h.record(ctx, TemplateRevision{
-		Scope: ScopeCluster, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
+		Cluster: h.sw.For(ctx).ID, Scope: ScopeCluster, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
 		Manifest: snapshotManifest("ClusterWorkflowTemplate", t.ObjectMeta, t.Spec), Author: author, Message: message,
 	})
 }
@@ -88,7 +94,7 @@ func (h *TemplateHistory) record(ctx context.Context, rev TemplateRevision) {
 
 // observe handles informer events. The first sight of a template becomes its baseline revision; a
 // later change no revision accounts for is recorded as an external edit.
-func (h *TemplateHistory) observe(change pkgargo.TemplateChange) {
+func (h *TemplateHistory) observe(cluster string, change pkgargo.TemplateChange) {
 	if change.Deleted {
 		return
 	}
@@ -96,11 +102,11 @@ func (h *TemplateHistory) observe(change pkgargo.TemplateChange) {
 	switch {
 	case change.Template != nil:
 		t := change.Template
-		rev = TemplateRevision{Scope: ScopeNamespace, Namespace: t.Namespace, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
+		rev = TemplateRevision{Cluster: cluster, Scope: ScopeNamespace, Namespace: t.Namespace, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
 			Manifest: snapshotManifest("WorkflowTemplate", t.ObjectMeta, t.Spec)}
 	case change.ClusterTemplate != nil:
 		t := change.ClusterTemplate
-		rev = TemplateRevision{Scope: ScopeCluster, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
+		rev = TemplateRevision{Cluster: cluster, Scope: ScopeCluster, Name: t.Name, UID: string(t.UID), ResourceVersion: t.ResourceVersion,
 			Manifest: snapshotManifest("ClusterWorkflowTemplate", t.ObjectMeta, t.Spec)}
 	default:
 		return
@@ -111,11 +117,11 @@ func (h *TemplateHistory) observe(change pkgargo.TemplateChange) {
 		if !change.Initial {
 			time.Sleep(externalSettle)
 		}
-		known, err := h.repo.HasResourceVersion(ctx, rev.Scope, rev.Namespace, rev.Name, rev.ResourceVersion)
+		known, err := h.repo.HasResourceVersion(ctx, rev.Cluster, rev.Scope, rev.Namespace, rev.Name, rev.ResourceVersion)
 		if err != nil || known {
 			return
 		}
-		existing, err := h.repo.List(ctx, rev.Scope, rev.Namespace, rev.Name)
+		existing, err := h.repo.List(ctx, rev.Cluster, rev.Scope, rev.Namespace, rev.Name)
 		if err != nil {
 			return
 		}
@@ -132,7 +138,7 @@ func (h *TemplateHistory) observe(change pkgargo.TemplateChange) {
 		}
 		if ok && len(existing) > 0 {
 			h.audit.RecordEvent(ctx, AuditEvent{
-				Actor: "", Action: "template:external", ResourceType: map[string]string{ScopeNamespace: "template", ScopeCluster: "cluster_template"}[rev.Scope],
+				Cluster: rev.Cluster, Actor: "", Action: "template:external", ResourceType: map[string]string{ScopeNamespace: "template", ScopeCluster: "cluster_template"}[rev.Scope],
 				Namespace: rev.Namespace, Name: rev.Name, Result: AuditRecorded,
 				Reason: "changed outside argonaut", Detail: mustJSON(map[string]any{"revision": recorded.Seq, "resourceVersion": rev.ResourceVersion}),
 			})
@@ -141,9 +147,15 @@ func (h *TemplateHistory) observe(change pkgargo.TemplateChange) {
 }
 
 func (h *TemplateHistory) List(ctx context.Context, scope, namespace, name string) ([]TemplateRevision, error) {
-	return h.repo.List(ctx, scope, namespace, name)
+	return h.repo.List(ctx, h.sw.For(ctx).ID, scope, namespace, name)
 }
 
+// Get returns a revision of the current cluster; one recorded on another cluster is reported missing,
+// since a same-named template there is a different template.
 func (h *TemplateHistory) Get(ctx context.Context, id string) (TemplateRevision, error) {
-	return h.repo.Get(ctx, id)
+	rev, err := h.repo.Get(ctx, id)
+	if err == nil && rev.Cluster != h.sw.For(ctx).ID {
+		return TemplateRevision{}, errors.NotFound("not_found", "revision not found")
+	}
+	return rev, err
 }

@@ -1,5 +1,7 @@
 import ky, { HTTPError } from "ky";
 
+import { useClusterState } from "@/stores/cluster";
+
 import { getRevision, observeRevision } from "./revision";
 
 export const AUTH_KEY = "argonaut.authorization";
@@ -82,6 +84,7 @@ export const http = ky.create({
     afterResponse: [
       (_request, _options, response) => {
         observeRevision(response.headers.get("X-Authz-Revision"));
+        useClusterState.getState().observe(response.headers.get("X-Argonaut-Cluster"));
         if (response.status === 401) {
           // The session is gone; drop it so the router sends the user back through login.
           clearToken();

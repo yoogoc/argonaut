@@ -197,6 +197,7 @@ func toProtoAudit(ev biz.AuditEvent) *v1.AuditEvent {
 	return &v1.AuditEvent{
 		Id: ev.ID, At: ev.At.UTC().Format(timeFormat), Actor: ev.Actor, Action: ev.Action, ResourceType: ev.ResourceType,
 		Namespace: ev.Namespace, Name: ev.Name, Result: ev.Result, Reason: ev.Reason, Detail: string(ev.Detail), Revision: ev.Revision,
+		Cluster: ev.Cluster,
 	}
 }
 

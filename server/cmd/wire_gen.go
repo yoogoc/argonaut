@@ -40,13 +40,9 @@ func initServerApp(nameString log.NameString, versionString log.VersionString) (
 	}
 	context, cleanup := NewAppContext()
 	kube := newKubeConf(bootstrap)
-	clients, err := argo.NewClients(kube, logger)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
 	confArgo := newArgoConf(bootstrap)
-	servers, cleanup2, err := argo.NewServers(context, clients, confArgo, logger)
+	clusterSwitch := newClusterSwitchConf(bootstrap)
+	argoClusterSwitch, cleanup2, err := argo.NewClusterSwitch(context, kube, confArgo, clusterSwitch, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -60,34 +56,27 @@ func initServerApp(nameString log.NameString, versionString log.VersionString) (
 	}
 	authzRepo := data.NewAuthzRepo(dataData)
 	auditRepo := data.NewAuditRepo(dataData)
-	auditor := biz.NewAuditor(auditRepo, logger)
-	cache, cleanup4, err := argo.NewCache(clients, servers, kube, logger)
-	if err != nil {
-		cleanup3()
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	authzUsecase, cleanup5 := biz.NewAuthzUsecase(authzRepo, engine, auditor, cache, confAuthz, logger)
-	workflowUsecase := biz.NewWorkflowUsecase(servers, cache, authzUsecase, logger)
-	archiveUsecase := biz.NewArchiveUsecase(servers, authzUsecase, workflowUsecase, logger)
+	auditor := biz.NewAuditor(auditRepo, argoClusterSwitch, logger)
+	authzUsecase, cleanup4 := biz.NewAuthzUsecase(authzRepo, engine, auditor, argoClusterSwitch, confAuthz, logger)
+	workflowUsecase := biz.NewWorkflowUsecase(argoClusterSwitch, authzUsecase, logger)
+	archiveUsecase := biz.NewArchiveUsecase(argoClusterSwitch, authzUsecase, workflowUsecase, logger)
 	archivedWorkflowService := service.NewArchivedWorkflowService(archiveUsecase, logger)
 	workflowService := service.NewWorkflowService(workflowUsecase, logger)
 	revisionRepo := data.NewRevisionRepo(dataData)
-	templateHistory := biz.NewTemplateHistory(revisionRepo, cache, auditor, logger)
-	templateUsecase := biz.NewTemplateUsecase(servers, cache, authzUsecase, templateHistory, logger)
+	templateHistory := biz.NewTemplateHistory(revisionRepo, argoClusterSwitch, auditor, logger)
+	templateUsecase := biz.NewTemplateUsecase(argoClusterSwitch, authzUsecase, templateHistory, logger)
 	workflowTemplateService := service.NewWorkflowTemplateService(templateUsecase, logger)
-	clusterTemplateUsecase := biz.NewClusterTemplateUsecase(servers, cache, authzUsecase, templateHistory, logger)
+	clusterTemplateUsecase := biz.NewClusterTemplateUsecase(argoClusterSwitch, authzUsecase, templateHistory, logger)
 	clusterWorkflowTemplateService := service.NewClusterWorkflowTemplateService(clusterTemplateUsecase, logger)
-	cronUsecase := biz.NewCronUsecase(servers, cache, authzUsecase, logger)
+	cronUsecase := biz.NewCronUsecase(argoClusterSwitch, authzUsecase, logger)
 	cronWorkflowService := service.NewCronWorkflowService(cronUsecase, logger)
 	authzService := service.NewAuthzService(authzUsecase, auditor, logger)
-	infoService := service.NewInfoService(servers, kube, logger)
+	infoService := service.NewInfoService(argoClusterSwitch, logger)
 	artifactHandler := service.NewArtifactHandler(workflowUsecase, archiveUsecase, logger)
-	httpServer := server.NewHTTPServer(confServer, sso, confAuthz, signer, logger, oauth2Service, archivedWorkflowService, authzUsecase, workflowService, workflowTemplateService, clusterWorkflowTemplateService, cronWorkflowService, authzService, infoService, artifactHandler)
+	clusterService := service.NewClusterService(argoClusterSwitch, authzUsecase, logger)
+	httpServer := server.NewHTTPServer(confServer, sso, confAuthz, signer, logger, oauth2Service, archivedWorkflowService, authzUsecase, workflowService, workflowTemplateService, clusterWorkflowTemplateService, cronWorkflowService, authzService, infoService, artifactHandler, clusterService, argoClusterSwitch)
 	serverCommand := NewServerCmd(logger, httpServer)
 	return serverCommand, func() {
-		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -116,5 +105,6 @@ var configProviders = wire.NewSet(
 	newSSOConf,
 	newKubeConf,
 	newArgoConf,
+	newClusterSwitchConf,
 	newAuthzConf,
 )

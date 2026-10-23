@@ -16,27 +16,31 @@ import (
 // CronUsecase manages scheduled workflows. Like plain workflows, a cron workflow's permissions are
 // those of the template it references; a cron with an inline spec falls back to namespace scope.
 type CronUsecase struct {
-	log     *slog.Logger
-	servers *pkgargo.Servers
-	cache   *pkgargo.Cache
-	authz   *AuthzUsecase
+	log   *slog.Logger
+	sw    *pkgargo.ClusterSwitch
+	authz *AuthzUsecase
 }
 
-func NewCronUsecase(servers *pkgargo.Servers, cache *pkgargo.Cache, authzUC *AuthzUsecase, logger *slog.Logger) *CronUsecase {
+func NewCronUsecase(sw *pkgargo.ClusterSwitch, authzUC *AuthzUsecase, logger *slog.Logger) *CronUsecase {
 	return &CronUsecase{
-		log:     logger.With("module", "biz/cronworkflow"),
-		servers: servers,
-		cache:   cache,
-		authz:   authzUC,
+		log:   logger.With("module", "biz/cronworkflow"),
+		sw:    sw,
+		authz: authzUC,
 	}
 }
+
+// servers and cache are the Argo servers and informer cache of the cluster the request was pinned to
+// (pkgargo.ClusterSwitch), so one request never spans two clusters.
+func (uc *CronUsecase) servers(ctx context.Context) *pkgargo.Servers { return uc.sw.For(ctx).Servers }
+
+func (uc *CronUsecase) cache(ctx context.Context) *pkgargo.Cache { return uc.sw.For(ctx).Cache }
 
 func (uc *CronUsecase) done(ctx context.Context, action authz.Action, cron *wfv1.CronWorkflow, detail any) {
 	uc.authz.Audit().Record(ctx, action, CronWorkflowResource(cron), AuditAllowed, cron.Namespace+"/"+cron.Name, detail, uc.authz.Revision())
 }
 
 func (uc *CronUsecase) argoContext(ctx context.Context) context.Context {
-	ctx = pkgargo.WithClients(ctx, uc.servers.Clients)
+	ctx = pkgargo.WithClients(ctx, uc.servers(ctx).Clients)
 	if subject := uc.authz.Subject(ctx); subject != "" {
 		ctx = pkgargo.WithSubject(ctx, subject, "", "")
 	}
@@ -47,7 +51,7 @@ func (uc *CronUsecase) List(ctx context.Context, opts pkgargo.ListOptions) (*wfv
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return nil, err
 	}
-	all, err := uc.cache.ListCrons(ctx, uc.servers.NamespaceFor(opts.Namespace), opts.LabelSelector, opts.NamePattern)
+	all, err := uc.cache(ctx).ListCrons(ctx, uc.servers(ctx).NamespaceFor(opts.Namespace), opts.LabelSelector, opts.NamePattern)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +78,7 @@ func (uc *CronUsecase) Get(ctx context.Context, namespace, name string) (*wfv1.C
 
 // authorizeOn reads the cron workflow so its template scope is known, then checks the action.
 func (uc *CronUsecase) authorizeOn(ctx context.Context, namespace, name string, action authz.Action) (*wfv1.CronWorkflow, error) {
-	cron, err := uc.servers.GetCronWorkflow(uc.argoContext(ctx), namespace, name)
+	cron, err := uc.servers(ctx).GetCronWorkflow(uc.argoContext(ctx), namespace, name)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +91,7 @@ func (uc *CronUsecase) authorizeOn(ctx context.Context, namespace, name string, 
 // Create authorizes against the referenced template when there is one, so a template editor can
 // schedule their own template without needing rights over the whole namespace.
 func (uc *CronUsecase) Create(ctx context.Context, namespace string, cron *wfv1.CronWorkflow) (*wfv1.CronWorkflow, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	cron.Namespace = ns
 	if err := uc.authz.Require(ctx, authz.CronCreate, CronWorkflowResource(cron)); err != nil {
 		return nil, err
@@ -97,7 +101,7 @@ func (uc *CronUsecase) Create(ctx context.Context, namespace string, cron *wfv1.
 			return nil, err
 		}
 	}
-	created, err := uc.servers.CronWorkflow.CreateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CreateCronWorkflowRequest{
+	created, err := uc.servers(ctx).CronWorkflow.CreateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CreateCronWorkflowRequest{
 		Namespace:    ns,
 		CronWorkflow: cron,
 	})
@@ -113,12 +117,12 @@ func (uc *CronUsecase) Update(ctx context.Context, namespace, name string, cron 
 	if _, err := uc.authorizeOn(ctx, namespace, name, authz.CronUpdate); err != nil {
 		return nil, err
 	}
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	cron.Namespace = ns
 	if err := uc.authz.Require(ctx, authz.CronUpdate, CronWorkflowResource(cron)); err != nil {
 		return nil, err
 	}
-	updated, err := uc.servers.CronWorkflow.UpdateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.UpdateCronWorkflowRequest{
+	updated, err := uc.servers(ctx).CronWorkflow.UpdateCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.UpdateCronWorkflowRequest{
 		Namespace:    ns,
 		Name:         name,
 		CronWorkflow: cron,
@@ -135,7 +139,7 @@ func (uc *CronUsecase) Delete(ctx context.Context, namespace, name string) error
 	if err != nil {
 		return err
 	}
-	_, err = uc.servers.CronWorkflow.DeleteCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.DeleteCronWorkflowRequest{
+	_, err = uc.servers(ctx).CronWorkflow.DeleteCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.DeleteCronWorkflowRequest{
 		Namespace: cron.Namespace,
 		Name:      cron.Name,
 	})
@@ -150,7 +154,7 @@ func (uc *CronUsecase) Suspend(ctx context.Context, namespace, name string) (*wf
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.CronWorkflow.SuspendCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowSuspendRequest{
+	out, err := uc.servers(ctx).CronWorkflow.SuspendCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowSuspendRequest{
 		Namespace: cron.Namespace,
 		Name:      cron.Name,
 	})
@@ -165,7 +169,7 @@ func (uc *CronUsecase) Resume(ctx context.Context, namespace, name string) (*wfv
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.CronWorkflow.ResumeCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowResumeRequest{
+	out, err := uc.servers(ctx).CronWorkflow.ResumeCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.CronWorkflowResumeRequest{
 		Namespace: cron.Namespace,
 		Name:      cron.Name,
 	})
@@ -194,7 +198,7 @@ func (uc *CronUsecase) RunNow(ctx context.Context, namespace, name string) (*wfv
 		wf.Labels[common.LabelKeyCreator] = sanitizeLabelValue(subject)
 	}
 
-	created, err := uc.servers.Workflow.CreateWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowCreateRequest{
+	created, err := uc.servers(ctx).Workflow.CreateWorkflow(uc.argoContext(ctx), &workflowpkg.WorkflowCreateRequest{
 		Namespace: cron.Namespace,
 		Workflow:  wf,
 	})
@@ -205,12 +209,12 @@ func (uc *CronUsecase) RunNow(ctx context.Context, namespace, name string) (*wfv
 }
 
 func (uc *CronUsecase) Lint(ctx context.Context, namespace string, cron *wfv1.CronWorkflow) (*wfv1.CronWorkflow, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	cron.Namespace = ns
 	if err := uc.authz.Require(ctx, authz.CronCreate, CronWorkflowResource(cron)); err != nil {
 		return nil, err
 	}
-	return uc.servers.CronWorkflow.LintCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.LintCronWorkflowRequest{
+	return uc.servers(ctx).CronWorkflow.LintCronWorkflow(uc.argoContext(ctx), &cronworkflowpkg.LintCronWorkflowRequest{
 		Namespace:    ns,
 		CronWorkflow: cron,
 	})

@@ -18,24 +18,30 @@ import (
 // TemplateUsecase manages WorkflowTemplates, the resources permissions are granted on.
 type TemplateUsecase struct {
 	log     *slog.Logger
-	servers *pkgargo.Servers
-	cache   *pkgargo.Cache
+	sw      *pkgargo.ClusterSwitch
 	authz   *AuthzUsecase
 	history *TemplateHistory
 }
 
-func NewTemplateUsecase(servers *pkgargo.Servers, cache *pkgargo.Cache, authzUC *AuthzUsecase, history *TemplateHistory, logger *slog.Logger) *TemplateUsecase {
+func NewTemplateUsecase(sw *pkgargo.ClusterSwitch, authzUC *AuthzUsecase, history *TemplateHistory, logger *slog.Logger) *TemplateUsecase {
 	return &TemplateUsecase{
 		log:     logger.With("module", "biz/workflowtemplate"),
-		servers: servers,
-		cache:   cache,
+		sw:      sw,
 		authz:   authzUC,
 		history: history,
 	}
 }
 
+// servers and cache are the Argo servers and informer cache of the cluster the request was pinned to
+// (pkgargo.ClusterSwitch), so one request never spans two clusters.
+func (uc *TemplateUsecase) servers(ctx context.Context) *pkgargo.Servers {
+	return uc.sw.For(ctx).Servers
+}
+
+func (uc *TemplateUsecase) cache(ctx context.Context) *pkgargo.Cache { return uc.sw.For(ctx).Cache }
+
 func (uc *TemplateUsecase) argoContext(ctx context.Context) context.Context {
-	ctx = pkgargo.WithClients(ctx, uc.servers.Clients)
+	ctx = pkgargo.WithClients(ctx, uc.servers(ctx).Clients)
 	if subject := uc.authz.Subject(ctx); subject != "" {
 		ctx = pkgargo.WithSubject(ctx, subject, "", "")
 	}
@@ -47,7 +53,7 @@ func (uc *TemplateUsecase) List(ctx context.Context, opts pkgargo.ListOptions) (
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return nil, err
 	}
-	all, err := uc.cache.ListTemplates(ctx, uc.servers.NamespaceFor(opts.Namespace), opts.LabelSelector, opts.NamePattern)
+	all, err := uc.cache(ctx).ListTemplates(ctx, uc.servers(ctx).NamespaceFor(opts.Namespace), opts.LabelSelector, opts.NamePattern)
 	if err != nil {
 		return nil, err
 	}
@@ -65,11 +71,11 @@ func (uc *TemplateUsecase) List(ctx context.Context, opts pkgargo.ListOptions) (
 }
 
 func (uc *TemplateUsecase) Get(ctx context.Context, namespace, name string) (*wfv1.WorkflowTemplate, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if err := uc.authz.Require(ctx, authz.TemplateGet, TemplateResource(ns, name)); err != nil {
 		return nil, err
 	}
-	return uc.servers.WorkflowTemplate.GetWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateGetRequest{
+	return uc.servers(ctx).WorkflowTemplate.GetWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateGetRequest{
 		Namespace: ns,
 		Name:      name,
 	})
@@ -89,7 +95,7 @@ func (uc *TemplateUsecase) stamp(ctx context.Context, meta map[string]string) ma
 // Create needs a namespace-wide grant: the template does not exist yet, so there is no narrower
 // scope that could authorize creating it.
 func (uc *TemplateUsecase) Create(ctx context.Context, namespace string, tmpl *wfv1.WorkflowTemplate, message string) (*wfv1.WorkflowTemplate, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if err := uc.authz.Require(ctx, authz.TemplateCreate, NamespaceResource(ns)); err != nil {
 		return nil, err
 	}
@@ -97,7 +103,7 @@ func (uc *TemplateUsecase) Create(ctx context.Context, namespace string, tmpl *w
 		return nil, err
 	}
 	tmpl.Annotations = uc.stamp(ctx, tmpl.Annotations)
-	created, err := uc.servers.WorkflowTemplate.CreateWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateCreateRequest{
+	created, err := uc.servers(ctx).WorkflowTemplate.CreateWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateCreateRequest{
 		Namespace: ns,
 		Template:  tmpl,
 	})
@@ -112,7 +118,7 @@ func (uc *TemplateUsecase) Create(ctx context.Context, namespace string, tmpl *w
 // Update saves a template with optimistic concurrency: the caller's resourceVersion must match the
 // stored one, otherwise Kubernetes refuses with 409 and the editor offers a three-way merge.
 func (uc *TemplateUsecase) Update(ctx context.Context, namespace, name string, tmpl *wfv1.WorkflowTemplate, message string) (*wfv1.WorkflowTemplate, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if err := uc.authz.Require(ctx, authz.TemplateUpdate, TemplateResource(ns, name)); err != nil {
 		return nil, err
 	}
@@ -123,7 +129,7 @@ func (uc *TemplateUsecase) Update(ctx context.Context, namespace, name string, t
 		return nil, errors.BadRequest("invalid_argument", "metadata.resourceVersion is required to update a template; reload it and save again")
 	}
 	tmpl.Annotations = uc.stamp(ctx, tmpl.Annotations)
-	updated, err := uc.servers.WorkflowTemplate.UpdateWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateUpdateRequest{
+	updated, err := uc.servers(ctx).WorkflowTemplate.UpdateWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateUpdateRequest{
 		Namespace: ns,
 		Name:      name,
 		Template:  tmpl,
@@ -148,12 +154,12 @@ func conflictError(err error) error {
 // name does not silently inherit them. Revoking after the delete means a failed revoke leaves an orphan
 // grant (listed on the permissions page), never a template without its grants.
 func (uc *TemplateUsecase) Delete(ctx context.Context, namespace, name string) error {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	res := TemplateResource(ns, name)
 	if err := uc.authz.Require(ctx, authz.TemplateDelete, res); err != nil {
 		return err
 	}
-	if _, err := uc.servers.WorkflowTemplate.DeleteWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateDeleteRequest{
+	if _, err := uc.servers(ctx).WorkflowTemplate.DeleteWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateDeleteRequest{
 		Namespace: ns,
 		Name:      name,
 	}); err != nil {
@@ -167,8 +173,8 @@ func (uc *TemplateUsecase) Delete(ctx context.Context, namespace, name string) e
 // Lint validates a template before it is saved. It is a create- or update-shaped action depending on
 // whether the template exists, and it also checks every template the spec references is readable.
 func (uc *TemplateUsecase) Lint(ctx context.Context, namespace string, tmpl *wfv1.WorkflowTemplate) (*wfv1.WorkflowTemplate, error) {
-	ns := uc.servers.NamespaceFor(namespace)
-	if _, exists := uc.cache.GetTemplate(ns, tmpl.Name); exists && tmpl.Name != "" {
+	ns := uc.servers(ctx).NamespaceFor(namespace)
+	if _, exists := uc.cache(ctx).GetTemplate(ns, tmpl.Name); exists && tmpl.Name != "" {
 		if err := uc.authz.Require(ctx, authz.TemplateUpdate, TemplateResource(ns, tmpl.Name)); err != nil {
 			return nil, err
 		}
@@ -178,7 +184,7 @@ func (uc *TemplateUsecase) Lint(ctx context.Context, namespace string, tmpl *wfv
 	if err := uc.requireRefsReadable(ctx, ns, &tmpl.Spec); err != nil {
 		return nil, err
 	}
-	return uc.servers.WorkflowTemplate.LintWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateLintRequest{
+	return uc.servers(ctx).WorkflowTemplate.LintWorkflowTemplate(uc.argoContext(ctx), &workflowtemplatepkg.WorkflowTemplateLintRequest{
 		Namespace: ns,
 		Template:  tmpl,
 	})
@@ -233,7 +239,7 @@ func requireRefsReadable(ctx context.Context, az *AuthzUsecase, namespace string
 
 // Revisions lists a template's recorded history.
 func (uc *TemplateUsecase) Revisions(ctx context.Context, namespace, name string) ([]TemplateRevision, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if err := uc.authz.Require(ctx, authz.TemplateGet, TemplateResource(ns, name)); err != nil {
 		return nil, err
 	}
@@ -242,7 +248,7 @@ func (uc *TemplateUsecase) Revisions(ctx context.Context, namespace, name string
 
 // Revision returns one recorded version.
 func (uc *TemplateUsecase) Revision(ctx context.Context, namespace, name, id string) (TemplateRevision, error) {
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	if err := uc.authz.Require(ctx, authz.TemplateGet, TemplateResource(ns, name)); err != nil {
 		return TemplateRevision{}, err
 	}
@@ -293,10 +299,10 @@ func (uc *TemplateUsecase) Components(ctx context.Context, namespace string) ([]
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return nil, err
 	}
-	ns := uc.servers.NamespaceFor(namespace)
+	ns := uc.servers(ctx).NamespaceFor(namespace)
 	selector := LabelComponent + "=true"
 	var out []ComponentRef
-	local, err := uc.cache.ListTemplates(ctx, ns, selector, "")
+	local, err := uc.cache(ctx).ListTemplates(ctx, ns, selector, "")
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +312,7 @@ func (uc *TemplateUsecase) Components(ctx context.Context, namespace string) ([]
 			out = append(out, ComponentRef{Template: t, Editable: uc.authz.Allow(ctx, authz.TemplateUpdate, res)})
 		}
 	}
-	cluster, err := uc.cache.ListClusterTemplates(ctx, selector, "")
+	cluster, err := uc.cache(ctx).ListClusterTemplates(ctx, selector, "")
 	if err != nil {
 		return nil, err
 	}

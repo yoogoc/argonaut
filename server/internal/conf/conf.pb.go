@@ -31,6 +31,7 @@ type Bootstrap struct {
 	Kube          *Kube                  `protobuf:"bytes,5,opt,name=kube,proto3" json:"kube,omitempty"`
 	Argo          *Argo                  `protobuf:"bytes,6,opt,name=argo,proto3" json:"argo,omitempty"`
 	Authz         *Authz                 `protobuf:"bytes,7,opt,name=authz,proto3" json:"authz,omitempty"`
+	ClusterSwitch *ClusterSwitch         `protobuf:"bytes,8,opt,name=cluster_switch,json=clusterSwitch,proto3" json:"cluster_switch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -110,6 +111,13 @@ func (x *Bootstrap) GetArgo() *Argo {
 func (x *Bootstrap) GetAuthz() *Authz {
 	if x != nil {
 		return x.Authz
+	}
+	return nil
+}
+
+func (x *Bootstrap) GetClusterSwitch() *ClusterSwitch {
+	if x != nil {
+		return x.ClusterSwitch
 	}
 	return nil
 }
@@ -378,8 +386,11 @@ type Kube struct {
 	// namespaces the UI offers in pickers; empty lets the UI discover them from listed resources.
 	Namespaces []string `protobuf:"bytes,3,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
 	// qps/burst raise client-go's default rate limits, which detail pages blow through.
-	Qps           float64 `protobuf:"fixed64,4,opt,name=qps,proto3" json:"qps,omitempty"`
-	Burst         int32   `protobuf:"varint,5,opt,name=burst,proto3" json:"burst,omitempty"`
+	Qps   float64 `protobuf:"fixed64,4,opt,name=qps,proto3" json:"qps,omitempty"`
+	Burst int32   `protobuf:"varint,5,opt,name=burst,proto3" json:"burst,omitempty"`
+	// exec_env is added to the environment of a kubeconfig exec credential plugin (aws eks get-token
+	// and friends), e.g. AWS_PROFILE, so the connection does not depend on how the server was started.
+	ExecEnv       map[string]string `protobuf:"bytes,7,rep,name=exec_env,json=execEnv,proto3" json:"exec_env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -454,6 +465,13 @@ func (x *Kube) GetBurst() int32 {
 		return x.Burst
 	}
 	return 0
+}
+
+func (x *Kube) GetExecEnv() map[string]string {
+	if x != nil {
+		return x.ExecEnv
+	}
+	return nil
 }
 
 // Argo points at the workflow controller's ConfigMap. Artifact repositories and node-status
@@ -606,6 +624,83 @@ func (x *Authz) GetReplicaId() string {
 	return ""
 }
 
+// ClusterSwitch lets one argonaut instance be switched, from the UI, between several clusters; it is
+// connected to one of them at a time (docs/multi-cluster.md). Off by default: production serves the
+// single cluster described by the top-level kube and argo sections.
+type ClusterSwitch struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Enabled bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// default is the cluster connected at startup. Empty means kube.context, then (with from_kubeconfig)
+	// the kubeconfig's current-context, then the first cluster.
+	Default string `protobuf:"bytes,2,opt,name=default,proto3" json:"default,omitempty"`
+	// clusters lists the choices. With from_kubeconfig they are optional and override, by id, the
+	// context of the same name; entries matching no context are added as further choices.
+	Clusters []*ClusterSwitch_Cluster `protobuf:"bytes,3,rep,name=clusters,proto3" json:"clusters,omitempty"`
+	// from_kubeconfig offers every context in the kubeconfig (kube.kubeconfig, or the default loading
+	// rules) as a cluster, re-read whenever the list is shown, so new contexts appear without a restart.
+	FromKubeconfig bool `protobuf:"varint,4,opt,name=from_kubeconfig,json=fromKubeconfig,proto3" json:"from_kubeconfig,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ClusterSwitch) Reset() {
+	*x = ClusterSwitch{}
+	mi := &file_internal_conf_conf_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterSwitch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterSwitch) ProtoMessage() {}
+
+func (x *ClusterSwitch) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_conf_conf_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterSwitch.ProtoReflect.Descriptor instead.
+func (*ClusterSwitch) Descriptor() ([]byte, []int) {
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ClusterSwitch) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *ClusterSwitch) GetDefault() string {
+	if x != nil {
+		return x.Default
+	}
+	return ""
+}
+
+func (x *ClusterSwitch) GetClusters() []*ClusterSwitch_Cluster {
+	if x != nil {
+		return x.Clusters
+	}
+	return nil
+}
+
+func (x *ClusterSwitch) GetFromKubeconfig() bool {
+	if x != nil {
+		return x.FromKubeconfig
+	}
+	return false
+}
+
 type Server_HTTP struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Network       string                 `protobuf:"bytes,1,opt,name=network,proto3" json:"network,omitempty"`
@@ -617,7 +712,7 @@ type Server_HTTP struct {
 
 func (x *Server_HTTP) Reset() {
 	*x = Server_HTTP{}
-	mi := &file_internal_conf_conf_proto_msgTypes[8]
+	mi := &file_internal_conf_conf_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -629,7 +724,7 @@ func (x *Server_HTTP) String() string {
 func (*Server_HTTP) ProtoMessage() {}
 
 func (x *Server_HTTP) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_conf_conf_proto_msgTypes[8]
+	mi := &file_internal_conf_conf_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -677,7 +772,7 @@ type Server_GRPC struct {
 
 func (x *Server_GRPC) Reset() {
 	*x = Server_GRPC{}
-	mi := &file_internal_conf_conf_proto_msgTypes[9]
+	mi := &file_internal_conf_conf_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -689,7 +784,7 @@ func (x *Server_GRPC) String() string {
 func (*Server_GRPC) ProtoMessage() {}
 
 func (x *Server_GRPC) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_conf_conf_proto_msgTypes[9]
+	mi := &file_internal_conf_conf_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -737,7 +832,7 @@ type Data_Database struct {
 
 func (x *Data_Database) Reset() {
 	*x = Data_Database{}
-	mi := &file_internal_conf_conf_proto_msgTypes[10]
+	mi := &file_internal_conf_conf_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -749,7 +844,7 @@ func (x *Data_Database) String() string {
 func (*Data_Database) ProtoMessage() {}
 
 func (x *Data_Database) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_conf_conf_proto_msgTypes[10]
+	mi := &file_internal_conf_conf_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -786,12 +881,91 @@ func (x *Data_Database) GetEntDebug() bool {
 	return false
 }
 
+type ClusterSwitch_Cluster struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id is stable: it is recorded with template revisions and audit events.
+	Id   string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// env only colours the UI: prod, uat, or anything else.
+	Env string `protobuf:"bytes,3,opt,name=env,proto3" json:"env,omitempty"`
+	// kube and argo override the top-level sections field by field; unset fields keep those values.
+	Kube          *Kube `protobuf:"bytes,4,opt,name=kube,proto3" json:"kube,omitempty"`
+	Argo          *Argo `protobuf:"bytes,5,opt,name=argo,proto3" json:"argo,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterSwitch_Cluster) Reset() {
+	*x = ClusterSwitch_Cluster{}
+	mi := &file_internal_conf_conf_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterSwitch_Cluster) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterSwitch_Cluster) ProtoMessage() {}
+
+func (x *ClusterSwitch_Cluster) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_conf_conf_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterSwitch_Cluster.ProtoReflect.Descriptor instead.
+func (*ClusterSwitch_Cluster) Descriptor() ([]byte, []int) {
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{8, 0}
+}
+
+func (x *ClusterSwitch_Cluster) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClusterSwitch_Cluster) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ClusterSwitch_Cluster) GetEnv() string {
+	if x != nil {
+		return x.Env
+	}
+	return ""
+}
+
+func (x *ClusterSwitch_Cluster) GetKube() *Kube {
+	if x != nil {
+		return x.Kube
+	}
+	return nil
+}
+
+func (x *ClusterSwitch_Cluster) GetArgo() *Argo {
+	if x != nil {
+		return x.Argo
+	}
+	return nil
+}
+
 var File_internal_conf_conf_proto protoreflect.FileDescriptor
 
 const file_internal_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"\x18internal/conf/conf.proto\x12\n" +
-	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\x98\x02\n" +
+	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\xda\x02\n" +
 	"\tBootstrap\x12*\n" +
 	"\x06server\x18\x01 \x01(\v2\x12.kratos.api.ServerR\x06server\x12$\n" +
 	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\x12!\n" +
@@ -799,7 +973,8 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\x03sso\x18\x04 \x01(\v2\x0f.kratos.api.SSOR\x03sso\x12$\n" +
 	"\x04kube\x18\x05 \x01(\v2\x10.kratos.api.KubeR\x04kube\x12$\n" +
 	"\x04argo\x18\x06 \x01(\v2\x10.kratos.api.ArgoR\x04argo\x12'\n" +
-	"\x05authz\x18\a \x01(\v2\x11.kratos.api.AuthzR\x05authz\"\xb8\x02\n" +
+	"\x05authz\x18\a \x01(\v2\x11.kratos.api.AuthzR\x05authz\x12@\n" +
+	"\x0ecluster_switch\x18\b \x01(\v2\x19.kratos.api.ClusterSwitchR\rclusterSwitch\"\xb8\x02\n" +
 	"\x06Server\x12+\n" +
 	"\x04http\x18\x01 \x01(\v2\x17.kratos.api.Server.HTTPR\x04http\x12+\n" +
 	"\x04grpc\x18\x02 \x01(\v2\x17.kratos.api.Server.GRPCR\x04grpc\x1ai\n" +
@@ -829,7 +1004,7 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"jwt_secret\x18\x06 \x01(\tR\tjwtSecret\x12\x18\n" +
 	"\aenabled\x18\a \x01(\bR\aenabled\x12!\n" +
-	"\fissuer_alias\x18\b \x01(\tR\vissuerAlias\"\xb5\x01\n" +
+	"\fissuer_alias\x18\b \x01(\tR\vissuerAlias\"\xab\x02\n" +
 	"\x04Kube\x12\x1e\n" +
 	"\n" +
 	"kubeconfig\x18\x01 \x01(\tR\n" +
@@ -840,7 +1015,11 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"namespaces\x18\x03 \x03(\tR\n" +
 	"namespaces\x12\x10\n" +
 	"\x03qps\x18\x04 \x01(\x01R\x03qps\x12\x14\n" +
-	"\x05burst\x18\x05 \x01(\x05R\x05burst\"\x8d\x01\n" +
+	"\x05burst\x18\x05 \x01(\x05R\x05burst\x128\n" +
+	"\bexec_env\x18\a \x03(\v2\x1d.kratos.api.Kube.ExecEnvEntryR\aexecEnv\x1a:\n" +
+	"\fExecEnvEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8d\x01\n" +
 	"\x04Argo\x121\n" +
 	"\x14controller_namespace\x18\x01 \x01(\tR\x13controllerNamespace\x121\n" +
 	"\x14controller_configmap\x18\x02 \x01(\tR\x13controllerConfigmap\x12\x1f\n" +
@@ -854,7 +1033,18 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\x1acluster_templates_readable\x18\x05 \x01(\bH\x00R\x18clusterTemplatesReadable\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"replica_id\x18\x06 \x01(\tR\treplicaIdB\x1d\n" +
-	"\x1b_cluster_templates_readableB\x14Z\x12internal/conf;confb\x06proto3"
+	"\x1b_cluster_templates_readable\"\xb9\x02\n" +
+	"\rClusterSwitch\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x18\n" +
+	"\adefault\x18\x02 \x01(\tR\adefault\x12=\n" +
+	"\bclusters\x18\x03 \x03(\v2!.kratos.api.ClusterSwitch.ClusterR\bclusters\x12'\n" +
+	"\x0ffrom_kubeconfig\x18\x04 \x01(\bR\x0efromKubeconfig\x1a\x8b\x01\n" +
+	"\aCluster\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
+	"\x03env\x18\x03 \x01(\tR\x03env\x12$\n" +
+	"\x04kube\x18\x04 \x01(\v2\x10.kratos.api.KubeR\x04kube\x12$\n" +
+	"\x04argo\x18\x05 \x01(\v2\x10.kratos.api.ArgoR\x04argoB\x14Z\x12internal/conf;confb\x06proto3"
 
 var (
 	file_internal_conf_conf_proto_rawDescOnce sync.Once
@@ -868,20 +1058,23 @@ func file_internal_conf_conf_proto_rawDescGZIP() []byte {
 	return file_internal_conf_conf_proto_rawDescData
 }
 
-var file_internal_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_internal_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_internal_conf_conf_proto_goTypes = []any{
-	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
-	(*Server)(nil),              // 1: kratos.api.Server
-	(*Data)(nil),                // 2: kratos.api.Data
-	(*Log)(nil),                 // 3: kratos.api.Log
-	(*SSO)(nil),                 // 4: kratos.api.SSO
-	(*Kube)(nil),                // 5: kratos.api.Kube
-	(*Argo)(nil),                // 6: kratos.api.Argo
-	(*Authz)(nil),               // 7: kratos.api.Authz
-	(*Server_HTTP)(nil),         // 8: kratos.api.Server.HTTP
-	(*Server_GRPC)(nil),         // 9: kratos.api.Server.GRPC
-	(*Data_Database)(nil),       // 10: kratos.api.Data.Database
-	(*durationpb.Duration)(nil), // 11: google.protobuf.Duration
+	(*Bootstrap)(nil),             // 0: kratos.api.Bootstrap
+	(*Server)(nil),                // 1: kratos.api.Server
+	(*Data)(nil),                  // 2: kratos.api.Data
+	(*Log)(nil),                   // 3: kratos.api.Log
+	(*SSO)(nil),                   // 4: kratos.api.SSO
+	(*Kube)(nil),                  // 5: kratos.api.Kube
+	(*Argo)(nil),                  // 6: kratos.api.Argo
+	(*Authz)(nil),                 // 7: kratos.api.Authz
+	(*ClusterSwitch)(nil),         // 8: kratos.api.ClusterSwitch
+	(*Server_HTTP)(nil),           // 9: kratos.api.Server.HTTP
+	(*Server_GRPC)(nil),           // 10: kratos.api.Server.GRPC
+	(*Data_Database)(nil),         // 11: kratos.api.Data.Database
+	nil,                           // 12: kratos.api.Kube.ExecEnvEntry
+	(*ClusterSwitch_Cluster)(nil), // 13: kratos.api.ClusterSwitch.Cluster
+	(*durationpb.Duration)(nil),   // 14: google.protobuf.Duration
 }
 var file_internal_conf_conf_proto_depIdxs = []int32{
 	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
@@ -891,18 +1084,23 @@ var file_internal_conf_conf_proto_depIdxs = []int32{
 	5,  // 4: kratos.api.Bootstrap.kube:type_name -> kratos.api.Kube
 	6,  // 5: kratos.api.Bootstrap.argo:type_name -> kratos.api.Argo
 	7,  // 6: kratos.api.Bootstrap.authz:type_name -> kratos.api.Authz
-	8,  // 7: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
-	9,  // 8: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
-	10, // 9: kratos.api.Data.database:type_name -> kratos.api.Data.Database
-	11, // 10: kratos.api.SSO.session_expiry:type_name -> google.protobuf.Duration
-	11, // 11: kratos.api.Authz.poll_interval:type_name -> google.protobuf.Duration
-	11, // 12: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
-	11, // 13: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	8,  // 7: kratos.api.Bootstrap.cluster_switch:type_name -> kratos.api.ClusterSwitch
+	9,  // 8: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
+	10, // 9: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
+	11, // 10: kratos.api.Data.database:type_name -> kratos.api.Data.Database
+	14, // 11: kratos.api.SSO.session_expiry:type_name -> google.protobuf.Duration
+	12, // 12: kratos.api.Kube.exec_env:type_name -> kratos.api.Kube.ExecEnvEntry
+	14, // 13: kratos.api.Authz.poll_interval:type_name -> google.protobuf.Duration
+	13, // 14: kratos.api.ClusterSwitch.clusters:type_name -> kratos.api.ClusterSwitch.Cluster
+	14, // 15: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
+	14, // 16: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
+	5,  // 17: kratos.api.ClusterSwitch.Cluster.kube:type_name -> kratos.api.Kube
+	6,  // 18: kratos.api.ClusterSwitch.Cluster.argo:type_name -> kratos.api.Argo
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_internal_conf_conf_proto_init() }
@@ -917,7 +1115,7 @@ func file_internal_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_conf_conf_proto_rawDesc), len(file_internal_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

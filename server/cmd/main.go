@@ -167,6 +167,13 @@ func newKubeConf(bc *conf.Bootstrap) *conf.Kube {
 	return bc.Kube
 }
 
+func newClusterSwitchConf(bc *conf.Bootstrap) *conf.ClusterSwitch {
+	if bc.ClusterSwitch == nil {
+		return &conf.ClusterSwitch{}
+	}
+	return bc.ClusterSwitch
+}
+
 func newArgoConf(bc *conf.Bootstrap) *conf.Argo {
 	if bc.Argo == nil {
 		return &conf.Argo{}

@@ -68,7 +68,7 @@ type AuthzStatus struct {
 type AuthzUsecase struct {
 	log       *slog.Logger
 	repo      AuthzRepo
-	cache     *pkgargo.Cache
+	sw        *pkgargo.ClusterSwitch
 	engine    *authz.Engine
 	audit     *Auditor
 	replicaID string
@@ -81,7 +81,7 @@ type AuthzUsecase struct {
 	nextSub     int
 }
 
-func NewAuthzUsecase(repo AuthzRepo, engine *authz.Engine, auditor *Auditor, cache *pkgargo.Cache, authzConf *conf.Authz, logger *slog.Logger) (*AuthzUsecase, func()) {
+func NewAuthzUsecase(repo AuthzRepo, engine *authz.Engine, auditor *Auditor, sw *pkgargo.ClusterSwitch, authzConf *conf.Authz, logger *slog.Logger) (*AuthzUsecase, func()) {
 	poll := defaultPollInterval
 	if d := authzConf.GetPollInterval(); d != nil && d.AsDuration() > 0 {
 		poll = d.AsDuration()
@@ -97,7 +97,7 @@ func NewAuthzUsecase(repo AuthzRepo, engine *authz.Engine, auditor *Auditor, cac
 	uc := &AuthzUsecase{
 		log:         logger.With("module", "biz/authz"),
 		repo:        repo,
-		cache:       cache,
+		sw:          sw,
 		engine:      engine,
 		audit:       auditor,
 		replicaID:   replica,
@@ -447,21 +447,22 @@ func (uc *AuthzUsecase) OrphanGrants(ctx context.Context) ([]authz.Grant, error)
 	if err != nil {
 		return nil, err
 	}
-	if err := uc.cache.WaitSynced(ctx); err != nil {
+	cache := uc.sw.For(ctx).Cache
+	if err := cache.WaitSynced(ctx); err != nil {
 		return nil, err
 	}
 	var out []authz.Grant
 	for _, g := range uc.engine.Grants() {
 		switch g.ResourceType {
 		case authz.ResourceTemplate:
-			if !uc.cache.Manages(g.Namespace) {
+			if !cache.Manages(g.Namespace) {
 				continue
 			}
-			if _, ok := uc.cache.GetTemplate(g.Namespace, g.Name); ok {
+			if _, ok := cache.GetTemplate(g.Namespace, g.Name); ok {
 				continue
 			}
 		case authz.ResourceClusterTemplate:
-			if _, ok := uc.cache.GetClusterTemplate(g.Name); ok {
+			if _, ok := cache.GetClusterTemplate(g.Name); ok {
 				continue
 			}
 		default:

@@ -25,14 +25,20 @@ const archiveScanBatch = 200
 // ArchiveUsecase serves the workflow archive (DESIGN §2.4). Archived runs keep their labels and
 // spec, so they are attributed to a template scope and authorized exactly like live ones.
 type ArchiveUsecase struct {
-	log     *slog.Logger
-	servers *pkgargo.Servers
-	authz   *AuthzUsecase
-	wf      *WorkflowUsecase
+	log   *slog.Logger
+	sw    *pkgargo.ClusterSwitch
+	authz *AuthzUsecase
+	wf    *WorkflowUsecase
 }
 
-func NewArchiveUsecase(servers *pkgargo.Servers, authzUC *AuthzUsecase, wf *WorkflowUsecase, logger *slog.Logger) *ArchiveUsecase {
-	return &ArchiveUsecase{log: logger.With("module", "biz/archive"), servers: servers, authz: authzUC, wf: wf}
+func NewArchiveUsecase(sw *pkgargo.ClusterSwitch, authzUC *AuthzUsecase, wf *WorkflowUsecase, logger *slog.Logger) *ArchiveUsecase {
+	return &ArchiveUsecase{log: logger.With("module", "biz/archive"), sw: sw, authz: authzUC, wf: wf}
+}
+
+// servers and cache are the Argo servers and informer cache of the cluster the request was pinned to
+// (pkgargo.ClusterSwitch), so one request never spans two clusters.
+func (uc *ArchiveUsecase) servers(ctx context.Context) *pkgargo.Servers {
+	return uc.sw.For(ctx).Servers
 }
 
 // ArchiveListOptions selects archived runs. ContinueToken is the archive offset to resume scanning
@@ -67,7 +73,7 @@ func (uc *ArchiveUsecase) List(ctx context.Context, opts ArchiveListOptions) (*w
 	}
 
 	base := sutils.ListOptions{
-		Namespace:         uc.servers.NamespaceFor(opts.Namespace),
+		Namespace:         uc.servers(ctx).NamespaceFor(opts.Namespace),
 		NamePrefix:        opts.NamePrefix,
 		LabelRequirements: requirements,
 	}
@@ -75,7 +81,7 @@ func (uc *ArchiveUsecase) List(ctx context.Context, opts ArchiveListOptions) (*w
 	next := ""
 scan:
 	for {
-		batch, err := uc.servers.Archive.ListWorkflows(uc.wf.argoContext(ctx), base.WithLimit(archiveScanBatch).WithOffset(offset))
+		batch, err := uc.servers(ctx).Archive.ListWorkflows(uc.wf.argoContext(ctx), base.WithLimit(archiveScanBatch).WithOffset(offset))
 		if err != nil {
 			return nil, errors.InternalServer("archive", err.Error())
 		}
@@ -115,13 +121,13 @@ func (uc *ArchiveUsecase) authorize(ctx context.Context, uid, namespace string, 
 	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
 		return nil, err
 	}
-	wf, err := uc.servers.Archive.GetWorkflow(uc.wf.argoContext(ctx), uid, namespace, "")
+	wf, err := uc.servers(ctx).Archive.GetWorkflow(uc.wf.argoContext(ctx), uid, namespace, "")
 	if err != nil {
 		return nil, errors.InternalServer("archive", err.Error())
 	}
 	// A run outside the managed namespaces is reported as missing rather than forbidden, so the
 	// archive does not reveal which UIDs exist elsewhere.
-	if wf == nil || (uc.servers.Namespace != "" && wf.Namespace != uc.servers.Namespace) {
+	if wf == nil || (uc.servers(ctx).Namespace != "" && wf.Namespace != uc.servers(ctx).Namespace) {
 		return nil, errors.NotFound("not_found", "archived workflow "+uid+" not found")
 	}
 	if err := uc.authz.Require(ctx, action, WorkflowResource(wf)); err != nil {
@@ -136,7 +142,7 @@ func (uc *ArchiveUsecase) Delete(ctx context.Context, uid, namespace string) err
 	if err != nil {
 		return err
 	}
-	if err := uc.servers.Archive.DeleteWorkflow(uc.wf.argoContext(ctx), uid); err != nil {
+	if err := uc.servers(ctx).Archive.DeleteWorkflow(uc.wf.argoContext(ctx), uid); err != nil {
 		return errors.InternalServer("archive", err.Error())
 	}
 	uc.wf.done(ctx, authz.WorkflowDelete, wf, map[string]any{"archived": true, "uid": uid})
@@ -149,7 +155,7 @@ func (uc *ArchiveUsecase) Resubmit(ctx context.Context, uid string, memoized boo
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.ArchivedServer.ResubmitArchivedWorkflow(uc.wf.argoContext(ctx), &workflowarchive.ResubmitArchivedWorkflowRequest{
+	out, err := uc.servers(ctx).ArchivedServer.ResubmitArchivedWorkflow(uc.wf.argoContext(ctx), &workflowarchive.ResubmitArchivedWorkflowRequest{
 		Uid:        uid,
 		Namespace:  wf.Namespace,
 		Memoized:   memoized,
@@ -169,7 +175,7 @@ func (uc *ArchiveUsecase) Retry(ctx context.Context, uid string, restartSuccessf
 	if err != nil {
 		return nil, err
 	}
-	out, err := uc.servers.ArchivedServer.RetryArchivedWorkflow(uc.wf.argoContext(ctx), &workflowarchive.RetryArchivedWorkflowRequest{
+	out, err := uc.servers(ctx).ArchivedServer.RetryArchivedWorkflow(uc.wf.argoContext(ctx), &workflowarchive.RetryArchivedWorkflowRequest{
 		Uid:               uid,
 		Namespace:         wf.Namespace,
 		RestartSuccessful: restartSuccessful,
@@ -189,7 +195,7 @@ func (uc *ArchiveUsecase) Logs(ctx context.Context, uid, nodeID, grep string, se
 	if err != nil {
 		return err
 	}
-	err = uc.servers.StreamArchivedLogs(uc.wf.argoContext(ctx), wf, nodeID, grep, func(line pkgargo.ArchivedLogLine) error {
+	err = uc.servers(ctx).StreamArchivedLogs(uc.wf.argoContext(ctx), wf, nodeID, grep, func(line pkgargo.ArchivedLogLine) error {
 		return send(line.Content, line.PodName)
 	})
 	if stderrors.Is(err, pkgargo.ErrNoArchivedLogs) {
@@ -204,5 +210,5 @@ func (uc *ArchiveUsecase) OpenArtifact(ctx context.Context, uid, nodeID, artifac
 	if err != nil {
 		return nil, nil, err
 	}
-	return uc.servers.Artifacts.Open(uc.wf.argoContext(ctx), wf, nodeID, artifactName, isInput)
+	return uc.servers(ctx).Artifacts.Open(uc.wf.argoContext(ctx), wf, nodeID, artifactName, isInput)
 }

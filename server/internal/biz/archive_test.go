@@ -75,8 +75,9 @@ func newArchiveTest(t *testing.T, items []wfv1.Workflow, managed string) (*Archi
 	fake := &fakeArchive{items: items}
 	servers := &pkgargo.Servers{Archive: fake, Clients: &pkgargo.Clients{}, Namespace: managed}
 	authzUC := &AuthzUsecase{log: logger, engine: engine}
-	wf := &WorkflowUsecase{log: logger, servers: servers, authz: authzUC}
-	return NewArchiveUsecase(servers, authzUC, wf, logger), fake
+	sw := pkgargo.FixedSwitch(servers.Clients, servers, nil)
+	wf := &WorkflowUsecase{log: logger, sw: sw, authz: authzUC}
+	return NewArchiveUsecase(sw, authzUC, wf, logger), fake
 }
 
 func alice() context.Context {

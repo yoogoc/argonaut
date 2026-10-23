@@ -47,6 +47,8 @@ export interface AuditEvent {
   reason?: string;
   detail?: string;
   revision?: number;
+  /** cluster is where the event happened, on an instance that can be switched between clusters. */
+  cluster?: string;
 }
 
 /** (authz.proto) */
@@ -54,6 +56,29 @@ export interface AuthzStatusReply {
   revision?: number;
   replicas?: Replica[];
   lastChange?: AuditEvent;
+}
+
+/** ClusterInfo identifies the connected cluster. (cluster.proto) */
+export interface ClusterInfo {
+  id?: string;
+  name?: string;
+  /** env colours the UI: prod, uat, or anything else. */
+  env?: string;
+}
+
+/** (cluster.proto) */
+export interface ClusterStatus {
+  id?: string;
+  name?: string;
+  env?: string;
+  current?: boolean;
+  /** switching is true while the instance is connecting to this cluster. */
+  switching?: boolean;
+  /** lastError is why the most recent switch to this cluster failed, if it did. */
+  lastError?: string;
+  /** context is the kubeconfig context used to reach the cluster. */
+  context?: string;
+  namespaces?: string[];
 }
 
 /** (clusterworkflowtemplate.proto) */
@@ -217,6 +242,8 @@ export interface GetInfoReply {
   links?: Link[];
   /** archiveEnabled is true when the controller archives finished workflows to its database. */
   archiveEnabled?: boolean;
+  /** cluster is the connected cluster when the instance can be switched between several; unset otherwise. */
+  cluster?: ClusterInfo;
 }
 
 /** (workflow.proto) */
@@ -317,6 +344,12 @@ export interface ListAuditRequest {
   result?: string;
   limit?: number;
   offset?: number;
+}
+
+/** (cluster.proto) */
+export interface ListClustersReply {
+  enabled?: boolean;
+  clusters?: ClusterStatus[];
 }
 
 /** (clusterworkflowtemplate.proto) */
@@ -586,6 +619,16 @@ export interface SubmitWorkflowRequest {
   generateName?: string;
   serviceAccount?: string;
   dryRun?: boolean;
+}
+
+/** (cluster.proto) */
+export interface SwitchClusterReply {
+  cluster?: ClusterInfo;
+}
+
+/** (cluster.proto) */
+export interface SwitchClusterRequest {
+  id?: string;
 }
 
 /** TemplateRevision is one recorded version of a (cluster) workflow template. (workflowtemplate.proto) */

@@ -43,7 +43,7 @@ type CronWorkflowServiceHTTPServer interface {
 
 func RegisterCronWorkflowServiceHTTPServer(s *http.Server, srv CronWorkflowServiceHTTPServer) {
 	r := s.Route("/")
-	r.Handle("GET", "/api/v1/cron-workflows", _CronWorkflowService_List4_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/cron-workflows", _CronWorkflowService_List5_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Get4_HTTP_Handler(srv))
 	r.Handle("POST", "/api/v1/cron-workflows/{namespace}", _CronWorkflowService_Create3_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/cron-workflows/{namespace}/{name}", _CronWorkflowService_Update2_HTTP_Handler(srv))
@@ -54,7 +54,7 @@ func RegisterCronWorkflowServiceHTTPServer(s *http.Server, srv CronWorkflowServi
 	r.Handle("POST", "/api/v1/cron-workflows/{namespace}/lint", _CronWorkflowService_Lint3_HTTP_Handler(srv))
 }
 
-func _CronWorkflowService_List4_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
+func _CronWorkflowService_List5_HTTP_Handler(srv CronWorkflowServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ListCronWorkflowRequest
 		if err := ctx.BindQuery(&in); err != nil {

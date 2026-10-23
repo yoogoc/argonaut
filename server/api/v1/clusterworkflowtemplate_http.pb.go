@@ -41,7 +41,7 @@ type ClusterWorkflowTemplateServiceHTTPServer interface {
 
 func RegisterClusterWorkflowTemplateServiceHTTPServer(s *http.Server, srv ClusterWorkflowTemplateServiceHTTPServer) {
 	r := s.Route("/")
-	r.Handle("GET", "/api/v1/cluster-workflow-templates", _ClusterWorkflowTemplateService_List3_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/cluster-workflow-templates", _ClusterWorkflowTemplateService_List4_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/cluster-workflow-templates/{name}", _ClusterWorkflowTemplateService_Get3_HTTP_Handler(srv))
 	r.Handle("POST", "/api/v1/cluster-workflow-templates", _ClusterWorkflowTemplateService_Create2_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/cluster-workflow-templates/{name}", _ClusterWorkflowTemplateService_Update1_HTTP_Handler(srv))
@@ -52,7 +52,7 @@ func RegisterClusterWorkflowTemplateServiceHTTPServer(s *http.Server, srv Cluste
 	r.Handle("POST", "/api/v1/cluster-workflow-templates/{name}/revisions/{id}/rollback", _ClusterWorkflowTemplateService_Rollback1_HTTP_Handler(srv))
 }
 
-func _ClusterWorkflowTemplateService_List3_HTTP_Handler(srv ClusterWorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+func _ClusterWorkflowTemplateService_List4_HTTP_Handler(srv ClusterWorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ListClusterWorkflowTemplateRequest
 		if err := ctx.BindQuery(&in); err != nil {

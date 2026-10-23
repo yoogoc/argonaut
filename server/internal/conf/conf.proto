@@ -13,6 +13,7 @@ message Bootstrap {
     Kube kube = 5;
     Argo argo = 6;
     Authz authz = 7;
+    ClusterSwitch cluster_switch = 8;
 }
 
 message Server {
@@ -72,6 +73,9 @@ message Kube {
   // qps/burst raise client-go's default rate limits, which detail pages blow through.
   double qps = 4;
   int32 burst = 5;
+  // exec_env is added to the environment of a kubeconfig exec credential plugin (aws eks get-token
+  // and friends), e.g. AWS_PROFILE, so the connection does not depend on how the server was started.
+  map<string, string> exec_env = 7;
 }
 
 // Argo points at the workflow controller's ConfigMap. Artifact repositories and node-status
@@ -100,4 +104,30 @@ message Authz {
   optional bool cluster_templates_readable = 5;
   // replica_id names this replica in authz_replicas; defaults to $POD_NAME, then the hostname.
   string replica_id = 6;
+}
+
+// ClusterSwitch lets one argonaut instance be switched, from the UI, between several clusters; it is
+// connected to one of them at a time (docs/multi-cluster.md). Off by default: production serves the
+// single cluster described by the top-level kube and argo sections.
+message ClusterSwitch {
+  message Cluster {
+    // id is stable: it is recorded with template revisions and audit events.
+    string id = 1;
+    string name = 2;
+    // env only colours the UI: prod, uat, or anything else.
+    string env = 3;
+    // kube and argo override the top-level sections field by field; unset fields keep those values.
+    Kube kube = 4;
+    Argo argo = 5;
+  }
+  bool enabled = 1;
+  // default is the cluster connected at startup. Empty means kube.context, then (with from_kubeconfig)
+  // the kubeconfig's current-context, then the first cluster.
+  string default = 2;
+  // clusters lists the choices. With from_kubeconfig they are optional and override, by id, the
+  // context of the same name; entries matching no context are added as further choices.
+  repeated Cluster clusters = 3;
+  // from_kubeconfig offers every context in the kubeconfig (kube.kubeconfig, or the default loading
+  // rules) as a cluster, re-read whenever the list is shown, so new contexts appear without a restart.
+  bool from_kubeconfig = 4;
 }

@@ -40,10 +40,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // ProviderSet is the argo providers.
-var ProviderSet = wire.NewSet(NewClients, NewServers, NewCache)
+var ProviderSet = wire.NewSet(NewClusterSwitch)
 
 // argoLogger adapts to Argo's own logging interface, which v4 requires when constructing the
 // persistence repositories. Its output goes through slog like everything else.
@@ -144,6 +145,13 @@ func restConfig(kubeConf *conf.Kube) (*rest.Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	// An exec credential plugin (aws eks get-token, ...) reads its credentials from its environment,
+	// which is whatever the server was started with; exec_env pins it per cluster instead.
+	if cfg.ExecProvider != nil {
+		for name, value := range kubeConf.GetExecEnv() {
+			cfg.ExecProvider.Env = append(cfg.ExecProvider.Env, clientcmdapi.ExecEnvVar{Name: name, Value: value})
+		}
+	}
 
 	contextName := kubeConf.GetContext()
 	if contextName == "" {
@@ -205,7 +213,7 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 	// The controller ConfigMap is the single source of truth for artifact repositories, persistence
 	// and links. Reading it at runtime is what lets argonaut work against any Argo install without
 	// duplicating its configuration.
-	argoConfig, err := readControllerConfig(ctx, clients.Kubernetes, controllerNamespace, configMapName)
+	argoConfig, configMapName, err := readControllerConfig(ctx, clients.Kubernetes, controllerNamespace, configMapName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -220,33 +228,18 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 	offloadEnabled := false
 	archiveEnabled := false
 	if persistence := argoConfig.Persistence; persistence != nil {
-		// Argo v4 resolves its logger from the context everywhere, including while it opens the
-		// database session; without one it panics.
-		ctx := WithClients(ctx, clients)
-		// v4 reaches the persistence database through a SessionProxy, which reconnects and refreshes
-		// cloud database credentials on its own.
-		sessionProxy, err := sqldb.NewSessionProxy(ctx, sqldb.SessionProxyConfig{
-			KubectlConfig: clients.Kubernetes,
-			Namespace:     controllerNamespace,
-			DBConfig:      persistence.DBConfig,
-		})
+		offload, archive, err := openPersistence(ctx, clients, controllerNamespace, persistence, instanceIDService)
 		if err != nil {
-			return nil, nil, fmt.Errorf("connecting to the argo persistence database: %w", err)
+			// The archive and offloaded node status are extras: losing them must not lose the cluster.
+			// A database on a private network is unreachable from a laptop, which is exactly how a
+			// cluster picked from the kubeconfig is usually reached.
+			log.Warn("argo persistence database unreachable; archive and offloaded node status unavailable for this cluster", "err", err)
+		} else {
+			offloadRepo, wfArchive = offload, archive
+			offloadEnabled = persistence.NodeStatusOffload
+			archiveEnabled = persistence.Archive
+			log.Info("argo persistence detected", "nodeStatusOffload", persistence.NodeStatusOffload, "archive", persistence.Archive)
 		}
-		tableName, err := persist.GetTableName(persistence)
-		if err != nil {
-			return nil, nil, fmt.Errorf("resolving offload table name: %w", err)
-		}
-		// Offload reads are always enabled once a persistence DB exists: we only read, so a
-		// controller that has offloading turned off still lets us read older offloaded records.
-		offloadRepo, err = persist.NewOffloadNodeStatusRepo(ctx, argoLogger(), sessionProxy, persistence.GetClusterName(), tableName)
-		if err != nil {
-			return nil, nil, fmt.Errorf("opening offload node status repo: %w", err)
-		}
-		wfArchive = persist.NewWorkflowArchive(sessionProxy, persistence.GetClusterName(), clients.Namespace, instanceIDService)
-		offloadEnabled = persistence.NodeStatusOffload
-		archiveEnabled = persistence.Archive
-		log.Info("argo persistence detected", "nodeStatusOffload", persistence.NodeStatusOffload, "archive", persistence.Archive)
 	} else {
 		log.Info("argo persistence not configured; node status offload and archive unavailable")
 	}
@@ -335,4 +328,33 @@ func NewServers(ctx context.Context, clients *Clients, argoConf *conf.Argo, logg
 // WorkflowDefaults returns the cluster's configured workflow defaults, used when linting.
 func (s *Servers) WorkflowDefaults() *wfv1.Workflow {
 	return s.Config.WorkflowDefaults
+}
+
+// openPersistence connects to the controller's persistence database for offloaded node status and the
+// workflow archive.
+func openPersistence(ctx context.Context, clients *Clients, controllerNamespace string, persistence *config.PersistConfig, instanceIDService instanceid.Service) (persist.OffloadNodeStatusRepo, persist.WorkflowArchive, error) {
+	// Argo v4 resolves its logger from the context everywhere, including while it opens the database
+	// session; without one it panics.
+	ctx = WithClients(ctx, clients)
+	// v4 reaches the persistence database through a SessionProxy, which reconnects and refreshes cloud
+	// database credentials on its own.
+	sessionProxy, err := sqldb.NewSessionProxy(ctx, sqldb.SessionProxyConfig{
+		KubectlConfig: clients.Kubernetes,
+		Namespace:     controllerNamespace,
+		DBConfig:      persistence.DBConfig,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("connecting to the argo persistence database: %w", err)
+	}
+	tableName, err := persist.GetTableName(persistence)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolving offload table name: %w", err)
+	}
+	// Offload reads are always enabled once a persistence DB exists: we only read, so a controller that
+	// has offloading turned off still lets us read older offloaded records.
+	offloadRepo, err := persist.NewOffloadNodeStatusRepo(ctx, argoLogger(), sessionProxy, persistence.GetClusterName(), tableName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("opening offload node status repo: %w", err)
+	}
+	return offloadRepo, persist.NewWorkflowArchive(sessionProxy, persistence.GetClusterName(), clients.Namespace, instanceIDService), nil
 }

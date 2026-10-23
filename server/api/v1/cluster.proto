@@ -1,0 +1,60 @@
+syntax = "proto3";
+package api.v1;
+option go_package = "argonaut/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// ClusterService switches the instance between the clusters listed in cluster_switch
+// (docs/multi-cluster.md). The instance is connected to one cluster at a time; switching moves every
+// user of the instance, so it is reserved for super admins. With cluster_switch disabled, List reports
+// enabled=false and Switch is not found.
+service ClusterService {
+  rpc List (google.protobuf.Empty) returns (ListClustersReply) {
+    option (google.api.http) = {
+      get: "/api/v1/clusters"
+    };
+  };
+  rpc Switch (SwitchClusterRequest) returns (SwitchClusterReply) {
+    option (google.api.http) = {
+      put: "/api/v1/clusters/current"
+      body: "*"
+    };
+  };
+}
+
+// ClusterInfo identifies the connected cluster.
+message ClusterInfo {
+  string id = 1;
+  string name = 2;
+  // env colours the UI: prod, uat, or anything else.
+  string env = 3;
+}
+
+message ClusterStatus {
+  string id = 1;
+  string name = 2;
+  string env = 3;
+  bool current = 4;
+  // switching is true while the instance is connecting to this cluster.
+  bool switching = 5;
+  // lastError is why the most recent switch to this cluster failed, if it did.
+  string lastError = 6;
+  // context is the kubeconfig context used to reach the cluster.
+  string context = 7;
+  repeated string namespaces = 8;
+}
+
+message ListClustersReply {
+  bool enabled = 1;
+  repeated ClusterStatus clusters = 2;
+}
+
+message SwitchClusterRequest {
+  string id = 1;
+}
+message SwitchClusterReply {
+  ClusterInfo cluster = 1;
+}

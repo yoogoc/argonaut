@@ -47,7 +47,7 @@ type WorkflowTemplateServiceHTTPServer interface {
 
 func RegisterWorkflowTemplateServiceHTTPServer(s *http.Server, srv WorkflowTemplateServiceHTTPServer) {
 	r := s.Route("/")
-	r.Handle("GET", "/api/v1/workflow-templates", _WorkflowTemplateService_List2_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/workflow-templates", _WorkflowTemplateService_List3_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/workflow-templates/{namespace}/{name}", _WorkflowTemplateService_Get2_HTTP_Handler(srv))
 	r.Handle("POST", "/api/v1/workflow-templates/{namespace}", _WorkflowTemplateService_Create1_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/workflow-templates/{namespace}/{name}", _WorkflowTemplateService_Update0_HTTP_Handler(srv))
@@ -59,7 +59,7 @@ func RegisterWorkflowTemplateServiceHTTPServer(s *http.Server, srv WorkflowTempl
 	r.Handle("GET", "/api/v1/components/{namespace}", _WorkflowTemplateService_ListComponents0_HTTP_Handler(srv))
 }
 
-func _WorkflowTemplateService_List2_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
+func _WorkflowTemplateService_List3_HTTP_Handler(srv WorkflowTemplateServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ListWorkflowTemplateRequest
 		if err := ctx.BindQuery(&in); err != nil {
