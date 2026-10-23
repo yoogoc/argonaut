@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { KindIcon, KINDS } from "@/graph/kinds";
 import { layoutGraph } from "@/graph/layout";
 import { exitNode, findTemplate, type SpecNode, templateGraph } from "@/graph/spec";
+import { canvasNavigation } from "@/graph/viewport";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/stores/theme";
 
@@ -323,6 +324,7 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
           </div>
         ) : (
           <ReactFlow
+            {...canvasNavigation}
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}

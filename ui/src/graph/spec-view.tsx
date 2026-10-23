@@ -12,6 +12,7 @@ import { AutoFit } from "@/workflow/run-graph";
 import { KindIcon, KINDS } from "./kinds";
 import { layoutGraph } from "./layout";
 import { type SpecLike, type SpecNode, templateGraph } from "./spec";
+import { canvasNavigation } from "./viewport";
 
 type Data = { node: SpecNode; phase?: string; count?: number; sub?: string; horizontal?: boolean; badge?: { label: string; tone: "mine" | "theirs" | "conflict" } };
 
@@ -94,6 +95,7 @@ export function SpecGraphView({
   }));
   return (
     <ReactFlow
+      {...canvasNavigation}
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}

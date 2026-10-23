@@ -25,6 +25,7 @@ import type { NodeStatus, Workflow } from "@/api/types";
 import { phaseTone, toneSolid } from "@/components/common/phase-badge";
 import { layoutGraph } from "@/graph/layout";
 import { type ArtifactRef, buildRuntimeGraph, type RuntimeNodeData } from "@/graph/runtime";
+import { canvasNavigation } from "@/graph/viewport";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration } from "@/lib/format";
 import { resolveTemplate } from "@/lib/template";
@@ -308,6 +309,7 @@ export function RunGraph({
 
   return (
     <ReactFlow
+      {...canvasNavigation}
       nodes={flowNodes}
       edges={flowEdges}
       nodeTypes={nodeTypes}
