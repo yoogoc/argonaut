@@ -10,7 +10,7 @@ import { COMPONENT_LABEL, deleteTemplate, MODIFIED_BY_ANNOTATION, runLabelSelect
 import type { WorkflowTemplate } from "@/api/types";
 import { workflowQueries } from "@/api/workflows";
 import { ConfirmAction } from "@/components/common/confirm-action";
-import { Mono, Section } from "@/components/common/page";
+import { Mono, Section, TitleRow } from "@/components/common/page";
 import { PhaseBadge } from "@/components/common/phase-badge";
 import { EmptyState, ErrorState, errorMessage } from "@/components/common/states";
 import { YamlEditor } from "@/components/common/yaml-editor";
@@ -82,50 +82,57 @@ export function TemplateDetail({ templateRef, tab, onTab }: { templateRef: Templ
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <section className="flex flex-wrap items-end gap-x-4 gap-y-3 border-b bg-background px-4 pt-5 sm:px-6">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <nav aria-label={t("Breadcrumb")} className="flex gap-1.5 text-[13px] text-muted-foreground">
-            <Link to={templateRef.cluster ? "/cluster-templates" : "/templates"} className="hover:text-foreground">
-              {templateRef.cluster ? t("Cluster templates") : t("Templates")}
-            </Link>
-            {!templateRef.cluster && (
-              <>
-                <span aria-hidden>/</span>
-                <span className="font-mono">{templateRef.namespace}</span>
-              </>
-            )}
-          </nav>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-mono text-[22px] font-semibold">{tpl.metadata.name}</h1>
-            {templateRef.cluster && <span className="rounded-full bg-foreground px-2 py-0.5 text-[11px] font-bold text-background">{t("Cluster")}</span>}
-            {tpl.metadata.labels?.[COMPONENT_LABEL] === "true" && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-node-ref-bg px-2 py-0.5 text-[11px] font-semibold text-node-ref">
-                <Layers className="size-3" aria-hidden />
-                {t("Component")}
-              </span>
-            )}
-            {Object.entries(tpl.metadata.labels ?? {})
-              .filter(([k]) => k !== COMPONENT_LABEL && !k.startsWith("workflows.argoproj.io"))
-              .map(([k, v]) => (
-                <span key={k} className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
-                  {k}={v}
+      <section className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b bg-background px-4 pt-4 sm:px-6">
+        <TitleRow
+          className="min-w-0 flex-[1_1_20rem]"
+          breadcrumb={
+            <>
+              <Link to={templateRef.cluster ? "/cluster-templates" : "/templates"} className="hover:text-foreground">
+                {templateRef.cluster ? t("Cluster templates") : t("Templates")}
+              </Link>
+              {!templateRef.cluster && (
+                <>
+                  <span aria-hidden>/</span>
+                  <span className="font-mono">{templateRef.namespace}</span>
+                </>
+              )}
+            </>
+          }
+          title={
+            <>
+              <h1 className="font-mono text-xl font-semibold">{tpl.metadata.name}</h1>
+              {templateRef.cluster && <span className="rounded-full bg-foreground px-2 py-0.5 text-[11px] font-bold text-background">{t("Cluster")}</span>}
+              {tpl.metadata.labels?.[COMPONENT_LABEL] === "true" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-node-ref-bg px-2 py-0.5 text-[11px] font-semibold text-node-ref">
+                  <Layers className="size-3" aria-hidden />
+                  {t("Component")}
                 </span>
-              ))}
-          </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-muted-foreground">
-            {tpl.metadata.annotations?.[MODIFIED_BY_ANNOTATION] && (
+              )}
+              {Object.entries(tpl.metadata.labels ?? {})
+                .filter(([k]) => k !== COMPONENT_LABEL && !k.startsWith("workflows.argoproj.io"))
+                .map(([k, v]) => (
+                  <span key={k} className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
+                    {k}={v}
+                  </span>
+                ))}
+            </>
+          }
+          facts={
+            <>
+              {tpl.metadata.annotations?.[MODIFIED_BY_ANNOTATION] && (
+                <span>
+                  {t("Last modified by")} {tpl.metadata.annotations[MODIFIED_BY_ANNOTATION]}
+                </span>
+              )}
               <span>
-                {t("Last modified by")} {tpl.metadata.annotations[MODIFIED_BY_ANNOTATION]}
+                resourceVersion <Mono>{tpl.metadata.resourceVersion}</Mono>
               </span>
-            )}
-            <span>
-              resourceVersion <Mono>{tpl.metadata.resourceVersion}</Mono>
-            </span>
-            <span>
-              {t("Created")} {formatRelative(tpl.metadata.creationTimestamp)}
-            </span>
-          </div>
-        </div>
+              <span>
+                {t("Created")} {formatRelative(tpl.metadata.creationTimestamp)}
+              </span>
+            </>
+          }
+        />
         <div className="ml-auto flex flex-wrap gap-2 pb-1">
           {can("template:update") && (
             <Button variant="outline" asChild>
@@ -195,7 +202,15 @@ function Overview({ template, templateRef, runNamespace, onRuns }: { template: W
   const params = template.spec.arguments?.parameters ?? [];
   return (
     <div className="flex flex-col gap-4 p-4 sm:px-6">
-      <Section title={t("DAG preview")} description={<span>{t("Entrypoint")} <Mono>{template.spec.entrypoint ?? "—"}</Mono></span>} bodyClassName="h-[300px]">
+      <Section
+        title={t("DAG preview")}
+        description={
+          <span>
+            {t("Entrypoint")} <Mono>{template.spec.entrypoint ?? "—"}</Mono>
+          </span>
+        }
+        bodyClassName="h-[300px]"
+      >
         <SpecGraphView spec={spec} direction="RIGHT" />
       </Section>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -247,7 +262,14 @@ function Overview({ template, templateRef, runNamespace, onRuns }: { template: W
           )}
         </Section>
       </div>
-      <Section title={t("Recent runs")} actions={<Button variant="link" size="sm" onClick={onRuns}>{t("All runs")}</Button>}>
+      <Section
+        title={t("Recent runs")}
+        actions={
+          <Button variant="link" size="sm" onClick={onRuns}>
+            {t("All runs")}
+          </Button>
+        }
+      >
         <RunsTable templateRef={templateRef} namespace={runNamespace} limit={5} />
       </Section>
     </div>

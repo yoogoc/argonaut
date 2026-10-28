@@ -9,7 +9,7 @@ import { z } from "zod";
 import { archiveQueries, deleteArchived, resubmitArchived, retryArchived } from "@/api/archive";
 import { useActions } from "@/api/authz";
 import { ConfirmAction } from "@/components/common/confirm-action";
-import { Mono } from "@/components/common/page";
+import { Mono, TitleRow } from "@/components/common/page";
 import { PhaseBadge } from "@/components/common/phase-badge";
 import { ErrorState, errorMessage, Spinner } from "@/components/common/states";
 import { YamlEditor } from "@/components/common/yaml-editor";
@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ArtifactRef } from "@/graph/runtime";
-import { formatDuration, formatTimestamp } from "@/lib/format";
+import { formatCompactTimestamp, formatDuration, formatTimestamp } from "@/lib/format";
 import { sourceTemplate } from "@/lib/workflow";
 import { toYaml } from "@/lib/yaml";
 import { ArtifactPanel } from "@/workflow/artifact-panel";
@@ -104,42 +104,49 @@ function ArchivedDetailPage() {
     <RunSourceProvider value={{ archivedUid: uid }}>
       <div className="flex min-h-0 flex-1 flex-col">
         <section className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b bg-background px-4 pt-4 sm:px-6">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <nav aria-label={t("Breadcrumb")} className="flex gap-1.5 text-[13px] text-muted-foreground">
-              <Link to="/archived" className="hover:text-foreground">
-                {t("Archive")}
-              </Link>
-              <span aria-hidden>/</span>
-              <span className="font-mono">{namespace}</span>
-            </nav>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="font-mono text-xl font-semibold">{workflow.metadata.name}</h1>
-              <PhaseBadge phase={phase} />
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                <Archive className="size-3" aria-hidden />
-                {t("Archived")}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-muted-foreground">
-              {template && (
-                <span>
-                  {t("Template")}{" "}
-                  <Link to="/templates/$namespace/$name" params={{ namespace, name: template }} className="font-mono text-primary hover:underline">
-                    {template}
-                  </Link>
+          <TitleRow
+            className="min-w-0 flex-[1_1_20rem]"
+            breadcrumb={
+              <>
+                <Link to="/archived" className="hover:text-foreground">
+                  {t("Archive")}
+                </Link>
+                <span aria-hidden>/</span>
+                <span className="font-mono">{namespace}</span>
+              </>
+            }
+            title={
+              <>
+                <h1 className="font-mono text-xl font-semibold">{workflow.metadata.name}</h1>
+                <PhaseBadge phase={phase} />
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  <Archive className="size-3" aria-hidden />
+                  {t("Archived")}
                 </span>
-              )}
-              <span>
-                {t("Started")} {formatTimestamp(workflow.status?.startedAt)}
-              </span>
-              <span>
-                {t("Duration")} <Mono>{formatDuration(workflow.status?.startedAt, workflow.status?.finishedAt)}</Mono>
-              </span>
-              <span>
-                UID <Mono>{uid}</Mono>
-              </span>
-            </div>
-          </div>
+              </>
+            }
+            facts={
+              <>
+                {template && (
+                  <span>
+                    {t("Template")}{" "}
+                    <Link to="/templates/$namespace/$name" params={{ namespace, name: template }} className="font-mono text-primary hover:underline">
+                      {template}
+                    </Link>
+                  </span>
+                )}
+                <span title={formatTimestamp(workflow.status?.startedAt)}>
+                  {t("Started")} {formatCompactTimestamp(workflow.status?.startedAt)}
+                </span>
+                <span>
+                  {t("Duration")} <Mono>{formatDuration(workflow.status?.startedAt, workflow.status?.finishedAt)}</Mono>
+                </span>
+                <span>
+                  UID <Mono>{uid}</Mono>
+                </span>
+              </>
+            }
+          />
           <div role="toolbar" aria-label={t("Operations")} className="ml-auto flex flex-wrap gap-2">
             {can("workflow:retry") && failed && (
               <Button variant="outline" size="sm" onClick={() => setRetryOpen(true)}>
@@ -209,9 +216,18 @@ function ArchivedDetailPage() {
             )}
           </div>
           {artifactNode && artifactDetail && selectedArtifact && (
-            <ArtifactPanel workflow={workflow} node={artifactNode} artifact={artifactDetail} isInput={selectedArtifact.isInput} onClose={() => selectArtifact(undefined)} onSelectNode={(n) => selectNode(n.id)} />
+            <ArtifactPanel
+              workflow={workflow}
+              node={artifactNode}
+              artifact={artifactDetail}
+              isInput={selectedArtifact.isInput}
+              onClose={() => selectArtifact(undefined)}
+              onSelectNode={(n) => selectNode(n.id)}
+            />
           )}
-          {!artifactDetail && selectedNode && <NodePanel workflow={workflow} node={selectedNode} onClose={() => selectNode(undefined)} onRetryNode={() => setRetryOpen(true)} onSelectNode={(n) => selectNode(n.id)} canRetry={false} />}
+          {!artifactDetail && selectedNode && (
+            <NodePanel workflow={workflow} node={selectedNode} onClose={() => selectNode(undefined)} onRetryNode={() => setRetryOpen(true)} onSelectNode={(n) => selectNode(n.id)} canRetry={false} />
+          )}
         </div>
 
         <RunOptionsDialog

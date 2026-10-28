@@ -22,7 +22,7 @@ import {
   workflowQueries,
 } from "@/api/workflows";
 import { ConfirmAction } from "@/components/common/confirm-action";
-import { Mono } from "@/components/common/page";
+import { Mono, TitleRow } from "@/components/common/page";
 import { PhaseBadge } from "@/components/common/phase-badge";
 import { EmptyState, ErrorState, errorMessage, Spinner } from "@/components/common/states";
 import { YamlEditor } from "@/components/common/yaml-editor";
@@ -36,7 +36,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ArtifactRef } from "@/graph/runtime";
 import { useNow } from "@/hooks/use-now";
-import { formatDuration, formatTimestamp } from "@/lib/format";
+import { formatCompactTimestamp, formatDuration, formatTimestamp } from "@/lib/format";
 import { isOperationDisabled, isSuspended, sourceTemplate, suspendedNodes } from "@/lib/workflow";
 import { toYaml } from "@/lib/yaml";
 import { ArtifactPanel } from "@/workflow/artifact-panel";
@@ -184,53 +184,60 @@ function WorkflowDetailPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <section className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b bg-background px-4 pt-4 sm:px-6">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <nav aria-label={t("Breadcrumb")} className="flex gap-1.5 text-[13px] text-muted-foreground">
-            <Link to="/workflows" className="hover:text-foreground">
-              {t("Workflows")}
-            </Link>
-            <span aria-hidden>/</span>
-            <span className="font-mono">{namespace}</span>
-          </nav>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-mono text-xl font-semibold">{name}</h1>
-            <PhaseBadge phase={phase} suspended={suspended} />
-          </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-muted-foreground">
-            {template && (
-              <span>
-                {t("Template")}{" "}
-                <Link to="/templates/$namespace/$name" params={{ namespace, name: template }} className="font-mono text-primary hover:underline">
-                  {template}
-                </Link>
+        <TitleRow
+          className="min-w-0 flex-[1_1_20rem]"
+          breadcrumb={
+            <>
+              <Link to="/workflows" className="hover:text-foreground">
+                {t("Workflows")}
+              </Link>
+              <span aria-hidden>/</span>
+              <span className="font-mono">{namespace}</span>
+            </>
+          }
+          title={
+            <>
+              <h1 className="font-mono text-xl font-semibold">{name}</h1>
+              <PhaseBadge phase={phase} suspended={suspended} />
+            </>
+          }
+          facts={
+            <>
+              {template && (
+                <span>
+                  {t("Template")}{" "}
+                  <Link to="/templates/$namespace/$name" params={{ namespace, name: template }} className="font-mono text-primary hover:underline">
+                    {template}
+                  </Link>
+                </span>
+              )}
+              {workflow.spec.workflowTemplateRef?.clusterScope && (
+                <span>
+                  {t("Cluster template")}{" "}
+                  <Link to="/cluster-templates/$name" params={{ name: workflow.spec.workflowTemplateRef.name }} className="font-mono text-primary hover:underline">
+                    {workflow.spec.workflowTemplateRef.name}
+                  </Link>
+                </span>
+              )}
+              <span title={formatTimestamp(workflow.status?.startedAt)}>
+                {t("Started")} {formatCompactTimestamp(workflow.status?.startedAt)}
               </span>
-            )}
-            {workflow.spec.workflowTemplateRef?.clusterScope && (
               <span>
-                {t("Cluster template")}{" "}
-                <Link to="/cluster-templates/$name" params={{ name: workflow.spec.workflowTemplateRef.name }} className="font-mono text-primary hover:underline">
-                  {workflow.spec.workflowTemplateRef.name}
-                </Link>
+                {t("Duration")} <Mono>{formatDuration(workflow.status?.startedAt, workflow.status?.finishedAt, now)}</Mono>
               </span>
-            )}
-            <span>
-              {t("Started")} {formatTimestamp(workflow.status?.startedAt)}
-            </span>
-            <span>
-              {t("Duration")} <Mono>{formatDuration(workflow.status?.startedAt, workflow.status?.finishedAt, now)}</Mono>
-            </span>
-            {workflow.status?.progress && (
-              <span>
-                {t("Progress")} <Mono>{workflow.status.progress}</Mono>
-              </span>
-            )}
-            {workflow.metadata.labels?.["workflows.argoproj.io/creator"] && (
-              <span>
-                {t("Submitted by")} {workflow.metadata.labels["workflows.argoproj.io/creator"]}
-              </span>
-            )}
-          </div>
-        </div>
+              {workflow.status?.progress && (
+                <span>
+                  {t("Progress")} <Mono>{workflow.status.progress}</Mono>
+                </span>
+              )}
+              {workflow.metadata.labels?.["workflows.argoproj.io/creator"] && (
+                <span>
+                  {t("Submitted by")} {workflow.metadata.labels["workflows.argoproj.io/creator"]}
+                </span>
+              )}
+            </>
+          }
+        />
         <div role="toolbar" aria-label={t("Operations")} className="ml-auto flex flex-wrap gap-2">
           {opButton("retry", "workflow:retry", <RotateCcw aria-hidden />, t("Retry"))}
           {can("workflow:resubmit") && (
@@ -321,7 +328,14 @@ function WorkflowDetailPage() {
           )}
         </div>
         {artifactNode && artifactDetail && selectedArtifact && (
-          <ArtifactPanel workflow={workflow} node={artifactNode} artifact={artifactDetail} isInput={selectedArtifact.isInput} onClose={() => selectArtifact(undefined)} onSelectNode={(n) => selectNode(n.id)} />
+          <ArtifactPanel
+            workflow={workflow}
+            node={artifactNode}
+            artifact={artifactDetail}
+            isInput={selectedArtifact.isInput}
+            onClose={() => selectArtifact(undefined)}
+            onSelectNode={(n) => selectNode(n.id)}
+          />
         )}
         {!artifactDetail && selectedNode && (
           <NodePanel workflow={workflow} node={selectedNode} onClose={() => selectNode(undefined)} onRetryNode={setRetryNode} onSelectNode={(n) => selectNode(n.id)} canRetry={can("workflow:retry")} />
@@ -429,9 +443,7 @@ function SuspendInputs({ workflow, onDone }: { workflow: Workflow; onDone: () =>
   const resume = useMutation({
     mutationFn: async (node: NodeStatus) => {
       const selector = `id=${node.id}`;
-      const outputs = Object.fromEntries(
-        (node.outputs?.parameters ?? []).map((p) => [p.name, values[`${node.id}:${p.name}`] ?? p.value ?? ""] as const).filter(([, v]) => v !== ""),
-      );
+      const outputs = Object.fromEntries((node.outputs?.parameters ?? []).map((p) => [p.name, values[`${node.id}:${p.name}`] ?? p.value ?? ""] as const).filter(([, v]) => v !== ""));
       if (Object.keys(outputs).length) await setWorkflowNode(workflow.metadata.namespace, workflow.metadata.name, selector, outputs);
       return resumeWorkflow(workflow.metadata.namespace, workflow.metadata.name, selector);
     },
@@ -447,7 +459,11 @@ function SuspendInputs({ workflow, onDone }: { workflow: Workflow; onDone: () =>
           {(node.outputs?.parameters ?? []).map((p) => (
             <label key={p.name} className="flex flex-col gap-1 text-xs">
               <span className="font-mono">{p.name}</span>
-              <Input value={values[`${node.id}:${p.name}`] ?? p.value ?? ""} onChange={(e) => setValues((c) => ({ ...c, [`${node.id}:${p.name}`]: e.target.value }))} className="h-8 w-48 bg-card font-mono text-xs" />
+              <Input
+                value={values[`${node.id}:${p.name}`] ?? p.value ?? ""}
+                onChange={(e) => setValues((c) => ({ ...c, [`${node.id}:${p.name}`]: e.target.value }))}
+                className="h-8 w-48 bg-card font-mono text-xs"
+              />
             </label>
           ))}
           <Button size="sm" disabled={resume.isPending} onClick={() => resume.mutate(node)}>

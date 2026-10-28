@@ -11,6 +11,19 @@ export function formatTimestamp(value?: string | null): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString(i18n.language);
 }
 
+/** A timestamp as short as is unambiguous: the time for today, month and day this year, else in full. */
+export function formatCompactTimestamp(value?: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return date.toLocaleTimeString(i18n.language);
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleString(i18n.language, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+  return date.toLocaleString(i18n.language);
+}
+
 /** "3 minutes ago" for recent times, the date for anything older than a week. */
 export function formatRelative(value?: string | null): string {
   if (!value) return "—";
