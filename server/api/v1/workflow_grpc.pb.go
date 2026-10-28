@@ -19,22 +19,24 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkflowService_List_FullMethodName      = "/api.v1.WorkflowService/List"
-	WorkflowService_Get_FullMethodName       = "/api.v1.WorkflowService/Get"
-	WorkflowService_Watch_FullMethodName     = "/api.v1.WorkflowService/Watch"
-	WorkflowService_Events_FullMethodName    = "/api.v1.WorkflowService/Events"
-	WorkflowService_Logs_FullMethodName      = "/api.v1.WorkflowService/Logs"
-	WorkflowService_Submit_FullMethodName    = "/api.v1.WorkflowService/Submit"
-	WorkflowService_Create_FullMethodName    = "/api.v1.WorkflowService/Create"
-	WorkflowService_Lint_FullMethodName      = "/api.v1.WorkflowService/Lint"
-	WorkflowService_Retry_FullMethodName     = "/api.v1.WorkflowService/Retry"
-	WorkflowService_Resubmit_FullMethodName  = "/api.v1.WorkflowService/Resubmit"
-	WorkflowService_Suspend_FullMethodName   = "/api.v1.WorkflowService/Suspend"
-	WorkflowService_Resume_FullMethodName    = "/api.v1.WorkflowService/Resume"
-	WorkflowService_Set_FullMethodName       = "/api.v1.WorkflowService/Set"
-	WorkflowService_Stop_FullMethodName      = "/api.v1.WorkflowService/Stop"
-	WorkflowService_Terminate_FullMethodName = "/api.v1.WorkflowService/Terminate"
-	WorkflowService_Delete_FullMethodName    = "/api.v1.WorkflowService/Delete"
+	WorkflowService_List_FullMethodName                = "/api.v1.WorkflowService/List"
+	WorkflowService_Get_FullMethodName                 = "/api.v1.WorkflowService/Get"
+	WorkflowService_Watch_FullMethodName               = "/api.v1.WorkflowService/Watch"
+	WorkflowService_Events_FullMethodName              = "/api.v1.WorkflowService/Events"
+	WorkflowService_Logs_FullMethodName                = "/api.v1.WorkflowService/Logs"
+	WorkflowService_Submit_FullMethodName              = "/api.v1.WorkflowService/Submit"
+	WorkflowService_Create_FullMethodName              = "/api.v1.WorkflowService/Create"
+	WorkflowService_Lint_FullMethodName                = "/api.v1.WorkflowService/Lint"
+	WorkflowService_Retry_FullMethodName               = "/api.v1.WorkflowService/Retry"
+	WorkflowService_Resubmit_FullMethodName            = "/api.v1.WorkflowService/Resubmit"
+	WorkflowService_Suspend_FullMethodName             = "/api.v1.WorkflowService/Suspend"
+	WorkflowService_Resume_FullMethodName              = "/api.v1.WorkflowService/Resume"
+	WorkflowService_Set_FullMethodName                 = "/api.v1.WorkflowService/Set"
+	WorkflowService_Stop_FullMethodName                = "/api.v1.WorkflowService/Stop"
+	WorkflowService_Terminate_FullMethodName           = "/api.v1.WorkflowService/Terminate"
+	WorkflowService_Delete_FullMethodName              = "/api.v1.WorkflowService/Delete"
+	WorkflowService_RenderedTemplate_FullMethodName    = "/api.v1.WorkflowService/RenderedTemplate"
+	WorkflowService_EvaluateExpressions_FullMethodName = "/api.v1.WorkflowService/EvaluateExpressions"
 )
 
 // WorkflowServiceClient is the client API for WorkflowService service.
@@ -71,6 +73,13 @@ type WorkflowServiceClient interface {
 	Stop(ctx context.Context, in *StopWorkflowRequest, opts ...grpc.CallOption) (*WorkflowReply, error)
 	Terminate(ctx context.Context, in *WorkflowActionRequest, opts ...grpc.CallOption) (*WorkflowReply, error)
 	Delete(ctx context.Context, in *DeleteWorkflowRequest, opts ...grpc.CallOption) (*DeleteWorkflowReply, error)
+	// RenderedTemplate returns a node's template as the controller rendered it into the node's pod,
+	// every variable and expression substituted. Empty once the pod is gone.
+	RenderedTemplate(ctx context.Context, in *RenderedTemplateRequest, opts ...grpc.CallOption) (*RenderedTemplateReply, error)
+	// EvaluateExpressions evaluates Argo expressions ({{=…}} bodies) with Argo's own engine against the
+	// given variables. Used when no pod is left to read the rendered values from; the result is an
+	// estimate, since the variables are what the run recorded rather than what the controller saw.
+	EvaluateExpressions(ctx context.Context, in *EvaluateExpressionsRequest, opts ...grpc.CallOption) (*EvaluateExpressionsReply, error)
 }
 
 type workflowServiceClient struct {
@@ -268,6 +277,26 @@ func (c *workflowServiceClient) Delete(ctx context.Context, in *DeleteWorkflowRe
 	return out, nil
 }
 
+func (c *workflowServiceClient) RenderedTemplate(ctx context.Context, in *RenderedTemplateRequest, opts ...grpc.CallOption) (*RenderedTemplateReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RenderedTemplateReply)
+	err := c.cc.Invoke(ctx, WorkflowService_RenderedTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) EvaluateExpressions(ctx context.Context, in *EvaluateExpressionsRequest, opts ...grpc.CallOption) (*EvaluateExpressionsReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EvaluateExpressionsReply)
+	err := c.cc.Invoke(ctx, WorkflowService_EvaluateExpressions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkflowServiceServer is the server API for WorkflowService service.
 // All implementations must embed UnimplementedWorkflowServiceServer
 // for forward compatibility.
@@ -302,6 +331,13 @@ type WorkflowServiceServer interface {
 	Stop(context.Context, *StopWorkflowRequest) (*WorkflowReply, error)
 	Terminate(context.Context, *WorkflowActionRequest) (*WorkflowReply, error)
 	Delete(context.Context, *DeleteWorkflowRequest) (*DeleteWorkflowReply, error)
+	// RenderedTemplate returns a node's template as the controller rendered it into the node's pod,
+	// every variable and expression substituted. Empty once the pod is gone.
+	RenderedTemplate(context.Context, *RenderedTemplateRequest) (*RenderedTemplateReply, error)
+	// EvaluateExpressions evaluates Argo expressions ({{=…}} bodies) with Argo's own engine against the
+	// given variables. Used when no pod is left to read the rendered values from; the result is an
+	// estimate, since the variables are what the run recorded rather than what the controller saw.
+	EvaluateExpressions(context.Context, *EvaluateExpressionsRequest) (*EvaluateExpressionsReply, error)
 	mustEmbedUnimplementedWorkflowServiceServer()
 }
 
@@ -359,6 +395,12 @@ func (UnimplementedWorkflowServiceServer) Terminate(context.Context, *WorkflowAc
 }
 func (UnimplementedWorkflowServiceServer) Delete(context.Context, *DeleteWorkflowRequest) (*DeleteWorkflowReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedWorkflowServiceServer) RenderedTemplate(context.Context, *RenderedTemplateRequest) (*RenderedTemplateReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method RenderedTemplate not implemented")
+}
+func (UnimplementedWorkflowServiceServer) EvaluateExpressions(context.Context, *EvaluateExpressionsRequest) (*EvaluateExpressionsReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method EvaluateExpressions not implemented")
 }
 func (UnimplementedWorkflowServiceServer) mustEmbedUnimplementedWorkflowServiceServer() {}
 func (UnimplementedWorkflowServiceServer) testEmbeddedByValue()                         {}
@@ -648,6 +690,42 @@ func _WorkflowService_Delete_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkflowService_RenderedTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenderedTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).RenderedTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_RenderedTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).RenderedTemplate(ctx, req.(*RenderedTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_EvaluateExpressions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EvaluateExpressionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).EvaluateExpressions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_EvaluateExpressions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).EvaluateExpressions(ctx, req.(*EvaluateExpressionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkflowService_ServiceDesc is the grpc.ServiceDesc for WorkflowService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -706,6 +784,14 @@ var WorkflowService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _WorkflowService_Delete_Handler,
+		},
+		{
+			MethodName: "RenderedTemplate",
+			Handler:    _WorkflowService_RenderedTemplate_Handler,
+		},
+		{
+			MethodName: "EvaluateExpressions",
+			Handler:    _WorkflowService_EvaluateExpressions_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -117,11 +117,14 @@ export function streamLogs(
   namespace: string,
   name: string,
   params: LogParams,
-  options: { onEntry: (entry: LogEntry) => void; onError?: (e: unknown) => void },
+  options: { onEntry: (entry: LogEntry) => void; onError?: (e: unknown) => void; onOpen?: () => void; onClose?: () => void; retry?: boolean },
 ) {
   return streamEvents<LogEntry>(`workflows/${namespace}/${name}/log${query({ ...params })}`, {
     onMessage: options.onEntry,
     onError: options.onError,
+    onOpen: options.onOpen,
+    onClose: options.onClose,
+    retry: options.retry,
   });
 }
 
@@ -247,3 +250,25 @@ export const workflowQueries = {
       queryFn: () => getWorkflow(namespace, name),
     }),
 };
+
+/** A node's template as the controller rendered it into its pod; `templateJson` is empty once the pod is gone. */
+export function getRenderedTemplate(
+  namespace: string,
+  name: string,
+  nodeId: string,
+): Promise<{ podName?: string; templateJson?: string }> {
+  return http
+    .get(`workflows/${namespace}/${name}/nodes/${encodeURIComponent(nodeId)}/rendered-template`)
+    .json();
+}
+
+/** Evaluates {{=…}} expression bodies with Argo's engine against the given flat variables. */
+export async function evaluateExpressions(
+  expressions: string[],
+  variables: Record<string, string>,
+): Promise<{ value?: string; error?: string }[]> {
+  const reply = await http
+    .post("expressions/evaluate", { json: { expressions, variables } })
+    .json<{ results?: { value?: string; error?: string }[] }>();
+  return reply.results ?? [];
+}

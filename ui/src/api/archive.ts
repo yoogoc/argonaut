@@ -37,9 +37,9 @@ export async function retryArchived(uid: string, options: { restartSuccessful?: 
   return (await http.put(`archived-workflows/${uid}/retry`, { json: options }).json<{ workflow: Workflow }>()).workflow;
 }
 
-export function streamArchivedLogs(uid: string, params: { nodeId?: string; grep?: string }, options: { onEntry: (entry: LogEntry) => void; onError?: (e: unknown) => void }) {
+export function streamArchivedLogs(uid: string, params: { nodeId?: string; grep?: string }, options: { onEntry: (entry: LogEntry) => void; onError?: (e: unknown) => void; onOpen?: () => void; onClose?: () => void }) {
   // An archived log is a finished file: read it once, never reconnect.
-  return streamEvents<LogEntry>(`archived-workflows/${uid}/log${query({ ...params })}`, { onMessage: options.onEntry, onError: options.onError, retry: false });
+  return streamEvents<LogEntry>(`archived-workflows/${uid}/log${query({ ...params })}`, { onMessage: options.onEntry, onError: options.onError, onOpen: options.onOpen, onClose: options.onClose, retry: false });
 }
 
 export function archivedArtifactUrl(uid: string, nodeId: string, artifactName: string, isInput = false) {

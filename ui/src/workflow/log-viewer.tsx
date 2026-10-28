@@ -60,6 +60,9 @@ export function LogViewer({
   const [error, setError] = useState<unknown>();
   const [ended, setEnded] = useState(false);
   const buffer = useRef<string[]>([]);
+  // Which log the buffer holds. A change of pod, container or timestamps is a different log and
+  // clears the view; a running step finishing is the same log and keeps it on screen.
+  const shownKey = useRef("");
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,10 +70,18 @@ export function LogViewer({
   }, [containers, container]);
 
   useEffect(() => {
-    buffer.current = [];
-    setLines([]);
+    const key = [archivedUid, workflow.metadata.namespace, workflow.metadata.name, podName, nodeId, container, timestamps].join("|");
+    if (shownKey.current !== key) {
+      shownKey.current = key;
+      buffer.current = [];
+      setLines([]);
+    }
     setError(undefined);
     setEnded(false);
+    // Every connection sends the whole log (or its tail) again, so each one replaces what is shown
+    // rather than appending to it. The old lines stay on screen until the first new one arrives, so a
+    // reconnect, or a step finishing, does not flash an empty view.
+    let replace = true;
     // Lines arrive in bursts; batching them into one render per frame keeps a fast log smooth.
     let frame = 0;
     const flush = () => {
@@ -78,17 +89,32 @@ export function LogViewer({
       setLines(buffer.current.length > MAX_LINES ? buffer.current.slice(-MAX_LINES) : buffer.current.slice());
     };
     const handlers = {
+      onOpen: () => {
+        replace = true;
+      },
       onEntry: (entry: LogEntry) => {
+        if (replace) {
+          buffer.current = [];
+          replace = false;
+        }
         // An empty line arrives without content: the server omits empty fields.
         buffer.current.push(entry.content ?? "");
         if (!frame) frame = requestAnimationFrame(flush);
       },
       onError: setError,
+      // A finished step's log is complete when the stream ends; reconnecting would only fetch it
+      // again. A running step's stream is followed and resumed if it drops.
+      onClose: () => {
+        if (replace && !running) {
+          buffer.current = [];
+          flush();
+        }
+      },
     };
     // An archived run's pods are gone; its logs come from the artifact repository by node.
     const stop = archivedUid
       ? streamArchivedLogs(archivedUid, { nodeId }, handlers)
-      : streamLogs(workflow.metadata.namespace, workflow.metadata.name, { podName, nodeId, container, follow: running, timestamps, tailLines: running ? 5000 : undefined }, handlers);
+      : streamLogs(workflow.metadata.namespace, workflow.metadata.name, { podName, nodeId, container, follow: running, timestamps, tailLines: running ? 5000 : undefined }, { ...handlers, retry: running });
     return () => {
       if (frame) cancelAnimationFrame(frame);
       stop();

@@ -1,10 +1,17 @@
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { ContainerSpec, HttpSpec, NodeStatus, Template, Workflow } from "@/api/types";
+import { evaluateExpressions, getRenderedTemplate } from "@/api/workflows";
 import { Fields, Mono } from "@/components/common/page";
 import { EmptyState } from "@/components/common/states";
+import { type ExpressionScope, expressionVariables, pendingExpressions, renderedBindings } from "@/lib/expressions";
 import { resolveTemplate, templateContainers, templateKind } from "@/lib/template";
 import { toYaml } from "@/lib/yaml";
+
+import { ExprCode, ExpressionContext, ExprList, ExprText } from "./expr-text";
+import { useRunSource } from "./run-source";
 
 /**
  * What a node was asked to do, from its resolved template: the image, the script source, the request.
@@ -13,58 +20,103 @@ import { toYaml } from "@/lib/yaml";
 export function NodeSpec({ workflow, node }: { workflow: Workflow; node: NodeStatus }) {
   const { t } = useTranslation();
   const template = resolveTemplate(workflow, node);
+  const scope = useExpressionScope(workflow, node, template);
   if (!template) return <EmptyState title={t("Template not found")} description={t("The template for this node is not stored in the workflow.")} />;
   const kind = templateKind(template);
   const retry = template.retryStrategy as { limit?: string | number; retryPolicy?: string; backoff?: { duration?: string; factor?: number | string; maxDuration?: string } } | undefined;
   return (
-    <div className="space-y-5">
-      <Fields
-        items={[
-          [t("Template"), <Mono>{template.name ?? node.templateName ?? "—"}</Mono>],
-          [t("Kind"), kind],
-          [t("Service account"), template.serviceAccountName ?? "—"],
-          ...(retry
-            ? ([
-                [
-                  t("Retry strategy"),
-                  <span>
-                    limit <Mono>{String(retry.limit ?? "∞")}</Mono> · <Mono>{retry.retryPolicy ?? "OnFailure"}</Mono>
-                    {retry.backoff?.duration && ` · ${t("backoff")} ${retry.backoff.duration}${retry.backoff.factor ? ` ×${retry.backoff.factor}` : ""}`}
-                  </span>,
-                ],
-              ] as [string, React.ReactNode][])
-            : []),
-        ]}
-      />
-      {template.memoize && (
-        <Block title={t("Memoization")}>
-          <Fields
-            items={[
-              [t("Key"), <Mono className="break-all">{template.memoize.key ?? "—"}</Mono>],
-              [t("Max age"), template.memoize.maxAge ?? "—"],
-              [t("Cache"), template.memoize.cache?.configMap?.name ?? "—"],
-            ]}
-          />
-        </Block>
-      )}
-      {kind === "http" && template.http && <HttpDetails http={template.http} />}
-      {(kind === "container" || kind === "script") && templateContainers(template).map((c, i) => <ContainerDetails key={`${c.name}-${i}`} container={c} />)}
-      {kind === "resource" && template.resource && (
-        <Block title={t("Resource")}>
-          <Fields
-            items={[
-              [t("Action"), template.resource.action ?? "—"],
-              [t("Success condition"), template.resource.successCondition ?? "—"],
-              [t("Failure condition"), template.resource.failureCondition ?? "—"],
-            ]}
-          />
-          {template.resource.manifest && <Code text={template.resource.manifest} />}
-        </Block>
-      )}
-      {kind === "data" && template.data && <Code text={toYaml(template.data)} />}
-      {kind === "other" && <OtherTemplate template={template} />}
-    </div>
+    <ExpressionContext.Provider value={scope}>
+      <div className="space-y-5">
+        <Fields
+          items={[
+            [t("Template"), <Mono>{template.name ?? node.templateName ?? "—"}</Mono>],
+            [t("Kind"), kind],
+            [t("Service account"), template.serviceAccountName ?? "—"],
+            ...(retry
+              ? ([
+                  [
+                    t("Retry strategy"),
+                    <span>
+                      limit <Mono>{String(retry.limit ?? "∞")}</Mono> · <Mono>{retry.retryPolicy ?? "OnFailure"}</Mono>
+                      {retry.backoff?.duration && ` · ${t("backoff")} ${retry.backoff.duration}${retry.backoff.factor ? ` ×${retry.backoff.factor}` : ""}`}
+                    </span>,
+                  ],
+                ] as [string, React.ReactNode][])
+              : []),
+          ]}
+        />
+        {template.memoize && (
+          <Block title={t("Memoization")}>
+            <Fields
+              items={[
+                [t("Key"), <ExprText text={template.memoize.key} />],
+                [t("Max age"), template.memoize.maxAge ?? "—"],
+                [t("Cache"), template.memoize.cache?.configMap?.name ?? "—"],
+              ]}
+            />
+          </Block>
+        )}
+        {kind === "http" && template.http && <HttpDetails http={template.http} />}
+        {(kind === "container" || kind === "script") && templateContainers(template).map((c, i) => <ContainerDetails key={`${c.name}-${i}`} container={c} />)}
+        {kind === "resource" && template.resource && (
+          <Block title={t("Resource")}>
+            <Fields
+              items={[
+                [t("Action"), template.resource.action ?? "—"],
+                [t("Success condition"), template.resource.successCondition ?? "—"],
+                [t("Failure condition"), template.resource.failureCondition ?? "—"],
+              ]}
+            />
+            {template.resource.manifest && <ExprCode text={template.resource.manifest} />}
+          </Block>
+        )}
+        {kind === "data" && template.data && <Code text={toYaml(template.data)} />}
+        {kind === "other" && <OtherTemplate template={template} />}
+      </div>
+    </ExpressionContext.Provider>
   );
+}
+
+/**
+ * The values behind the node's template variables (lib/expressions.ts). The pod's rendered template is
+ * read first, since it holds exactly what ran; expressions it cannot answer for — the pod is gone, or the
+ * run is archived — are then estimated by the server from what the run recorded.
+ */
+function useExpressionScope(workflow: Workflow, node: NodeStatus, template: Template | undefined): ExpressionScope {
+  const archived = !!useRunSource().archivedUid;
+  const namespace = workflow.metadata.namespace ?? "";
+  const name = workflow.metadata.name;
+  // The pod exists from Pending on; refetching on each phase picks it up once it is created.
+  const podQuery = useQuery({
+    queryKey: ["rendered-template", namespace, name, node.id, node.phase],
+    queryFn: () => getRenderedTemplate(namespace, name, node.id),
+    enabled: !archived && !!template && node.type === "Pod",
+    staleTime: Infinity,
+    retry: false,
+  });
+  const rendered = useMemo(() => {
+    if (!template || !podQuery.data?.templateJson) return undefined;
+    try {
+      return renderedBindings(template, JSON.parse(podQuery.data.templateJson));
+    } catch {
+      return undefined;
+    }
+  }, [template, podQuery.data]);
+  const variables = useMemo(() => expressionVariables(workflow, node), [workflow, node]);
+  const podSettled = archived || node.type !== "Pod" || !podQuery.isPending;
+  const pending = useMemo(() => (template ? [...pendingExpressions(template, rendered)].sort() : []), [template, rendered]);
+  const estimateQuery = useQuery({
+    queryKey: ["expression-estimates", namespace, name, node.id, node.phase, pending],
+    queryFn: () => evaluateExpressions(pending, variables),
+    enabled: podSettled && pending.length > 0,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const estimates = useMemo(() => {
+    if (!estimateQuery.data) return undefined;
+    return new Map(pending.map((expression, i) => [expression, estimateQuery.data[i] ?? {}]));
+  }, [estimateQuery.data, pending]);
+  return useMemo(() => ({ variables, rendered, estimates }), [variables, rendered, estimates]);
 }
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
@@ -80,26 +132,41 @@ function ContainerDetails({ container }: { container: ContainerSpec }) {
   const { t } = useTranslation();
   const requests = container.resources?.requests;
   const limits = container.resources?.limits;
-  const res = [requests && `requests ${Object.entries(requests).map(([k, v]) => `${k}=${v}`).join(", ")}`, limits && `limits ${Object.entries(limits).map(([k, v]) => `${k}=${v}`).join(", ")}`]
+  const res = [
+    requests &&
+      `requests ${Object.entries(requests)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ")}`,
+    limits &&
+      `limits ${Object.entries(limits)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ")}`,
+  ]
     .filter(Boolean)
     .join(" · ");
   return (
     <Block title={container.sidecar ? t("Sidecar {{name}}", { name: container.name }) : t("Container {{name}}", { name: container.name })}>
       <Fields
         items={[
-          [t("Image"), container.image ? <Mono>{container.image}</Mono> : "—"],
-          [t("Command"), <Args values={container.command} />],
-          [t("Args"), <Args values={container.args} />],
-          [t("Working dir"), container.workingDir ?? "—"],
+          [t("Image"), <ExprText text={container.image} />],
+          [t("Command"), <ExprList values={container.command} />],
+          [t("Args"), <ExprList values={container.args} />],
+          [t("Working dir"), <ExprText text={container.workingDir} />],
           [t("Resources"), res || "—"],
         ]}
       />
-      {container.source && <Code text={container.source} />}
+      {container.source && <ExprCode text={container.source} />}
       {(container.env ?? []).length > 0 && (
         <Fields
           items={(container.env ?? []).map((e) => [
             <Mono>{e.name}</Mono>,
-            e.value !== undefined ? <Mono className="break-all">{e.value}</Mono> : <span className="text-xs text-muted-foreground">{t("from")} {toYaml(e.valueFrom).trim()}</span>,
+            e.value !== undefined ? (
+              <ExprText text={e.value} />
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                {t("from")} {toYaml(e.valueFrom).trim()}
+              </span>
+            ),
           ])}
         />
       )}
@@ -114,27 +181,27 @@ function HttpDetails({ http }: { http: HttpSpec }) {
       <Fields
         items={[
           [t("Method"), http.method ?? "GET"],
-          ["URL", http.url ? <Mono className="break-all">{http.url}</Mono> : "—"],
+          ["URL", <ExprText text={http.url} />],
           [t("Timeout"), http.timeoutSeconds ? `${http.timeoutSeconds}s` : "—"],
           [t("Success condition"), http.successCondition ? <Mono>{http.successCondition}</Mono> : "—"],
           [t("Skip TLS verify"), http.insecureSkipVerify ? t("Yes") : t("No")],
         ]}
       />
       {(http.headers ?? []).length > 0 && (
-        <Fields items={(http.headers ?? []).map((h) => [<Mono>{h.name}</Mono>, h.value !== undefined ? <Mono className="break-all">{h.value}</Mono> : <span className="text-xs text-muted-foreground">{t("from a secret")}</span>])} />
+        <Fields
+          items={(http.headers ?? []).map((h) => [
+            <Mono>{h.name}</Mono>,
+            h.value !== undefined ? <ExprText text={h.value} /> : <span className="text-xs text-muted-foreground">{t("from a secret")}</span>,
+          ])}
+        />
       )}
-      {http.body && <Code text={http.body} />}
+      {http.body && <ExprCode text={http.body} />}
     </Block>
   );
 }
 
 function OtherTemplate({ template }: { template: Template }) {
   return <Code text={toYaml(template)} />;
-}
-
-function Args({ values }: { values?: string[] }) {
-  if (!values?.length) return <>—</>;
-  return <Mono className="break-all">{values.map((v) => (/\s/.test(v) ? JSON.stringify(v) : v)).join(" ")}</Mono>;
 }
 
 export function Code({ text, className }: { text: string; className?: string }) {

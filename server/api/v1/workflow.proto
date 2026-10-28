@@ -111,6 +111,22 @@ service WorkflowService {
       delete: "/api/v1/workflows/{namespace}/{name}"
     };
   };
+  // RenderedTemplate returns a node's template as the controller rendered it into the node's pod,
+  // every variable and expression substituted. Empty once the pod is gone.
+  rpc RenderedTemplate (RenderedTemplateRequest) returns (RenderedTemplateReply) {
+    option (google.api.http) = {
+      get: "/api/v1/workflows/{namespace}/{name}/nodes/{nodeId}/rendered-template"
+    };
+  };
+  // EvaluateExpressions evaluates Argo expressions ({{=…}} bodies) with Argo's own engine against the
+  // given variables. Used when no pod is left to read the rendered values from; the result is an
+  // estimate, since the variables are what the run recorded rather than what the controller saw.
+  rpc EvaluateExpressions (EvaluateExpressionsRequest) returns (EvaluateExpressionsReply) {
+    option (google.api.http) = {
+      post: "/api/v1/expressions/evaluate"
+      body: "*"
+    };
+  };
 }
 
 // Artifact downloads are deliberately NOT an RPC: a google.api.HttpBody reply would buffer the whole
@@ -291,3 +307,29 @@ message DeleteWorkflowRequest {
   bool force = 3;
 }
 message DeleteWorkflowReply {}
+
+message RenderedTemplateRequest {
+  string namespace = 1;
+  string name = 2;
+  string nodeId = 3;
+}
+message RenderedTemplateReply {
+  string podName = 1;
+  // templateJson is the rendered template (the pod's ARGO_TEMPLATE); empty when the pod no longer exists.
+  string templateJson = 2;
+}
+
+message EvaluateExpressionsRequest {
+  // expressions are the bodies of {{=…}} tags, without the braces and the "=".
+  repeated string expressions = 1;
+  // variables are flat names as templates write them: "inputs.parameters.x", "workflow.name", ….
+  map<string, string> variables = 2;
+}
+message EvaluatedExpression {
+  string value = 1;
+  // error says why the expression could not be evaluated; value is then empty.
+  string error = 2;
+}
+message EvaluateExpressionsReply {
+  repeated EvaluatedExpression results = 1;
+}

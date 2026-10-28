@@ -1474,6 +1474,270 @@ func (*DeleteWorkflowReply) Descriptor() ([]byte, []int) {
 	return file_api_v1_workflow_proto_rawDescGZIP(), []int{20}
 }
 
+type RenderedTemplateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	NodeId        string                 `protobuf:"bytes,3,opt,name=nodeId,proto3" json:"nodeId,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderedTemplateRequest) Reset() {
+	*x = RenderedTemplateRequest{}
+	mi := &file_api_v1_workflow_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderedTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderedTemplateRequest) ProtoMessage() {}
+
+func (x *RenderedTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflow_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderedTemplateRequest.ProtoReflect.Descriptor instead.
+func (*RenderedTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflow_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *RenderedTemplateRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *RenderedTemplateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RenderedTemplateRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+type RenderedTemplateReply struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	PodName string                 `protobuf:"bytes,1,opt,name=podName,proto3" json:"podName,omitempty"`
+	// templateJson is the rendered template (the pod's ARGO_TEMPLATE); empty when the pod no longer exists.
+	TemplateJson  string `protobuf:"bytes,2,opt,name=templateJson,proto3" json:"templateJson,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderedTemplateReply) Reset() {
+	*x = RenderedTemplateReply{}
+	mi := &file_api_v1_workflow_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderedTemplateReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderedTemplateReply) ProtoMessage() {}
+
+func (x *RenderedTemplateReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflow_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderedTemplateReply.ProtoReflect.Descriptor instead.
+func (*RenderedTemplateReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflow_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *RenderedTemplateReply) GetPodName() string {
+	if x != nil {
+		return x.PodName
+	}
+	return ""
+}
+
+func (x *RenderedTemplateReply) GetTemplateJson() string {
+	if x != nil {
+		return x.TemplateJson
+	}
+	return ""
+}
+
+type EvaluateExpressionsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// expressions are the bodies of {{=…}} tags, without the braces and the "=".
+	Expressions []string `protobuf:"bytes,1,rep,name=expressions,proto3" json:"expressions,omitempty"`
+	// variables are flat names as templates write them: "inputs.parameters.x", "workflow.name", ….
+	Variables     map[string]string `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluateExpressionsRequest) Reset() {
+	*x = EvaluateExpressionsRequest{}
+	mi := &file_api_v1_workflow_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateExpressionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateExpressionsRequest) ProtoMessage() {}
+
+func (x *EvaluateExpressionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflow_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateExpressionsRequest.ProtoReflect.Descriptor instead.
+func (*EvaluateExpressionsRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflow_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *EvaluateExpressionsRequest) GetExpressions() []string {
+	if x != nil {
+		return x.Expressions
+	}
+	return nil
+}
+
+func (x *EvaluateExpressionsRequest) GetVariables() map[string]string {
+	if x != nil {
+		return x.Variables
+	}
+	return nil
+}
+
+type EvaluatedExpression struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Value string                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	// error says why the expression could not be evaluated; value is then empty.
+	Error         string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluatedExpression) Reset() {
+	*x = EvaluatedExpression{}
+	mi := &file_api_v1_workflow_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluatedExpression) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluatedExpression) ProtoMessage() {}
+
+func (x *EvaluatedExpression) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflow_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluatedExpression.ProtoReflect.Descriptor instead.
+func (*EvaluatedExpression) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflow_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *EvaluatedExpression) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *EvaluatedExpression) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type EvaluateExpressionsReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*EvaluatedExpression `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluateExpressionsReply) Reset() {
+	*x = EvaluateExpressionsReply{}
+	mi := &file_api_v1_workflow_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateExpressionsReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateExpressionsReply) ProtoMessage() {}
+
+func (x *EvaluateExpressionsReply) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_workflow_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateExpressionsReply.ProtoReflect.Descriptor instead.
+func (*EvaluateExpressionsReply) Descriptor() ([]byte, []int) {
+	return file_api_v1_workflow_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *EvaluateExpressionsReply) GetResults() []*EvaluatedExpression {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
 var File_api_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_api_v1_workflow_proto_rawDesc = "" +
@@ -1629,7 +1893,25 @@ const file_api_v1_workflow_proto_rawDesc = "" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05force\x18\x03 \x01(\bR\x05force\"\x15\n" +
-	"\x13DeleteWorkflowReply2\xad\x0e\n" +
+	"\x13DeleteWorkflowReply\"c\n" +
+	"\x17RenderedTemplateRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06nodeId\x18\x03 \x01(\tR\x06nodeId\"U\n" +
+	"\x15RenderedTemplateReply\x12\x18\n" +
+	"\apodName\x18\x01 \x01(\tR\apodName\x12\"\n" +
+	"\ftemplateJson\x18\x02 \x01(\tR\ftemplateJson\"\xcd\x01\n" +
+	"\x1aEvaluateExpressionsRequest\x12 \n" +
+	"\vexpressions\x18\x01 \x03(\tR\vexpressions\x12O\n" +
+	"\tvariables\x18\x02 \x03(\v21.api.v1.EvaluateExpressionsRequest.VariablesEntryR\tvariables\x1a<\n" +
+	"\x0eVariablesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"A\n" +
+	"\x13EvaluatedExpression\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"Q\n" +
+	"\x18EvaluateExpressionsReply\x125\n" +
+	"\aresults\x18\x01 \x03(\v2\x1b.api.v1.EvaluatedExpressionR\aresults2\xd8\x10\n" +
 	"\x0fWorkflowService\x12Y\n" +
 	"\x04List\x12\x1b.api.v1.ListWorkflowRequest\x1a\x19.api.v1.ListWorkflowReply\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/api/v1/workflows\x12f\n" +
 	"\x03Get\x12\x1a.api.v1.GetWorkflowRequest\x1a\x15.api.v1.WorkflowReply\",\x82\xd3\xe4\x93\x02&\x12$/api/v1/workflows/{namespace}/{name}\x12p\n" +
@@ -1646,7 +1928,9 @@ const file_api_v1_workflow_proto_rawDesc = "" +
 	"\x03Set\x12\x1a.api.v1.SetWorkflowRequest\x1a\x15.api.v1.WorkflowReply\"3\x82\xd3\xe4\x93\x02-:\x01*\x1a(/api/v1/workflows/{namespace}/{name}/set\x12p\n" +
 	"\x04Stop\x12\x1b.api.v1.StopWorkflowRequest\x1a\x15.api.v1.WorkflowReply\"4\x82\xd3\xe4\x93\x02.:\x01*\x1a)/api/v1/workflows/{namespace}/{name}/stop\x12|\n" +
 	"\tTerminate\x12\x1d.api.v1.WorkflowActionRequest\x1a\x15.api.v1.WorkflowReply\"9\x82\xd3\xe4\x93\x023:\x01*\x1a./api/v1/workflows/{namespace}/{name}/terminate\x12r\n" +
-	"\x06Delete\x12\x1d.api.v1.DeleteWorkflowRequest\x1a\x1b.api.v1.DeleteWorkflowReply\",\x82\xd3\xe4\x93\x02&*$/api/v1/workflows/{namespace}/{name}B\x1e\n" +
+	"\x06Delete\x12\x1d.api.v1.DeleteWorkflowRequest\x1a\x1b.api.v1.DeleteWorkflowReply\",\x82\xd3\xe4\x93\x02&*$/api/v1/workflows/{namespace}/{name}\x12\xa1\x01\n" +
+	"\x10RenderedTemplate\x12\x1f.api.v1.RenderedTemplateRequest\x1a\x1d.api.v1.RenderedTemplateReply\"M\x82\xd3\xe4\x93\x02G\x12E/api/v1/workflows/{namespace}/{name}/nodes/{nodeId}/rendered-template\x12\x84\x01\n" +
+	"\x13EvaluateExpressions\x12\".api.v1.EvaluateExpressionsRequest\x1a .api.v1.EvaluateExpressionsReply\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/api/v1/expressions/evaluateB\x1e\n" +
 	"\x06api.v1P\x01Z\x12argonaut/api/v1;v1b\x06proto3"
 
 var (
@@ -1661,72 +1945,84 @@ func file_api_v1_workflow_proto_rawDescGZIP() []byte {
 	return file_api_v1_workflow_proto_rawDescData
 }
 
-var file_api_v1_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_api_v1_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_api_v1_workflow_proto_goTypes = []any{
-	(*ListWorkflowRequest)(nil),     // 0: api.v1.ListWorkflowRequest
-	(*ListWorkflowReply)(nil),       // 1: api.v1.ListWorkflowReply
-	(*GetWorkflowRequest)(nil),      // 2: api.v1.GetWorkflowRequest
-	(*WorkflowReply)(nil),           // 3: api.v1.WorkflowReply
-	(*WatchWorkflowRequest)(nil),    // 4: api.v1.WatchWorkflowRequest
-	(*WorkflowWatchEvent)(nil),      // 5: api.v1.WorkflowWatchEvent
-	(*WorkflowEventsRequest)(nil),   // 6: api.v1.WorkflowEventsRequest
-	(*WorkflowEvent)(nil),           // 7: api.v1.WorkflowEvent
-	(*WorkflowLogRequest)(nil),      // 8: api.v1.WorkflowLogRequest
-	(*WorkflowLogEntry)(nil),        // 9: api.v1.WorkflowLogEntry
-	(*SubmitWorkflowRequest)(nil),   // 10: api.v1.SubmitWorkflowRequest
-	(*CreateWorkflowRequest)(nil),   // 11: api.v1.CreateWorkflowRequest
-	(*LintWorkflowRequest)(nil),     // 12: api.v1.LintWorkflowRequest
-	(*WorkflowActionRequest)(nil),   // 13: api.v1.WorkflowActionRequest
-	(*RetryWorkflowRequest)(nil),    // 14: api.v1.RetryWorkflowRequest
-	(*ResubmitWorkflowRequest)(nil), // 15: api.v1.ResubmitWorkflowRequest
-	(*ResumeWorkflowRequest)(nil),   // 16: api.v1.ResumeWorkflowRequest
-	(*SetWorkflowRequest)(nil),      // 17: api.v1.SetWorkflowRequest
-	(*StopWorkflowRequest)(nil),     // 18: api.v1.StopWorkflowRequest
-	(*DeleteWorkflowRequest)(nil),   // 19: api.v1.DeleteWorkflowRequest
-	(*DeleteWorkflowReply)(nil),     // 20: api.v1.DeleteWorkflowReply
-	(*v1alpha1.WorkflowList)(nil),   // 21: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowList
-	(*v1alpha1.Workflow)(nil),       // 22: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.Workflow
+	(*ListWorkflowRequest)(nil),        // 0: api.v1.ListWorkflowRequest
+	(*ListWorkflowReply)(nil),          // 1: api.v1.ListWorkflowReply
+	(*GetWorkflowRequest)(nil),         // 2: api.v1.GetWorkflowRequest
+	(*WorkflowReply)(nil),              // 3: api.v1.WorkflowReply
+	(*WatchWorkflowRequest)(nil),       // 4: api.v1.WatchWorkflowRequest
+	(*WorkflowWatchEvent)(nil),         // 5: api.v1.WorkflowWatchEvent
+	(*WorkflowEventsRequest)(nil),      // 6: api.v1.WorkflowEventsRequest
+	(*WorkflowEvent)(nil),              // 7: api.v1.WorkflowEvent
+	(*WorkflowLogRequest)(nil),         // 8: api.v1.WorkflowLogRequest
+	(*WorkflowLogEntry)(nil),           // 9: api.v1.WorkflowLogEntry
+	(*SubmitWorkflowRequest)(nil),      // 10: api.v1.SubmitWorkflowRequest
+	(*CreateWorkflowRequest)(nil),      // 11: api.v1.CreateWorkflowRequest
+	(*LintWorkflowRequest)(nil),        // 12: api.v1.LintWorkflowRequest
+	(*WorkflowActionRequest)(nil),      // 13: api.v1.WorkflowActionRequest
+	(*RetryWorkflowRequest)(nil),       // 14: api.v1.RetryWorkflowRequest
+	(*ResubmitWorkflowRequest)(nil),    // 15: api.v1.ResubmitWorkflowRequest
+	(*ResumeWorkflowRequest)(nil),      // 16: api.v1.ResumeWorkflowRequest
+	(*SetWorkflowRequest)(nil),         // 17: api.v1.SetWorkflowRequest
+	(*StopWorkflowRequest)(nil),        // 18: api.v1.StopWorkflowRequest
+	(*DeleteWorkflowRequest)(nil),      // 19: api.v1.DeleteWorkflowRequest
+	(*DeleteWorkflowReply)(nil),        // 20: api.v1.DeleteWorkflowReply
+	(*RenderedTemplateRequest)(nil),    // 21: api.v1.RenderedTemplateRequest
+	(*RenderedTemplateReply)(nil),      // 22: api.v1.RenderedTemplateReply
+	(*EvaluateExpressionsRequest)(nil), // 23: api.v1.EvaluateExpressionsRequest
+	(*EvaluatedExpression)(nil),        // 24: api.v1.EvaluatedExpression
+	(*EvaluateExpressionsReply)(nil),   // 25: api.v1.EvaluateExpressionsReply
+	nil,                                // 26: api.v1.EvaluateExpressionsRequest.VariablesEntry
+	(*v1alpha1.WorkflowList)(nil),      // 27: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowList
+	(*v1alpha1.Workflow)(nil),          // 28: github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.Workflow
 }
 var file_api_v1_workflow_proto_depIdxs = []int32{
-	21, // 0: api.v1.ListWorkflowReply.list:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowList
-	22, // 1: api.v1.WorkflowReply.workflow:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.Workflow
-	0,  // 2: api.v1.WorkflowService.List:input_type -> api.v1.ListWorkflowRequest
-	2,  // 3: api.v1.WorkflowService.Get:input_type -> api.v1.GetWorkflowRequest
-	4,  // 4: api.v1.WorkflowService.Watch:input_type -> api.v1.WatchWorkflowRequest
-	6,  // 5: api.v1.WorkflowService.Events:input_type -> api.v1.WorkflowEventsRequest
-	8,  // 6: api.v1.WorkflowService.Logs:input_type -> api.v1.WorkflowLogRequest
-	10, // 7: api.v1.WorkflowService.Submit:input_type -> api.v1.SubmitWorkflowRequest
-	11, // 8: api.v1.WorkflowService.Create:input_type -> api.v1.CreateWorkflowRequest
-	12, // 9: api.v1.WorkflowService.Lint:input_type -> api.v1.LintWorkflowRequest
-	14, // 10: api.v1.WorkflowService.Retry:input_type -> api.v1.RetryWorkflowRequest
-	15, // 11: api.v1.WorkflowService.Resubmit:input_type -> api.v1.ResubmitWorkflowRequest
-	13, // 12: api.v1.WorkflowService.Suspend:input_type -> api.v1.WorkflowActionRequest
-	16, // 13: api.v1.WorkflowService.Resume:input_type -> api.v1.ResumeWorkflowRequest
-	17, // 14: api.v1.WorkflowService.Set:input_type -> api.v1.SetWorkflowRequest
-	18, // 15: api.v1.WorkflowService.Stop:input_type -> api.v1.StopWorkflowRequest
-	13, // 16: api.v1.WorkflowService.Terminate:input_type -> api.v1.WorkflowActionRequest
-	19, // 17: api.v1.WorkflowService.Delete:input_type -> api.v1.DeleteWorkflowRequest
-	1,  // 18: api.v1.WorkflowService.List:output_type -> api.v1.ListWorkflowReply
-	3,  // 19: api.v1.WorkflowService.Get:output_type -> api.v1.WorkflowReply
-	5,  // 20: api.v1.WorkflowService.Watch:output_type -> api.v1.WorkflowWatchEvent
-	7,  // 21: api.v1.WorkflowService.Events:output_type -> api.v1.WorkflowEvent
-	9,  // 22: api.v1.WorkflowService.Logs:output_type -> api.v1.WorkflowLogEntry
-	3,  // 23: api.v1.WorkflowService.Submit:output_type -> api.v1.WorkflowReply
-	3,  // 24: api.v1.WorkflowService.Create:output_type -> api.v1.WorkflowReply
-	3,  // 25: api.v1.WorkflowService.Lint:output_type -> api.v1.WorkflowReply
-	3,  // 26: api.v1.WorkflowService.Retry:output_type -> api.v1.WorkflowReply
-	3,  // 27: api.v1.WorkflowService.Resubmit:output_type -> api.v1.WorkflowReply
-	3,  // 28: api.v1.WorkflowService.Suspend:output_type -> api.v1.WorkflowReply
-	3,  // 29: api.v1.WorkflowService.Resume:output_type -> api.v1.WorkflowReply
-	3,  // 30: api.v1.WorkflowService.Set:output_type -> api.v1.WorkflowReply
-	3,  // 31: api.v1.WorkflowService.Stop:output_type -> api.v1.WorkflowReply
-	3,  // 32: api.v1.WorkflowService.Terminate:output_type -> api.v1.WorkflowReply
-	20, // 33: api.v1.WorkflowService.Delete:output_type -> api.v1.DeleteWorkflowReply
-	18, // [18:34] is the sub-list for method output_type
-	2,  // [2:18] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	27, // 0: api.v1.ListWorkflowReply.list:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.WorkflowList
+	28, // 1: api.v1.WorkflowReply.workflow:type_name -> github.com.argoproj.argo_workflows.v4.pkg.apis.workflow.v1alpha1.Workflow
+	26, // 2: api.v1.EvaluateExpressionsRequest.variables:type_name -> api.v1.EvaluateExpressionsRequest.VariablesEntry
+	24, // 3: api.v1.EvaluateExpressionsReply.results:type_name -> api.v1.EvaluatedExpression
+	0,  // 4: api.v1.WorkflowService.List:input_type -> api.v1.ListWorkflowRequest
+	2,  // 5: api.v1.WorkflowService.Get:input_type -> api.v1.GetWorkflowRequest
+	4,  // 6: api.v1.WorkflowService.Watch:input_type -> api.v1.WatchWorkflowRequest
+	6,  // 7: api.v1.WorkflowService.Events:input_type -> api.v1.WorkflowEventsRequest
+	8,  // 8: api.v1.WorkflowService.Logs:input_type -> api.v1.WorkflowLogRequest
+	10, // 9: api.v1.WorkflowService.Submit:input_type -> api.v1.SubmitWorkflowRequest
+	11, // 10: api.v1.WorkflowService.Create:input_type -> api.v1.CreateWorkflowRequest
+	12, // 11: api.v1.WorkflowService.Lint:input_type -> api.v1.LintWorkflowRequest
+	14, // 12: api.v1.WorkflowService.Retry:input_type -> api.v1.RetryWorkflowRequest
+	15, // 13: api.v1.WorkflowService.Resubmit:input_type -> api.v1.ResubmitWorkflowRequest
+	13, // 14: api.v1.WorkflowService.Suspend:input_type -> api.v1.WorkflowActionRequest
+	16, // 15: api.v1.WorkflowService.Resume:input_type -> api.v1.ResumeWorkflowRequest
+	17, // 16: api.v1.WorkflowService.Set:input_type -> api.v1.SetWorkflowRequest
+	18, // 17: api.v1.WorkflowService.Stop:input_type -> api.v1.StopWorkflowRequest
+	13, // 18: api.v1.WorkflowService.Terminate:input_type -> api.v1.WorkflowActionRequest
+	19, // 19: api.v1.WorkflowService.Delete:input_type -> api.v1.DeleteWorkflowRequest
+	21, // 20: api.v1.WorkflowService.RenderedTemplate:input_type -> api.v1.RenderedTemplateRequest
+	23, // 21: api.v1.WorkflowService.EvaluateExpressions:input_type -> api.v1.EvaluateExpressionsRequest
+	1,  // 22: api.v1.WorkflowService.List:output_type -> api.v1.ListWorkflowReply
+	3,  // 23: api.v1.WorkflowService.Get:output_type -> api.v1.WorkflowReply
+	5,  // 24: api.v1.WorkflowService.Watch:output_type -> api.v1.WorkflowWatchEvent
+	7,  // 25: api.v1.WorkflowService.Events:output_type -> api.v1.WorkflowEvent
+	9,  // 26: api.v1.WorkflowService.Logs:output_type -> api.v1.WorkflowLogEntry
+	3,  // 27: api.v1.WorkflowService.Submit:output_type -> api.v1.WorkflowReply
+	3,  // 28: api.v1.WorkflowService.Create:output_type -> api.v1.WorkflowReply
+	3,  // 29: api.v1.WorkflowService.Lint:output_type -> api.v1.WorkflowReply
+	3,  // 30: api.v1.WorkflowService.Retry:output_type -> api.v1.WorkflowReply
+	3,  // 31: api.v1.WorkflowService.Resubmit:output_type -> api.v1.WorkflowReply
+	3,  // 32: api.v1.WorkflowService.Suspend:output_type -> api.v1.WorkflowReply
+	3,  // 33: api.v1.WorkflowService.Resume:output_type -> api.v1.WorkflowReply
+	3,  // 34: api.v1.WorkflowService.Set:output_type -> api.v1.WorkflowReply
+	3,  // 35: api.v1.WorkflowService.Stop:output_type -> api.v1.WorkflowReply
+	3,  // 36: api.v1.WorkflowService.Terminate:output_type -> api.v1.WorkflowReply
+	20, // 37: api.v1.WorkflowService.Delete:output_type -> api.v1.DeleteWorkflowReply
+	22, // 38: api.v1.WorkflowService.RenderedTemplate:output_type -> api.v1.RenderedTemplateReply
+	25, // 39: api.v1.WorkflowService.EvaluateExpressions:output_type -> api.v1.EvaluateExpressionsReply
+	22, // [22:40] is the sub-list for method output_type
+	4,  // [4:22] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_workflow_proto_init() }
@@ -1749,7 +2045,7 @@ func file_api_v1_workflow_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_workflow_proto_rawDesc), len(file_api_v1_workflow_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

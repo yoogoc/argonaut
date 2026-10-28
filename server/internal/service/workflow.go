@@ -221,3 +221,23 @@ func (s *WorkflowService) Delete(ctx context.Context, req *v1.DeleteWorkflowRequ
 	}
 	return &v1.DeleteWorkflowReply{}, nil
 }
+
+func (s *WorkflowService) RenderedTemplate(ctx context.Context, req *v1.RenderedTemplateRequest) (*v1.RenderedTemplateReply, error) {
+	out, err := s.uc.RenderedTemplate(ctx, req.GetNamespace(), req.GetName(), req.GetNodeId())
+	if err != nil {
+		return nil, err
+	}
+	return &v1.RenderedTemplateReply{PodName: out.PodName, TemplateJson: out.JSON}, nil
+}
+
+func (s *WorkflowService) EvaluateExpressions(ctx context.Context, req *v1.EvaluateExpressionsRequest) (*v1.EvaluateExpressionsReply, error) {
+	results, err := s.uc.EvaluateExpressions(ctx, req.GetExpressions(), req.GetVariables())
+	if err != nil {
+		return nil, err
+	}
+	reply := &v1.EvaluateExpressionsReply{Results: make([]*v1.EvaluatedExpression, len(results))}
+	for i, r := range results {
+		reply.Results[i] = &v1.EvaluatedExpression{Value: r.Value, Error: r.Error}
+	}
+	return reply, nil
+}

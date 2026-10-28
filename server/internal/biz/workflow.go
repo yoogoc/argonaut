@@ -567,3 +567,33 @@ func (uc *WorkflowUsecase) OpenArtifact(ctx context.Context, namespace, name, no
 func isForbidden(err error) bool {
 	return errors.Code(err) == 403
 }
+
+// RenderedTemplate returns a node's template as the controller rendered it into the node's pod. It
+// shows nothing the workflow does not already: the same template, with the run's values filled in.
+func (uc *WorkflowUsecase) RenderedTemplate(ctx context.Context, namespace, name, nodeID string) (*pkgargo.RenderedTemplate, error) {
+	wf, err := uc.fetch(ctx, namespace, name, "")
+	if err != nil {
+		return nil, err
+	}
+	if err := uc.authz.Require(ctx, authz.WorkflowGet, WorkflowResource(wf)); err != nil {
+		return nil, err
+	}
+	out, err := uc.servers(ctx).RenderedTemplate(ctx, wf, nodeID)
+	if err != nil {
+		return nil, errors.InternalServer("rendered_template", err.Error())
+	}
+	return out, nil
+}
+
+// EvaluateExpressions evaluates Argo expressions against variables the caller supplies. Nothing is read
+// from the cluster, so being signed in is enough.
+func (uc *WorkflowUsecase) EvaluateExpressions(ctx context.Context, expressions []string, variables map[string]string) ([]pkgargo.EvaluatedExpression, error) {
+	if err := uc.authz.RequireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
+	out, err := pkgargo.EvaluateExpressions(ctx, expressions, variables)
+	if err != nil {
+		return nil, errors.BadRequest("invalid_argument", err.Error())
+	}
+	return out, nil
+}

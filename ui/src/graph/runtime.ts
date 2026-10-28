@@ -7,6 +7,11 @@ export const ATTEMPT_WIDTH = 166;
 export const ATTEMPT_HEIGHT = 40;
 export const ARTIFACT_WIDTH = 150;
 export const ARTIFACT_HEIGHT = 30;
+export const HOOK_WIDTH = 116;
+export const HOOK_HEIGHT = 24;
+/** Space between a step and the hook pills beside it, and between stacked pills. */
+export const HOOK_GAP = 14;
+export const HOOK_STACK_GAP = 6;
 
 /** Identifies one artifact on one node, which is what the detail panel is opened for. */
 export type ArtifactRef = { nodeId: string; name: string; isInput: boolean };
@@ -24,6 +29,7 @@ export type RuntimeNodeData =
   | { kind: "step"; status: NodeStatus; retry?: RetryInfo; expanded?: boolean }
   | { kind: "attempt"; status: NodeStatus; index: number }
   | { kind: "group"; status: NodeStatus; label: string }
+  | { kind: "hook"; status: NodeStatus; event: string; owner: string }
   | { kind: "artifact"; ref: ArtifactRef; artifact: Artifact };
 
 export interface RuntimeNode {
@@ -43,6 +49,8 @@ export interface RuntimeEdge {
   dashed?: boolean;
   failed?: boolean;
   animated?: boolean;
+  /** The connector from a step to one of its hooks. */
+  hook?: boolean;
 }
 
 const ARTIFACT_PREFIX = "artifact::";
@@ -93,11 +101,20 @@ export function buildRuntimeGraph(
     if (!options.expandRetries) attempts.forEach((a) => hidden.add(a.id));
   }
 
+  // Lifecycle hooks and exit handlers run beside a step, not after it: they are drawn as small pills
+  // attached to their owner rather than as steps in the flow.
+  const hooks = findHooks(wf.metadata.name, statuses);
+
   const nodes: RuntimeNode[] = [];
   const edges: RuntimeEdge[] = [];
   const visible = Object.values(statuses).filter((n) => !hidden.has(n.id));
 
   for (const node of visible) {
+    const hook = hooks.get(node.id);
+    if (hook) {
+      nodes.push({ id: node.id, width: HOOK_WIDTH, height: HOOK_HEIGHT, data: { kind: "hook", status: node, event: hook.event, owner: hook.owner } });
+      continue;
+    }
     const retry = retryInfo.get(node.id);
     if (retry && options.expandRetries && retry.attempts.length > 0) {
       nodes.push({ id: node.id, width: 0, height: 0, data: { kind: "group", status: node, label: node.displayName || node.name } });
@@ -123,6 +140,8 @@ export function buildRuntimeGraph(
 
   const seenEdges = new Set<string>();
   const addEdge = (edge: RuntimeEdge) => {
+    // A hook hangs off its owner by its own connector (below), never by a flow edge.
+    if (hooks.has(edge.target) && !edge.hook) return;
     if (edge.source === edge.target || seenEdges.has(edge.id)) return;
     seenEdges.add(edge.id);
     edges.push(edge);
@@ -178,7 +197,17 @@ export function buildRuntimeGraph(
     }
   }
 
-  if (options.showArtifacts) addArtifacts(Object.values(statuses).filter((n) => !hidden.has(n.id) || attemptOf.has(n.id)), nodes, edges, addEdge, (id) => {
+  for (const [id, hook] of hooks) {
+    // The owner may be an attempt drawn inside its Retry card when retries are collapsed.
+    const owner = attemptOf.get(hook.owner) && !options.expandRetries ? attemptOf.get(hook.owner)! : hook.owner;
+    if (!statuses[owner] || hidden.has(owner)) continue;
+    hook.owner = owner;
+    const node = nodes.find((n) => n.id === id);
+    if (node && node.data.kind === "hook") node.data.owner = owner;
+    addEdge({ id: `${owner}=>${id}`, source: owner, target: id, hook: true, dashed: true, animated: statuses[id]?.phase === "Running" });
+  }
+
+  if (options.showArtifacts) addArtifacts(Object.values(statuses).filter((n) => (!hidden.has(n.id) || attemptOf.has(n.id)) && !hooks.has(n.id)), nodes, edges, addEdge, (id) => {
     const retry = attemptOf.get(id);
     return retry && !options.expandRetries ? retry : id;
   });
@@ -236,4 +265,33 @@ function addArtifacts(
       addEdge({ id: `${id}->${owner(node.id)}`, source: id, target: owner(node.id), dashed: true });
     }
   }
+}
+
+const HOOK_SUFFIX = /\.hooks\.([^.]+)$/;
+
+/**
+ * Finds the nodes that are hooks rather than steps: lifecycle hooks ("<task>.hooks.<event>", children
+ * of their task) and exit handlers ("<owner>.onExit": the workflow's, or a task's `exit` hook). Only
+ * pods are drawn as pills; an exit handler that is itself a DAG keeps its steps in the flow.
+ */
+export function findHooks(workflowName: string, statuses: Record<string, NodeStatus>): Map<string, { event: string; owner: string }> {
+  const byName = new Map(Object.values(statuses).map((n) => [n.name, n.id]));
+  const parentOf = new Map<string, string>();
+  for (const n of Object.values(statuses)) for (const c of n.children ?? []) parentOf.set(c, n.id);
+  const out = new Map<string, { event: string; owner: string }>();
+  for (const n of Object.values(statuses)) {
+    if (n.type !== "Pod") continue;
+    const lifecycle = n.name.match(HOOK_SUFFIX);
+    if (lifecycle) {
+      const owner = parentOf.get(n.id) ?? byName.get(n.name.slice(0, -lifecycle[0].length));
+      if (owner) out.set(n.id, { event: lifecycle[1], owner });
+      continue;
+    }
+    if (n.name.endsWith(".onExit")) {
+      const ownerName = n.name.slice(0, -".onExit".length);
+      const owner = byName.get(ownerName) ?? (ownerName === workflowName ? byName.get(workflowName) : undefined);
+      if (owner) out.set(n.id, { event: "exit", owner });
+    }
+  }
+  return out;
 }

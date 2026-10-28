@@ -233,3 +233,42 @@
     font-feature-settings: "cv11", "ss01";
   }
 }
+
+/* Running steps in the run graph: a slow pulse around the card and a sweep along its bottom edge. */
+@keyframes node-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--phase-run-solid) 28%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in oklch, var(--phase-run-solid) 0%, transparent);
+  }
+}
+@keyframes node-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+.node-running {
+  animation: node-pulse 2.2s ease-in-out infinite;
+}
+.node-progress {
+  background: color-mix(in oklch, var(--phase-run-solid) 15%, transparent);
+}
+.node-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--phase-run-solid), transparent);
+  animation: node-sweep 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .node-running,
+  .node-progress::after {
+    animation: none;
+  }
+}

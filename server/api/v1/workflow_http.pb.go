@@ -19,11 +19,13 @@ const _ = http.SupportPackageIsVersion3
 
 const OperationWorkflowServiceCreate = "/api.v1.WorkflowService/Create"
 const OperationWorkflowServiceDelete = "/api.v1.WorkflowService/Delete"
+const OperationWorkflowServiceEvaluateExpressions = "/api.v1.WorkflowService/EvaluateExpressions"
 const OperationWorkflowServiceEvents = "/api.v1.WorkflowService/Events"
 const OperationWorkflowServiceGet = "/api.v1.WorkflowService/Get"
 const OperationWorkflowServiceLint = "/api.v1.WorkflowService/Lint"
 const OperationWorkflowServiceList = "/api.v1.WorkflowService/List"
 const OperationWorkflowServiceLogs = "/api.v1.WorkflowService/Logs"
+const OperationWorkflowServiceRenderedTemplate = "/api.v1.WorkflowService/RenderedTemplate"
 const OperationWorkflowServiceResubmit = "/api.v1.WorkflowService/Resubmit"
 const OperationWorkflowServiceResume = "/api.v1.WorkflowService/Resume"
 const OperationWorkflowServiceRetry = "/api.v1.WorkflowService/Retry"
@@ -38,6 +40,10 @@ type WorkflowServiceHTTPServer interface {
 	// Create Create submits a raw workflow manifest.
 	Create(context.Context, *CreateWorkflowRequest) (*WorkflowReply, error)
 	Delete(context.Context, *DeleteWorkflowRequest) (*DeleteWorkflowReply, error)
+	// EvaluateExpressions EvaluateExpressions evaluates Argo expressions ({{=…}} bodies) with Argo's own engine against the
+	// given variables. Used when no pod is left to read the rendered values from; the result is an
+	// estimate, since the variables are what the run recorded rather than what the controller saw.
+	EvaluateExpressions(context.Context, *EvaluateExpressionsRequest) (*EvaluateExpressionsReply, error)
 	// Events Events streams Kubernetes events for a workflow, powering the detail page Events tab.
 	Events(*WorkflowEventsRequest, WorkflowService_EventsServer) error
 	Get(context.Context, *GetWorkflowRequest) (*WorkflowReply, error)
@@ -46,6 +52,9 @@ type WorkflowServiceHTTPServer interface {
 	// Logs Logs streams container logs as SSE. When the pod is gone it falls back to the archived
 	// main.log artifact, mirroring what argo-server's UI does client-side.
 	Logs(*WorkflowLogRequest, WorkflowService_LogsServer) error
+	// RenderedTemplate RenderedTemplate returns a node's template as the controller rendered it into the node's pod,
+	// every variable and expression substituted. Empty once the pod is gone.
+	RenderedTemplate(context.Context, *RenderedTemplateRequest) (*RenderedTemplateReply, error)
 	Resubmit(context.Context, *ResubmitWorkflowRequest) (*WorkflowReply, error)
 	Resume(context.Context, *ResumeWorkflowRequest) (*WorkflowReply, error)
 	Retry(context.Context, *RetryWorkflowRequest) (*WorkflowReply, error)
@@ -81,6 +90,8 @@ func RegisterWorkflowServiceHTTPServer(s *http.Server, srv WorkflowServiceHTTPSe
 	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/stop", _WorkflowService_Stop0_HTTP_Handler(srv))
 	r.Handle("PUT", "/api/v1/workflows/{namespace}/{name}/terminate", _WorkflowService_Terminate0_HTTP_Handler(srv))
 	r.Handle("DELETE", "/api/v1/workflows/{namespace}/{name}", _WorkflowService_Delete0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/workflows/{namespace}/{name}/nodes/{nodeId}/rendered-template", _WorkflowService_RenderedTemplate0_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/expressions/evaluate", _WorkflowService_EvaluateExpressions0_HTTP_Handler(srv))
 }
 
 type WorkflowService_EventsHTTPServer struct {
@@ -450,10 +461,55 @@ func _WorkflowService_Delete0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(c
 	}
 }
 
+func _WorkflowService_RenderedTemplate0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in RenderedTemplateRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationWorkflowServiceRenderedTemplate)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.RenderedTemplate(ctx, req.(*RenderedTemplateRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*RenderedTemplateReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _WorkflowService_EvaluateExpressions0_HTTP_Handler(srv WorkflowServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in EvaluateExpressionsRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationWorkflowServiceEvaluateExpressions)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.EvaluateExpressions(ctx, req.(*EvaluateExpressionsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*EvaluateExpressionsReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 type WorkflowServiceHTTPClient interface {
 	// Create Create submits a raw workflow manifest.
 	Create(ctx context.Context, req *CreateWorkflowRequest, opts ...http.CallOption) (rsp *WorkflowReply, err error)
 	Delete(ctx context.Context, req *DeleteWorkflowRequest, opts ...http.CallOption) (rsp *DeleteWorkflowReply, err error)
+	// EvaluateExpressions EvaluateExpressions evaluates Argo expressions ({{=…}} bodies) with Argo's own engine against the
+	// given variables. Used when no pod is left to read the rendered values from; the result is an
+	// estimate, since the variables are what the run recorded rather than what the controller saw.
+	EvaluateExpressions(ctx context.Context, req *EvaluateExpressionsRequest, opts ...http.CallOption) (rsp *EvaluateExpressionsReply, err error)
 	// Events Events streams Kubernetes events for a workflow, powering the detail page Events tab.
 	Events(ctx context.Context, req *WorkflowEventsRequest, opts ...http.CallOption) (WorkflowService_EventsClient, error)
 	Get(ctx context.Context, req *GetWorkflowRequest, opts ...http.CallOption) (rsp *WorkflowReply, err error)
@@ -462,6 +518,9 @@ type WorkflowServiceHTTPClient interface {
 	// Logs Logs streams container logs as SSE. When the pod is gone it falls back to the archived
 	// main.log artifact, mirroring what argo-server's UI does client-side.
 	Logs(ctx context.Context, req *WorkflowLogRequest, opts ...http.CallOption) (WorkflowService_LogsClient, error)
+	// RenderedTemplate RenderedTemplate returns a node's template as the controller rendered it into the node's pod,
+	// every variable and expression substituted. Empty once the pod is gone.
+	RenderedTemplate(ctx context.Context, req *RenderedTemplateRequest, opts ...http.CallOption) (rsp *RenderedTemplateReply, err error)
 	Resubmit(ctx context.Context, req *ResubmitWorkflowRequest, opts ...http.CallOption) (rsp *WorkflowReply, err error)
 	Resume(ctx context.Context, req *ResumeWorkflowRequest, opts ...http.CallOption) (rsp *WorkflowReply, err error)
 	Retry(ctx context.Context, req *RetryWorkflowRequest, opts ...http.CallOption) (rsp *WorkflowReply, err error)
@@ -557,6 +616,26 @@ func (c *WorkflowServiceHTTPClientImpl) Delete(ctx context.Context, in *DeleteWo
 	return &out, nil
 }
 
+// EvaluateExpressions EvaluateExpressions evaluates Argo expressions ({{=…}} bodies) with Argo's own engine against the
+// given variables. Used when no pod is left to read the rendered values from; the result is an
+// estimate, since the variables are what the run recorded rather than what the controller saw.
+func (c *WorkflowServiceHTTPClientImpl) EvaluateExpressions(ctx context.Context, in *EvaluateExpressionsRequest, opts ...http.CallOption) (*EvaluateExpressionsReply, error) {
+	var out EvaluateExpressionsReply
+	pattern := "/api/v1/expressions/evaluate"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationWorkflowServiceEvaluateExpressions),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // Events Events streams Kubernetes events for a workflow, powering the detail page Events tab.
 func (c *WorkflowServiceHTTPClientImpl) Events(ctx context.Context, in *WorkflowEventsRequest, opts ...http.CallOption) (WorkflowService_EventsClient, error) {
 	pattern := "/api/v1/workflows/{namespace}/{name}/events"
@@ -639,6 +718,24 @@ func (c *WorkflowServiceHTTPClientImpl) Logs(ctx context.Context, in *WorkflowLo
 		return nil, err
 	}
 	return &WorkflowService_LogsHTTPClient{ClientStream: stream}, nil
+}
+
+// RenderedTemplate RenderedTemplate returns a node's template as the controller rendered it into the node's pod,
+// every variable and expression substituted. Empty once the pod is gone.
+func (c *WorkflowServiceHTTPClientImpl) RenderedTemplate(ctx context.Context, in *RenderedTemplateRequest, opts ...http.CallOption) (*RenderedTemplateReply, error) {
+	var out RenderedTemplateReply
+	pattern := "/api/v1/workflows/{namespace}/{name}/nodes/{nodeId}/rendered-template"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationWorkflowServiceRenderedTemplate),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *WorkflowServiceHTTPClientImpl) Resubmit(ctx context.Context, in *ResubmitWorkflowRequest, opts ...http.CallOption) (*WorkflowReply, error) {

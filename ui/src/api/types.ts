@@ -163,7 +163,7 @@ export interface WorkflowStatus {
   /** Copies of referenced templates, keyed by a scope-qualified name. */
   storedTemplates?: Record<string, Template>;
   /** The spec of the WorkflowTemplate this run came from, when it was submitted from one. */
-  storedWorkflowTemplateSpec?: { templates?: Template[]; entrypoint?: string };
+  storedWorkflowTemplateSpec?: { templates?: Template[]; entrypoint?: string; arguments?: { parameters?: Parameter[] } };
   artifactRepositoryRef?: unknown;
 }
 
