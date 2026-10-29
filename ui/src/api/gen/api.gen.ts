@@ -218,6 +218,24 @@ export interface DeleteWorkflowTemplateRequest {
   name?: string;
 }
 
+/** (workflow.proto) */
+export interface EvaluatedExpression {
+  value?: string;
+  /** error says why the expression could not be evaluated; value is then empty. */
+  error?: string;
+}
+
+/** (workflow.proto) */
+export interface EvaluateExpressionsReply {
+  results?: EvaluatedExpression[];
+}
+
+/** (workflow.proto) */
+export interface EvaluateExpressionsRequest {
+  /** expressions are the bodies of {{=…}} tags, without the braces and the "=". */
+  expressions?: string[];
+}
+
 /** (clusterworkflowtemplate.proto) */
 export interface GetClusterWorkflowTemplateRequest {
   name?: string;
@@ -510,6 +528,20 @@ export interface Policy {
 export interface PolicyReply {
   policy?: Policy;
   revision?: number;
+}
+
+/** (workflow.proto) */
+export interface RenderedTemplateReply {
+  podName?: string;
+  /** templateJson is the rendered template (the pod's ARGO_TEMPLATE); empty when the pod no longer exists. */
+  templateJson?: string;
+}
+
+/** (workflow.proto) */
+export interface RenderedTemplateRequest {
+  namespace?: string;
+  name?: string;
+  nodeId?: string;
 }
 
 /** (authz.proto) */

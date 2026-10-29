@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "pnpm@11.24.0",
   "scripts": {
     "dev": "vite",
     "build": "tsr generate && tsc -b && vite build && node -e \"require('fs').writeFileSync('../server/web/dist/.gitkeep','')\"",
