@@ -15,6 +15,8 @@ export type Selection =
   | { kind: "exit"; template: string }
   // A template edited on its own, with no task in front of it: a single-step entry template.
   | { kind: "template"; template: string }
+  // A lifecycle hook: of a task (template + task) or, with neither, of the workflow (spec.hooks).
+  | { kind: "hook"; template?: string; task?: string; event: string }
   | { kind: "workflow" }
   | undefined;
 

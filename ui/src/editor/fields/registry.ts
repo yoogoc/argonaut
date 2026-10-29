@@ -94,7 +94,22 @@ export function taskSections(isRef: boolean): SectionDef[] {
         f("Continue on failure", "task", ["continueOn", "failed"], "switch"),
         f("Continue on error", "task", ["continueOn", "error"], "switch"),
         f("Task exit handler", "task", ["onExit"], "text", { placeholder: "template name" }),
-        f("Lifecycle hooks", "task", ["hooks"], "yaml", { hint: "Event expression → template / templateRef, with arguments", placeholder: "running:\n  expression: tasks.x.status == \"Running\"\n  template: notify" }),
+        f("Lifecycle hooks", "task", [], "note", { hint: "Hooks are edited on the canvas: select the task, then use the + beside it. Select a hook pill to change it." }),
+      ],
+    },
+  ];
+}
+
+// ---------- lifecycle hooks ----------
+
+/** What a hook passes to the template it runs; its trigger and target have their own controls. */
+export function hookSections(): SectionDef[] {
+  return [
+    {
+      title: "Arguments",
+      fields: [
+        f("Parameters", "task", ["arguments", "parameters"], "kv-list", { kv: ["name", "value"], sub: "Each: name, value or valueFrom (configMapKeyRef / expression)" }),
+        f("Artifacts", "task", ["arguments", "artifacts"], "objects", { item: { name: "input", from: "" }, summary: (i) => `${name(i)} ← ${String(i.from ?? i.fromExpression ?? "location")}`, sub: "Each: name, from / fromExpression, or a storage location" }),
       ],
     },
   ];
@@ -364,7 +379,7 @@ export function workflowTabs(): TabDef[] {
             f("ServiceAccount", "spec", ["serviceAccountName"], "text"),
             f("Active deadline (seconds)", "spec", ["activeDeadlineSeconds"], "number"),
             f("Exit handler", "spec", ["onExit"], "text", { placeholder: "template name" }),
-            f("Lifecycle hooks", "spec", ["hooks"], "yaml"),
+            f("Lifecycle hooks", "spec", [], "note", { hint: "Workflow hooks are edited in the lane at the top of the canvas." }),
             f("Priority", "spec", ["priority"], "number"),
           ],
         },

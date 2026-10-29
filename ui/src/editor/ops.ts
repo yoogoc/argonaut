@@ -1,9 +1,9 @@
 import { LAYOUT_ANNOTATION } from "@/api/templates";
 import type { WorkflowTemplate } from "@/api/types";
-import { type NodeKind, parseDepends, type SpecLike, type SpecTask, type SpecTemplate } from "@/graph/spec";
+import { findTemplate, type NodeKind, parseDepends, type SpecLike, type SpecTask, type SpecTemplate, type TemplateRefLike } from "@/graph/spec";
 
-import { type Json, uniqueName } from "./doc";
-import { type Positions, readLayout, specOf } from "./store";
+import { getIn, type Json, type Path, uniqueName } from "./doc";
+import { type Positions, readLayout, specOf, taskPath } from "./store";
 
 // Edits the editor makes to a template, expressed as immer recipes over the manifest. Each touches
 // only what the edit is about (DESIGN §3.1): adding a node adds one task and, when needed, one
@@ -206,7 +206,8 @@ export function renameTask(draft: Json, template: string, from: string, to: stri
 
 function rewriteTaskExpressions(task: SpecTask, from: string, to: string) {
   const json = JSON.stringify(task);
-  const next = json.replaceAll(`tasks.${from}.`, `tasks.${to}.`).replaceAll(`steps.${from}.`, `steps.${to}.`);
+  // Both spellings: tasks.x.outputs… in templates, tasks['x'].status in hook expressions.
+  const next = ["tasks", "steps"].reduce((acc, scope) => acc.replaceAll(`${scope}.${from}.`, `${scope}.${to}.`).replaceAll(`${scope}['${from}']`, `${scope}['${to}']`), json);
   if (next !== json) Object.assign(task, JSON.parse(next));
 }
 
@@ -238,3 +239,115 @@ export function positionsOf(obj: Json, template: string): Positions[string] {
 }
 
 export { specOf };
+
+// ---------- lifecycle hooks ----------
+//
+// Hooks run beside a task or the whole workflow: `exit` when it finishes, any other name when its
+// expression turns true. A task's live under task.hooks, the workflow's under spec.hooks; the canvas
+// draws both and these operations are its gestures.
+
+/** Whose hooks: a task of a DAG or steps template, or the workflow when undefined. */
+export type HookOwner = { template: string; task: string } | undefined;
+
+export type HookTrigger = "running" | "succeeded" | "failed" | "exit" | "custom";
+
+export interface SpecHook {
+  expression?: string;
+  template?: string;
+  templateRef?: TemplateRefLike;
+  arguments?: unknown;
+  [key: string]: unknown;
+}
+
+const PHASE: Record<"running" | "succeeded" | "failed", string> = { running: "Running", succeeded: "Succeeded", failed: "Failed" };
+
+/** The path of the object holding an owner's hooks. */
+export function hooksPath(draft: Json, owner: HookOwner): Path | undefined {
+  if (!owner) return ["spec", "hooks"];
+  const task = taskPath(draft, owner.template, owner.task);
+  return task && [...task, "hooks"];
+}
+
+function hooksOf(draft: Json, owner: HookOwner, create = false): Record<string, SpecHook> | undefined {
+  const path = hooksPath(draft, owner);
+  if (!path) return undefined;
+  const holder = getIn(draft, path.slice(0, -1)) as Record<string, unknown> | undefined;
+  if (!holder) return undefined;
+  if (!holder.hooks && create) holder.hooks = {};
+  return holder.hooks as Record<string, SpecHook> | undefined;
+}
+
+/** The expression a preset trigger stands for: the owner's status reaching that phase. */
+export function triggerExpression(draft: Json, owner: HookOwner, trigger: "running" | "succeeded" | "failed"): string {
+  if (!owner) return `workflow.status == "${PHASE[trigger]}"`;
+  const scope = findTemplate(specOf(draft), owner.template)?.steps ? "steps" : "tasks";
+  return `${scope}['${owner.task}'].status == "${PHASE[trigger]}"`;
+}
+
+/** Which preset a hook matches, if any. */
+export function hookTrigger(draft: Json, owner: HookOwner, event: string, hook: SpecHook | undefined): HookTrigger {
+  if (event === "exit") return "exit";
+  for (const t of ["running", "succeeded", "failed"] as const) if (hook?.expression?.trim() === triggerExpression(draft, owner, t)) return t;
+  return "custom";
+}
+
+/** Adds a hook that runs a new container template. Returns its event name. */
+export function addHook(draft: Json, owner: HookOwner, trigger: HookTrigger): string {
+  const hooks = hooksOf(draft, owner, true);
+  if (!hooks) return "";
+  const event = trigger === "exit" ? (hooks.exit ? "" : "exit") : uniqueName(trigger === "custom" ? "hook" : trigger, Object.keys(hooks));
+  if (!event) return "";
+  const tplName = uniqueName(`${owner?.task ?? "workflow"}-${event}`, templates(draft).map((t) => t.name ?? ""));
+  templates(draft).push(defaultTemplate("container", tplName));
+  hooks[event] = trigger === "exit" ? { template: tplName } : { expression: trigger === "custom" ? "" : triggerExpression(draft, owner, trigger), template: tplName };
+  return event;
+}
+
+export function deleteHook(draft: Json, owner: HookOwner, event: string) {
+  const path = hooksPath(draft, owner);
+  const hooks = hooksOf(draft, owner);
+  if (!path || !hooks) return;
+  delete hooks[event];
+  if (!Object.keys(hooks).length) delete (getIn(draft, path.slice(0, -1)) as Record<string, unknown>).hooks;
+}
+
+/** Renames a hook's event, keeping its place among the others. Returns false if the name is taken. */
+export function renameHook(draft: Json, owner: HookOwner, from: string, to: string): boolean {
+  const hooks = hooksOf(draft, owner);
+  if (!hooks || !to || from === to || to in hooks || !(from in hooks)) return false;
+  const entries = Object.entries(hooks).map(([k, v]) => [k === from ? to : k, v] as const);
+  for (const k of Object.keys(hooks)) delete hooks[k];
+  for (const [k, v] of entries) hooks[k] = v;
+  return true;
+}
+
+/**
+ * Switches a hook to a preset trigger. `exit` is a name rather than an expression, so switching to or
+ * from it renames the hook. Returns the hook's event name afterwards.
+ */
+export function setHookTrigger(draft: Json, owner: HookOwner, event: string, trigger: HookTrigger): string {
+  const hooks = hooksOf(draft, owner);
+  const hook = hooks?.[event];
+  if (!hooks || !hook) return event;
+  let name = event;
+  if (trigger === "exit") {
+    if (event !== "exit" && renameHook(draft, owner, event, "exit")) name = "exit";
+    if (name === "exit") delete hooks.exit.expression;
+    return name;
+  }
+  if (event === "exit") {
+    name = uniqueName(trigger === "custom" ? "hook" : trigger, Object.keys(hooks));
+    renameHook(draft, owner, event, name);
+  }
+  hooks[name].expression = trigger === "custom" ? (hooks[name].expression ?? "") : triggerExpression(draft, owner, trigger);
+  return name;
+}
+
+/** Points a hook at a template of this spec or at a component (templateRef). */
+export function setHookTarget(draft: Json, owner: HookOwner, event: string, target: { template: string } | { templateRef: TemplateRefLike }) {
+  const hook = hooksOf(draft, owner)?.[event];
+  if (!hook) return;
+  delete hook.template;
+  delete hook.templateRef;
+  Object.assign(hook, target);
+}

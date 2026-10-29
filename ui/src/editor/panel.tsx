@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Layers, Search, Settings2 } from "lucide-react";
+import { ArrowRight, Layers, Search, Settings2, Trash2 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { stringify } from "yaml";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KindIcon, KINDS } from "@/graph/kinds";
 import { findTemplate, type NodeKind, type SpecTask, taskKind, templateKind } from "@/graph/spec";
 import { useNamespace } from "@/hooks/use-namespace";
+import { cn } from "@/lib/utils";
 
 import { getIn, type Path } from "./doc";
 import { suggestionsFor } from "./expressions";
@@ -22,6 +23,7 @@ import {
   type Base,
   CONTAINER_DEF,
   type FieldDef,
+  hookSections,
   ioSections,
   KIND_KEYS,
   kindSections,
@@ -36,7 +38,7 @@ import {
   uncovered,
   workflowTabs,
 } from "./fields/registry";
-import { renameTask, snapshotRef } from "./ops";
+import { deleteHook, type HookOwner, hooksPath, type HookTrigger, hookTrigger, renameHook, renameTask, setHookTarget, setHookTrigger, snapshotRef, type SpecHook } from "./ops";
 import { specOf, taskPath, templateIndex, useEditor } from "./store";
 
 interface Bases {
@@ -57,6 +59,7 @@ export function ConfigPanel() {
   const spec = specOf(obj);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState("tpl");
+  const [hookTab, setHookTab] = useState("hook");
 
   if (!selection) {
     return (
@@ -73,7 +76,7 @@ export function ConfigPanel() {
   if (selection.kind === "workflow") {
     const tabs = workflowTabs();
     const covered = coveredKeys(tabs.flatMap((x) => x.sections), "spec");
-    tabs[tabs.length - 1].sections.push({ title: "Other fields", hint: "Every other WorkflowSpec field, from the Argo schema", fields: uncovered(SPEC_DEF, "spec", covered, ["templates", "workflowTemplateRef"]) });
+    tabs[tabs.length - 1].sections.push({ title: "Other fields", hint: "Every other WorkflowSpec field, from the Argo schema", fields: uncovered(SPEC_DEF, "spec", covered, ["templates", "workflowTemplateRef", "hooks"]) });
     const current = tabs.some((x) => x.id === tab) ? tab : "wbase";
     return (
       <PanelShell icon={<span aria-hidden className="flex size-7 items-center justify-center rounded-[7px] bg-muted"><Settings2 className="size-4" /></span>} title={t("Workflow settings")} subtitle={t("spec-level configuration for the whole template")} query={query} onQuery={setQuery}>
@@ -99,8 +102,11 @@ export function ConfigPanel() {
     );
   }
 
-  // A node: a DAG task / step (selection.kind "task") or the exit handler.
-  const tPath = selection.kind === "task" ? taskPath(obj, selection.template, selection.id) : undefined;
+  // A node: a DAG task / step (selection.kind "task"), a lifecycle hook, or the exit handler. A hook has
+  // the shape of a task (template or templateRef, arguments), so it is edited through the same bases.
+  const hookOwner: HookOwner = selection.kind === "hook" && selection.template && selection.task ? { template: selection.template, task: selection.task } : undefined;
+  const hookHolder = selection.kind === "hook" ? hooksPath(obj, hookOwner) : undefined;
+  const tPath = selection.kind === "task" ? taskPath(obj, selection.template, selection.id) : selection.kind === "hook" && hookHolder ? [...hookHolder, selection.event] : undefined;
   const task = (tPath ? getIn(obj, tPath) : undefined) as SpecTask | undefined;
   // The exit handler and a single-step entry template are templates edited directly, with no task.
   const exitName = selection.kind === "exit" ? selection.template : undefined;
@@ -116,12 +122,15 @@ export function ConfigPanel() {
     container: ti >= 0 && (tpl?.script || tpl?.container) ? ["spec", "templates", ti, tpl.script ? "script" : "container"] : undefined,
   };
   if (selection.kind === "task" && !task) return <p className="p-6 text-sm text-muted-foreground">{t("The selected task no longer exists.")}</p>;
+  if (selection.kind === "hook" && !task) return <p className="p-6 text-sm text-muted-foreground">{t("The selected hook no longer exists.")}</p>;
 
   const isRef = !!task?.templateRef;
   const tabs: { id: string; label: string; sections?: SectionDef[]; note?: string }[] = [];
-  if (task) {
+  if (selection.kind === "hook") {
+    tabs.push({ id: "hook", label: "Hook", note: "hook" });
+  } else if (task) {
     const sections = taskSections(isRef);
-    sections.push({ title: "Other fields", hint: "Every other task field, from the Argo schema", fields: uncovered(isStep(obj, selection) ? STEP_DEF : TASK_DEF, "task", coveredKeys(sections, "task"), ["inline"]) });
+    sections.push({ title: "Other fields", hint: "Every other task field, from the Argo schema", fields: uncovered(isStep(obj, selection) ? STEP_DEF : TASK_DEF, "task", coveredKeys(sections, "task"), ["inline", "hooks"]) });
     tabs.push({ id: "task", label: "Task", sections });
   }
   if (isRef) tabs.push({ id: "tpl", label: KINDS.ref.label, note: "ref" });
@@ -145,18 +154,35 @@ export function ConfigPanel() {
     tabs.push({ id: "tpl", label: "Template", note: "missing" });
   }
   tabs.push({ id: "yaml", label: "YAML" });
-  const current = tabs.some((x) => x.id === tab) ? tab : tabs.some((x) => x.id === "tpl") ? "tpl" : tabs[0].id;
+  // A hook opens on its trigger; switching between hooks keeps whichever tab was chosen for hooks.
+  const chosen = selection.kind === "hook" ? hookTab : tab;
+  const current = tabs.some((x) => x.id === chosen) ? chosen : tabs.some((x) => x.id === "tpl") ? "tpl" : tabs[0].id;
+  const choose = selection.kind === "hook" ? setHookTab : setTab;
 
   return (
     <PanelShell
       icon={<KindIcon kind={kind} />}
-      title={task?.name ?? ownName ?? ""}
-      subtitle={exitName ? t("{{kind}} · exit handler (spec.onExit)", { kind: t(KINDS[kind].label) }) : ownName ? (ownName === spec.entrypoint ? t("{{kind}} · entry template (spec.entrypoint)", { kind: t(KINDS[kind].label) }) : t("{{kind}} · template, used by templateRef", { kind: t(KINDS[kind].label) })) : isRef ? t("Component reference · {{name}}{{scope}}", { name: task?.templateRef?.name, scope: task?.templateRef?.clusterScope ? ` · ${t("cluster")}` : "" }) : t("{{kind}} node · template {{name}}", { kind: t(KINDS[kind].label), name: templateName })}
+      title={selection.kind === "hook" ? (hookOwner ? `${hookOwner.task} · ${selection.event}` : selection.event) : (task?.name ?? ownName ?? "")}
+      subtitle={selection.kind === "hook" ? (hookOwner ? t("Hook on task {{task}}", { task: hookOwner.task }) : t("Workflow hook (spec.hooks)")) : exitName ? t("{{kind}} · exit handler (spec.onExit)", { kind: t(KINDS[kind].label) }) : ownName ? (ownName === spec.entrypoint ? t("{{kind}} · entry template (spec.entrypoint)", { kind: t(KINDS[kind].label) }) : t("{{kind}} · template, used by templateRef", { kind: t(KINDS[kind].label) })) : isRef ? t("Component reference · {{name}}{{scope}}", { name: task?.templateRef?.name, scope: task?.templateRef?.clusterScope ? ` · ${t("cluster")}` : "" }) : t("{{kind}} node · template {{name}}", { kind: t(KINDS[kind].label), name: templateName })}
       query={query}
       onQuery={setQuery}
-      actions={(kind === "dag" || kind === "steps") && templateName ? <Button variant="outline" size="sm" onClick={() => useEditor.getState().openTemplate(templateName)}>{t("Open on canvas")} <ArrowRight aria-hidden /></Button> : null}
+      actions={selection.kind === "hook" ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-destructive"
+          onClick={() => {
+            const { apply, select } = useEditor.getState();
+            apply("delete hook", (draft) => deleteHook(draft, hookOwner, selection.event));
+            select(hookOwner ? { kind: "task", template: hookOwner.template, id: hookOwner.task } : undefined);
+          }}
+        >
+          <Trash2 aria-hidden />
+          {t("Delete hook")}
+        </Button>
+      ) : (kind === "dag" || kind === "steps") && templateName ? <Button variant="outline" size="sm" onClick={() => useEditor.getState().openTemplate(templateName)}>{t("Open on canvas")} <ArrowRight aria-hidden /></Button> : null}
     >
-      <Tabs value={current} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
+      <Tabs value={current} onValueChange={choose} className="flex min-h-0 flex-1 flex-col gap-0">
         <TabsList variant="line" className="w-full justify-start gap-4 overflow-x-auto border-b px-5">
           {tabs.map((x) => (
             <TabsTrigger key={x.id} value={x.id}>
@@ -168,10 +194,12 @@ export function ConfigPanel() {
           <TabsContent key={x.id} value={x.id} className="min-h-0 flex-1 overflow-auto">
             {x.id === "yaml" ? (
               <div className="h-full p-4">
-                <ReadOnlyYaml value={ownName ? tpl : { task, template: tpl }} path={`node-${task?.name ?? ownName}.yaml`} />
+                <ReadOnlyYaml value={ownName ? tpl : selection.kind === "hook" ? { hook: task, template: tpl } : { task, template: tpl }} path={`node-${task?.name ?? ownName ?? (selection.kind === "hook" ? selection.event : "")}.yaml`} />
               </div>
+            ) : x.note === "hook" ? (
+              <HookTab owner={hookOwner} event={selection.kind === "hook" ? selection.event : ""} path={tPath!} />
             ) : x.note === "ref" ? (
-              <RefTab task={task!} template={selection.kind === "task" ? selection.template : ""} />
+              <RefTab task={task!} template={selection.kind === "task" ? selection.template : ""} base={selection.kind === "hook" ? tPath : undefined} />
             ) : x.note === "missing" ? (
               <p className="p-5 text-sm text-destructive">{t("Template {{name}} is not defined in this spec.", { name: task?.template })}</p>
             ) : x.note ? (
@@ -440,8 +468,122 @@ function TemplateRefControl({ base }: { base: Path }) {
   );
 }
 
+const TRIGGERS: { id: HookTrigger; label: string }[] = [
+  { id: "running", label: "On start" },
+  { id: "succeeded", label: "On success" },
+  { id: "failed", label: "On failure" },
+  { id: "exit", label: "On finish" },
+  { id: "custom", label: "Custom" },
+];
+
+/**
+ * A hook's own settings: its event name, when it fires (a preset on the owner's status, `exit`, or any
+ * expression), what it runs (a template of this spec or a component), and the arguments it passes.
+ */
+function HookTab({ owner, event, path }: { owner: HookOwner; event: string; path: Path }) {
+  const { t } = useTranslation();
+  const obj = useEditor((s) => s.obj);
+  const apply = useEditor((s) => s.apply);
+  const set = useEditor((s) => s.set);
+  const { namespace } = useNamespace();
+  const components = useQuery(templateQueries.components(namespace));
+  const spec = specOf(obj);
+  const hook = (getIn(obj, path) ?? {}) as SpecHook;
+  const siblings = (getIn(obj, path.slice(0, -1)) ?? {}) as Record<string, SpecHook>;
+  const trigger = hookTrigger(obj, owner, event, hook);
+  const reselect = (next: string) => next !== event && useEditor.setState({ selection: { kind: "hook", template: owner?.template, task: owner?.task, event: next } });
+  const library = components.data ?? [];
+  const label = (c: (typeof library)[number]) => `${(c.cluster ? c.clusterTemplate : c.template)?.metadata.name ?? ""}${c.cluster ? ` (${t("cluster")})` : ""}`;
+  const refComp = hook.templateRef && library.find((c) => (c.cluster ? c.clusterTemplate : c.template)?.metadata.name === hook.templateRef?.name && !!c.cluster === !!hook.templateRef?.clusterScope);
+  const refTemplates = ((refComp ? (refComp.cluster ? refComp.clusterTemplate : refComp.template) : undefined)?.spec.templates ?? []).map((x) => x.name ?? "").filter(Boolean);
+  const local = (spec.templates ?? []).map((x) => x.name ?? "").filter((n) => n && n !== owner?.template);
+  const target = (next: { template: string } | { templateRef: NonNullable<SpecHook["templateRef"]> }) => apply("hook target", (draft) => setHookTarget(draft, owner, event, next));
+
+  return (
+    <div className="flex flex-col">
+      <section className="flex flex-col gap-3 border-b px-5 py-4">
+        <FieldRow label="Event name" path={[]} id="hook-event" hint="The key under hooks. exit runs when the owner finishes; any other name runs when its expression turns true.">
+          <RenameInput value={event} onCommit={(next) => apply("rename hook", (draft) => void (renameHook(draft, owner, event, next) && reselect(next)))} />
+        </FieldRow>
+        <FieldRow label="Trigger" path={[]} id="hook-trigger">
+          <div role="radiogroup" aria-label={t("Trigger")} className="grid grid-cols-5 overflow-hidden rounded-md border text-[11px]">
+            {TRIGGERS.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                role="radio"
+                aria-checked={trigger === x.id}
+                disabled={x.id === "exit" && event !== "exit" && !!siblings.exit}
+                onClick={() => {
+                  let next = event;
+                  apply("hook trigger", (draft) => {
+                    next = setHookTrigger(draft, owner, event, x.id);
+                  });
+                  reselect(next);
+                }}
+                className={cn("border-r px-1 py-1.5 last:border-r-0 disabled:opacity-40", trigger === x.id ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted")}
+              >
+                {t(x.label)}
+              </button>
+            ))}
+          </div>
+        </FieldRow>
+        {event !== "exit" && (
+          <FieldRow label="Expression" path={["expression"]} id="hook-expression" hint="Runs the hook while this is true.">
+            <ExpressionControl label="expression" value={hook.expression} onChange={(v) => set("field:hook.expression", [...path, "expression"], v ?? "")} placeholder={`tasks['${owner?.task ?? "x"}'].status == "Running"`} suggestions={suggestionsFor(spec, owner?.template, owner?.task, library)} />
+          </FieldRow>
+        )}
+      </section>
+      <section className="flex flex-col gap-3 border-b px-5 py-4">
+        <h3 className="text-[13px] font-bold">{t("What it runs")}</h3>
+        <div role="radiogroup" aria-label={t("What it runs")} className="grid grid-cols-2 overflow-hidden rounded-md border text-[11px]">
+          {(["local", "component"] as const).map((m) => {
+            const on = m === "component" ? !!hook.templateRef : !hook.templateRef;
+            return (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => !on && (m === "local" ? target({ template: local[0] ?? "" }) : target({ templateRef: {} }))}
+                className={cn("border-r px-1 py-1.5 last:border-r-0", on ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted")}
+              >
+                {m === "local" ? t("A template of this spec") : t("A component")}
+              </button>
+            );
+          })}
+        </div>
+        {hook.templateRef ? (
+          <>
+            <FieldRow label="Component" path={["templateRef", "name"]} id="hook-ref-name">
+              <SelectControl
+                label={t("Component")}
+                value={refComp ? label(refComp) : hook.templateRef.name}
+                options={library.map(label)}
+                onChange={(v) => {
+                  const c = library.find((x) => label(x) === v);
+                  const tplObj = c && (c.cluster ? c.clusterTemplate : c.template);
+                  if (tplObj) target({ templateRef: { name: tplObj.metadata.name, template: tplObj.spec.entrypoint ?? tplObj.spec.templates?.[0]?.name, ...(c.cluster ? { clusterScope: true } : {}) } });
+                }}
+              />
+            </FieldRow>
+            <FieldRow label="Template" path={["templateRef", "template"]} id="hook-ref-template">
+              <SelectControl label={t("Template")} value={hook.templateRef.template} options={refTemplates} onChange={(v) => set("field:hook.templateRef.template", [...path, "templateRef", "template"], v)} />
+            </FieldRow>
+          </>
+        ) : (
+          <FieldRow label="Template" path={["template"]} id="hook-template" hint="Its settings are in the tabs next to this one.">
+            <SelectControl label={t("Template")} value={hook.template} options={local} onChange={(v) => target({ template: (v as string) ?? "" })} />
+          </FieldRow>
+        )}
+      </section>
+      <Sections sections={hookSections()} bases={{ spec: ["spec"], task: path }} query="" taskName={owner?.task} dagName={owner?.template} />
+    </div>
+  );
+}
+
 /** A component reference: what it points at, its interface, and turning it into a snapshot. */
-function RefTab({ task, template }: { task: SpecTask; template: string }) {
+function RefTab({ task, template, base }: { task: SpecTask; template: string; base?: Path }) {
   const { t } = useTranslation();
   const { namespace } = useNamespace();
   const components = useQuery(templateQueries.components(namespace));
@@ -454,7 +596,7 @@ function RefTab({ task, template }: { task: SpecTask; template: string }) {
     <div className="space-y-4 p-5">
       <div className="space-y-1.5">
         <Label className="text-xs">{t("Reference")}</Label>
-        <TemplateRefControl base={[...(taskPath(useEditor.getState().obj, template, task.name) ?? []), "templateRef"]} />
+        <TemplateRefControl base={[...(base ?? taskPath(useEditor.getState().obj, template, task.name) ?? []), "templateRef"]} />
       </div>
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-relaxed">
         {tpl ? (
@@ -473,7 +615,7 @@ function RefTab({ task, template }: { task: SpecTask; template: string }) {
           <p className="text-muted-foreground">{t("This template is not in the component library, or you cannot read it.")}</p>
         )}
       </div>
-      {tpl && (
+      {tpl && !base && (
         <Button variant="outline" size="sm" onClick={() => apply("snapshot", (draft) => snapshotRef(draft, template, task.name, tpl, !!comp?.cluster))}>
           {t("Convert to an inline snapshot")}
         </Button>

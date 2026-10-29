@@ -30,7 +30,8 @@ import { canvasNavigation } from "@/graph/viewport";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/stores/theme";
 
-import { addComponentNode, addKindNode, connect, deleteTask, disconnect, ensureDag, moveNodes, positionsOf } from "./ops";
+import { HOOK_ADD, HOOK_GAP, HOOK_H, HOOK_STACK_GAP, HOOK_W, HookAddNode, type HookAddData, HookNode, type HookNodeData, hookNodeId, stackHeight, WorkflowHookLane } from "./hooks";
+import { addComponentNode, addKindNode, connect, deleteHook, deleteTask, disconnect, ensureDag, type HookOwner, moveNodes, positionsOf, type SpecHook } from "./ops";
 import { specOf, useEditor } from "./store";
 
 export const NODE_W = 196;
@@ -106,6 +107,8 @@ const TaskNode = memo(function TaskNode({ data }: NodeProps) {
       </span>
       {d.status && <span aria-label={t(d.status)} className={cn("absolute -bottom-1.5 -left-1.5 size-3.5 rounded-full border-2 border-card", statusTone[d.status] ?? "bg-phase-pend-solid")} />}
       <Handle type="source" position={d.horizontal ? Position.Right : Position.Bottom} className="!size-2.5 !border-2 !border-card !bg-muted-foreground/60" />
+      {/* Where the lines to the task's hook pills start; not for drawing dependencies. */}
+      <Handle id="hook" type="source" position={Position.Right} isConnectable={false} className="!size-1 !border-0 !bg-transparent" />
     </div>
   );
 });
@@ -123,7 +126,18 @@ function sublineOf(node: SpecNode): string {
   return node.template?.name ?? "";
 }
 
-const nodeTypes = { task: TaskNode };
+const nodeTypes = { task: TaskNode, hook: HookNode, hookAdd: HookAddNode };
+
+/** ELK boxes: a task with hooks is laid out with room for its pills to its right. */
+function layoutBoxes(nodes: SpecNode[]) {
+  return nodes.map((n) => {
+    const count = hooksOfTask(n).length;
+    return { id: n.id, width: count ? NODE_W + HOOK_GAP + HOOK_W : NODE_W, height: Math.max(NODE_H, stackHeight(count)) };
+  });
+}
+
+/** A task's hooks, in the order the spec lists them. */
+const hooksOfTask = (n: SpecNode) => Object.entries((n.task.hooks ?? {}) as Record<string, SpecHook>);
 
 /**
  * The editing canvas (DESIGN §3.1–3.2): the current DAG template's tasks, edited in place. Every
@@ -162,13 +176,10 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
 
   // Tasks without a saved position are placed by ELK; saved positions always win.
   const [auto, setAuto] = useState<Map<string, { x: number; y: number }>>(new Map());
-  const shape = graph.nodes.map((n) => n.id).join("|") + "#" + graph.edges.map((e) => e.id).join("|");
+  const shape = graph.nodes.map((n) => `${n.id}:${hooksOfTask(n).length}`).join("|") + "#" + graph.edges.map((e) => e.id).join("|");
   useEffect(() => {
     let cancelled = false;
-    void layoutGraph(
-      graph.nodes.map((n) => ({ id: n.id, width: NODE_W, height: NODE_H })),
-      graph.edges,
-    ).then((p) => !cancelled && setAuto(p));
+    void layoutGraph(layoutBoxes(graph.nodes), graph.edges).then((p) => !cancelled && setAuto(p));
     return () => {
       cancelled = true;
     };
@@ -185,7 +196,11 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
         ? `exit:${selection.template}`
         : selection?.kind === "template"
           ? `template:${selection.template}`
-          : undefined;
+          : selection?.kind === "hook" && selection.task && selection.template === current
+            ? hookNodeId(selection.task, selection.event)
+            : undefined;
+  // The task whose "+" is shown: the selected task, or the owner of the selected hook.
+  const hookTask = selection?.kind === "task" && selection.template === current ? selection.id : selection?.kind === "hook" && selection.template === current ? selection.task : undefined;
 
   const nodes: Node[] = [
     ...standalone.map((n, i) => {
@@ -207,6 +222,8 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
       position: position(n.id),
       width: NODE_W, height: NODE_H, style: { width: NODE_W, height: NODE_H },
       data: { node: n, selected: n.id === selectedId, problems: problems[n.id] ?? [], status: status?.(n.id), horizontal: false } satisfies NodeData,
+      // React Flow's own selection is what its Delete key acts on, so it follows the editor's.
+      selected: n.id === selectedId,
       draggable: !frozen,
       connectable: !frozen && !isSteps,
     })),
@@ -218,12 +235,58 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
             position: saved[`exit:${exit.id}`] ? { x: saved[`exit:${exit.id}`][0], y: saved[`exit:${exit.id}`][1] } : { x: 0, y: maxY + 130 },
             width: NODE_W, height: NODE_H, style: { width: NODE_W, height: NODE_H },
             data: { node: exit, selected: `exit:${exit.id}` === selectedId, problems: problems[`exit:${exit.id}`] ?? [], horizontal: false } satisfies NodeData,
+            selected: `exit:${exit.id}` === selectedId,
             draggable: !frozen,
             connectable: false,
           },
         ]
       : []),
   ];
+  // Each task's hooks, stacked to the right of its card and centred on it; the "+" goes under them.
+  const hookIndex = new Map<string, { owner: HookOwner; event: string }>();
+  const hookEdges: Edge[] = [];
+  if (current && !single) {
+    for (const n of graph.nodes) {
+      const hooks = hooksOfTask(n);
+      const showAdd = n.id === hookTask && !frozen;
+      if (!hooks.length && !showAdd) continue;
+      const owner = { template: current, task: n.id };
+      const at = position(n.id);
+      const x = at.x + NODE_W + HOOK_GAP;
+      const top = at.y + NODE_H / 2 - stackHeight(Math.max(1, hooks.length)) / 2;
+      hooks.forEach(([event, hook], i) => {
+        const id = hookNodeId(n.id, event);
+        hookIndex.set(id, { owner, event });
+        nodes.push({
+          id,
+          type: "hook",
+          position: { x, y: top + i * (HOOK_H + HOOK_STACK_GAP) },
+          width: HOOK_W, height: HOOK_H, style: { width: HOOK_W, height: HOOK_H },
+          data: { owner, event, hook, selected: id === selectedId } satisfies HookNodeData,
+          selected: id === selectedId,
+          draggable: false,
+          connectable: false,
+          deletable: !frozen,
+        });
+        hookEdges.push({ id: `${id}:edge`, source: n.id, sourceHandle: "hook", target: id, targetHandle: "hook-in", type: "straight", selectable: false, deletable: false, style: { stroke: "var(--muted-foreground)", strokeOpacity: 0.5 } });
+      });
+      if (showAdd) {
+        nodes.push({
+          id: `hookadd:${n.id}`,
+          type: "hookAdd",
+          position: { x, y: hooks.length ? top + stackHeight(hooks.length) + HOOK_STACK_GAP : at.y + NODE_H / 2 - HOOK_ADD / 2 },
+          width: HOOK_ADD, height: HOOK_ADD, style: { width: HOOK_ADD, height: HOOK_ADD },
+          data: { owner } satisfies HookAddData,
+          draggable: false,
+          connectable: false,
+          deletable: false,
+          selectable: false,
+        });
+      }
+    }
+  }
+  const workflowHooks = (spec.hooks ?? {}) as Record<string, SpecHook>;
+
   const edges: Edge[] = graph.edges.map((e) => {
     const failure = e.condition === "Failed" || e.condition === "Errored" || e.condition === "AllFailed";
     return {
@@ -240,6 +303,8 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
     };
   });
 
+  edges.push(...hookEdges);
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const moves: Record<string, [number, number]> = {};
@@ -249,7 +314,13 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
           if (c.dragging) live[c.id] = c.position;
           else moves[c.id] = [c.position.x, c.position.y];
         }
-        if (c.type === "remove" && current && !c.id.startsWith("template:")) {
+        if (c.type === "remove" && c.id.startsWith("hook:")) {
+          const h = hookIndex.get(c.id);
+          if (h) apply("delete hook", (draft) => deleteHook(draft, h.owner, h.event));
+          if (selectedId === c.id) select(undefined);
+          continue;
+        }
+        if (c.type === "remove" && current && !c.id.startsWith("template:") && !c.id.startsWith("hookadd:")) {
           if (c.id.startsWith("exit:")) apply("delete exit", (draft) => void delete (draft.spec as Record<string, unknown>).onExit);
           else apply("delete task", (draft) => deleteTask(draft, current, c.id));
           if (selectedId === c.id) select(undefined);
@@ -261,7 +332,8 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
         apply("move", (draft) => moveNodes(draft, current, moves));
       }
     },
-    [apply, current, select, selectedId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hookIndex is rebuilt from the same spec every render
+    [apply, current, select, selectedId, obj],
   );
 
   const onEdgesChange = useCallback(
@@ -302,7 +374,7 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
 
   const relayout = () => {
     if (!current) return;
-    void layoutGraph(graph.nodes.map((n) => ({ id: n.id, width: NODE_W, height: NODE_H })), graph.edges).then((p) => {
+    void layoutGraph(layoutBoxes(graph.nodes), graph.edges).then((p) => {
       const moves: Record<string, [number, number]> = {};
       p.forEach((v, k) => (moves[k] = [v.x, v.y]));
       apply("auto layout", (draft) => moveNodes(draft, current, moves));
@@ -363,7 +435,11 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={(_e, node) =>
-              node.id.startsWith("exit:")
+              node.type === "hookAdd"
+                ? undefined
+                : node.type === "hook"
+                  ? select({ kind: "hook", template: (node.data as HookNodeData).owner?.template, task: (node.data as HookNodeData).owner?.task, event: (node.data as HookNodeData).event })
+                  : node.id.startsWith("exit:")
                 ? select({ kind: "exit", template: node.id.slice(5) })
                 : node.id.startsWith("template:")
                   ? select({ kind: "template", template: node.id.slice(9) })
@@ -383,6 +459,11 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
           >
             <Background gap={16} size={1} />
             <Controls position="bottom-left" showInteractive={false} />
+            {current === spec.entrypoint && (
+              <Panel position="top-left">
+                <WorkflowHookLane hooks={workflowHooks} selected={selection?.kind === "hook" && !selection.task ? selection.event : undefined} frozen={frozen} />
+              </Panel>
+            )}
             {graph.nodes.length === 0 && !single && (
               <Panel position="top-center" className="pointer-events-none !mt-24 rounded-lg border border-dashed bg-background/80 px-4 py-3 text-center text-sm text-muted-foreground">
                 {t("Drag a node from the palette, or click one, to start.")}
