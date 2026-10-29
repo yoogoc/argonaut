@@ -102,11 +102,13 @@ export function ConfigPanel() {
   // A node: a DAG task / step (selection.kind "task") or the exit handler.
   const tPath = selection.kind === "task" ? taskPath(obj, selection.template, selection.id) : undefined;
   const task = (tPath ? getIn(obj, tPath) : undefined) as SpecTask | undefined;
+  // The exit handler and a single-step entry template are templates edited directly, with no task.
   const exitName = selection.kind === "exit" ? selection.template : undefined;
-  const templateName = exitName ?? task?.template;
+  const ownName = exitName ?? (selection.kind === "template" ? selection.template : undefined);
+  const templateName = ownName ?? task?.template;
   const ti = templateName ? templateIndex(obj, templateName) : -1;
   const tpl = ti >= 0 ? spec.templates![ti] : undefined;
-  const kind: NodeKind = exitName ? templateKind(tpl) : task ? taskKind(spec, task) : "unknown";
+  const kind: NodeKind = ownName ? templateKind(tpl) : task ? taskKind(spec, task) : "unknown";
   const bases: Bases = {
     spec: ["spec"],
     task: tPath,
@@ -148,8 +150,8 @@ export function ConfigPanel() {
   return (
     <PanelShell
       icon={<KindIcon kind={kind} />}
-      title={task?.name ?? exitName ?? ""}
-      subtitle={exitName ? t("{{kind}} · exit handler (spec.onExit)", { kind: t(KINDS[kind].label) }) : isRef ? t("Component reference · {{name}}{{scope}}", { name: task?.templateRef?.name, scope: task?.templateRef?.clusterScope ? ` · ${t("cluster")}` : "" }) : t("{{kind}} node · template {{name}}", { kind: t(KINDS[kind].label), name: templateName })}
+      title={task?.name ?? ownName ?? ""}
+      subtitle={exitName ? t("{{kind}} · exit handler (spec.onExit)", { kind: t(KINDS[kind].label) }) : ownName ? (ownName === spec.entrypoint ? t("{{kind}} · entry template (spec.entrypoint)", { kind: t(KINDS[kind].label) }) : t("{{kind}} · template, used by templateRef", { kind: t(KINDS[kind].label) })) : isRef ? t("Component reference · {{name}}{{scope}}", { name: task?.templateRef?.name, scope: task?.templateRef?.clusterScope ? ` · ${t("cluster")}` : "" }) : t("{{kind}} node · template {{name}}", { kind: t(KINDS[kind].label), name: templateName })}
       query={query}
       onQuery={setQuery}
       actions={(kind === "dag" || kind === "steps") && templateName ? <Button variant="outline" size="sm" onClick={() => useEditor.getState().openTemplate(templateName)}>{t("Open on canvas")} <ArrowRight aria-hidden /></Button> : null}
@@ -166,7 +168,7 @@ export function ConfigPanel() {
           <TabsContent key={x.id} value={x.id} className="min-h-0 flex-1 overflow-auto">
             {x.id === "yaml" ? (
               <div className="h-full p-4">
-                <ReadOnlyYaml value={exitName ? tpl : { task, template: tpl }} path={`node-${task?.name ?? exitName}.yaml`} />
+                <ReadOnlyYaml value={ownName ? tpl : { task, template: tpl }} path={`node-${task?.name ?? ownName}.yaml`} />
               </div>
             ) : x.note === "ref" ? (
               <RefTab task={task!} template={selection.kind === "task" ? selection.template : ""} />

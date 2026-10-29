@@ -64,6 +64,21 @@ function setPosition(draft: Json, template: string, task: string, pos?: [number,
   annotations[LAYOUT_ANNOTATION] = JSON.stringify(layout);
 }
 
+/**
+ * The template new nodes go into. A single-step entry template (a container, script, suspend…) has no
+ * tasks to add to, so adding the first step wraps it: a new DAG template becomes the entrypoint, with
+ * the old entry as its first task, and the old template keeps everything it had.
+ */
+export function ensureDag(draft: Json, template: string): string {
+  const t = dagOf(draft, template);
+  const spec = draft.spec as SpecLike;
+  if (t.dag || t.steps || spec.entrypoint !== template) return template;
+  const name = uniqueName("main", templates(draft).map((x) => x.name ?? ""));
+  templates(draft).push({ name, dag: { tasks: [{ name: template, template }] } });
+  spec.entrypoint = name;
+  return name;
+}
+
 /** Adds a node of a basic kind: a new template plus a task that runs it. Returns the task name. */
 export function addKindNode(draft: Json, canvasTemplate: string, kind: NodeKind, pos?: [number, number]): string {
   const owner = dagOf(draft, canvasTemplate);

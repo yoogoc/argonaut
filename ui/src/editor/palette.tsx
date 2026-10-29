@@ -12,7 +12,7 @@ import { useNamespace } from "@/hooks/use-namespace";
 import { cn } from "@/lib/utils";
 
 import { DRAG_MIME, type DragPayload } from "./canvas";
-import { addComponentNode, addKindNode } from "./ops";
+import { addComponentNode, addKindNode, ensureDag } from "./ops";
 import { specOf, useEditor } from "./store";
 
 const EXEC: NodeKind[] = ["container", "script", "containerSet", "resource", "http", "data", "plugin"];
@@ -31,10 +31,12 @@ export function Palette({ namespace: nsOverride }: { namespace?: string }) {
 
   const add = (payload: DragPayload) => {
     const { obj, canvasTemplate, apply, select } = useEditor.getState();
-    const target = canvasTemplate ?? specOf(obj).entrypoint;
-    if (!target || frozen) return;
+    const entry = canvasTemplate ?? specOf(obj).entrypoint;
+    if (!entry || frozen) return;
     let added = "";
+    let target = entry;
     apply("add node", (draft) => {
+      target = ensureDag(draft, entry);
       added = "kind" in payload ? addKindNode(draft, target, payload.kind) : addComponentNode(draft, target, (payload.component.cluster ? payload.component.clusterTemplate : payload.component.template)!, !!payload.component.cluster, payload.mode);
     });
     if (added) select({ kind: "task", template: target, id: added });

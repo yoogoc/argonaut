@@ -384,7 +384,7 @@ function LintStrip({ problems, open, onOpen, running }: { problems: Problem[]; o
     const { obj, openTemplate, select } = useEditor.getState();
     if (!p.node) return select({ kind: "workflow" });
     if (p.node.startsWith("exit:")) return select({ kind: "exit", template: p.node.slice(5) });
-    if (p.node.startsWith("template:")) return;
+    if (p.node.startsWith("template:")) return select({ kind: "template", template: p.node.slice(9) });
     const owner = p.template ?? specOf(obj).entrypoint;
     if (owner && owner !== specOf(obj).entrypoint) openTemplate(owner);
     if (owner) select({ kind: "task", template: owner, id: p.node });

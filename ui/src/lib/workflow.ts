@@ -72,8 +72,10 @@ export function isOperationDisabled(name: OperationName, wf?: Workflow): boolean
 
 /** The template a workflow came from; this is also what its permissions are attributed to. */
 export function sourceTemplate(wf: Workflow): string | undefined {
+  // A ClusterWorkflowTemplate is not a template of this namespace; callers show it separately.
+  const ref = wf.spec?.workflowTemplateRef;
   return (
-    wf.spec?.workflowTemplateRef?.name ??
+    (ref?.clusterScope ? undefined : ref?.name) ??
     wf.metadata.labels?.["workflows.argoproj.io/workflow-template"]
   );
 }

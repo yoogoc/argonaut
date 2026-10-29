@@ -58,6 +58,8 @@ export interface SpecNode {
   /** Set for steps: which group (0-based) the step belongs to. */
   group?: number;
   exit?: boolean;
+  /** Set for a standalone template that is the spec's entrypoint (see standaloneTemplates). */
+  entry?: boolean;
 }
 
 export interface SpecEdge {
@@ -148,4 +150,16 @@ export function exitNode(spec: SpecLike): SpecNode | undefined {
   if (!spec.onExit) return undefined;
   const template = findTemplate(spec, spec.onExit);
   return { id: spec.onExit, task: { name: spec.onExit, template: spec.onExit }, kind: templateKind(template), template, exit: true };
+}
+
+/**
+ * The templates of a spec whose entry is a single step rather than a DAG or steps template — typically
+ * a component that is a library of steps (several container or script variants, each used directly by
+ * templateRef). Each is a node of its own, the entry first; the exit handler is drawn separately.
+ */
+export function standaloneTemplates(spec: SpecLike, entryName?: string): SpecNode[] {
+  const entry = findTemplate(spec, entryName ?? spec.entrypoint);
+  if (!entry?.name || entry.dag || entry.steps) return [];
+  const others = (spec.templates ?? []).filter((t) => t.name && t !== entry && !t.dag && !t.steps && t.name !== spec.onExit);
+  return [entry, ...others].map((t) => ({ id: t.name!, task: { name: t.name!, template: t.name! }, kind: templateKind(t), template: t, entry: t === entry }));
 }

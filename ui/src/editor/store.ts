@@ -13,6 +13,8 @@ enablePatches();
 export type Selection =
   | { kind: "task"; template: string; id: string }
   | { kind: "exit"; template: string }
+  // A template edited on its own, with no task in front of it: a single-step entry template.
+  | { kind: "template"; template: string }
   | { kind: "workflow" }
   | undefined;
 

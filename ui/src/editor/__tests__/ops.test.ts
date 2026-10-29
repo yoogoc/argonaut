@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseDepends } from "@/graph/spec";
 
-import { removeTerm } from "../ops";
+import { addKindNode, ensureDag, removeTerm } from "../ops";
 
 describe("removeTerm", () => {
   it.each([
@@ -33,5 +33,24 @@ describe("pruneZero", () => {
     expect(pruneZero({ templates: [{ name: "a", inputs: {}, metadata: {}, suspend: {}, container: { name: "", image: "x", resources: {} } }] })).toEqual({
       templates: [{ name: "a", suspend: {}, container: { image: "x" } }],
     });
+  });
+});
+
+describe("ensureDag", () => {
+  it("wraps a single-step entry in a DAG before the first node is added", () => {
+    const draft = { spec: { entrypoint: "notify", templates: [{ name: "notify", container: { image: "busybox" } }, { name: "main-x" }] } };
+    const target = ensureDag(draft, "notify");
+    expect(target).toBe("main");
+    const added = addKindNode(draft, target, "script");
+    expect(draft.spec.entrypoint).toBe("main");
+    expect(draft.spec.templates.find((t) => t.name === "main")).toMatchObject({ dag: { tasks: [{ name: "notify", template: "notify" }, { name: added }] } });
+    expect(draft.spec.templates[0]).toEqual({ name: "notify", container: { image: "busybox" } });
+  });
+
+  it("leaves DAG templates and templates other than the entry alone", () => {
+    const draft = { spec: { entrypoint: "flow", templates: [{ name: "flow", dag: { tasks: [] } }, { name: "leaf", container: {} }] } };
+    expect(ensureDag(draft, "flow")).toBe("flow");
+    expect(ensureDag(draft, "leaf")).toBe("leaf");
+    expect(draft.spec.templates).toHaveLength(2);
   });
 });

@@ -26,7 +26,7 @@ const zhCN: Record<string, string> = {
   "A referenced template": "引用的模板",
   Template: "模板",
   cluster: "集群",
-  "The entry template is not a DAG or steps template.": "入口模板不是 DAG 或 steps 模板。",
+  "The entry template is not defined in this template.": "入口模板不在这个模板里。",
 
   // permissions
   "Granted. Effective on every replica from revision r{{rev}}.": "已授权，自版本 r{{rev}} 起在所有副本生效。",
@@ -560,7 +560,10 @@ const zhCN: Record<string, string> = {
   "The YAML does not parse; the canvas is frozen until it does.": "YAML 无法解析，修正之前画布被冻结。",
   "Steps template: edit the groups in the panel.": "Steps 模板：请在右侧面板中编辑分组。",
   "Drag from the palette · connect handles to add a dependency · Delete removes": "从左侧拖入节点 · 连接端点添加依赖 · Delete 键删除",
-  "The entry template {{name}} is not a DAG or steps template. Edit it as a node, or change the entrypoint.": "入口模板 {{name}} 不是 DAG 或 steps 模板。可将其作为节点编辑，或修改入口。",
+  "The entry template {{name}} is not defined in this template.": "入口模板 {{name}} 不在这个模板里。",
+  "Single-step templates: select one to edit it. Adding a node wraps the entry in a DAG.": "单步骤模板：选中节点即可编辑；拖入或点击左侧节点会把入口包进一个 DAG。",
+  "{{kind}} · entry template (spec.entrypoint)": "{{kind}} · 入口模板（spec.entrypoint）",
+  "{{kind}} · template, used by templateRef": "{{kind}} · 模板，通过 templateRef 引用",
   "This template has no entrypoint yet.": "该模板还没有设置入口。",
   "Drag a node from the palette, or click one, to start.": "从左侧拖入或点击一个节点开始编排。",
   "Argo lint passed": "Argo 校验通过",

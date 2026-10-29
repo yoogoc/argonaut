@@ -17,12 +17,19 @@ export function aggregate(runs: NodeStatus[]): string | undefined {
 export function DesignOverlay({ workflow, onSelectNode }: { workflow: Workflow; onSelectNode: (id: string) => void }) {
   const spec = (workflow.status?.storedWorkflowTemplateSpec?.templates?.length ? workflow.status.storedWorkflowTemplateSpec : workflow.spec) as SpecLike;
   const statuses = useMemo(() => Object.values(workflow.status?.nodes ?? {}), [workflow.status?.nodes]);
-  const runsOf = (task: string) =>
-    statuses.filter((s) => s.type !== "TaskGroup" && s.type !== "StepGroup" && s.type !== "Retry" && (s.displayName === task || s.displayName.startsWith(`${task}(`)));
+  const entry = spec.entrypoint ?? workflow.spec.entrypoint;
+  const root = workflow.status?.nodes?.[workflow.metadata.name];
+  const runsOf = (task: string) => {
+    const runs = statuses.filter((s) => s.type !== "TaskGroup" && s.type !== "StepGroup" && s.type !== "Retry" && (s.displayName === task || s.displayName.startsWith(`${task}(`)));
+    // A single-step entry template is drawn as one node named after the template; it ran as the
+    // workflow's root node (or, with a retry strategy, as the root Retry node's attempts).
+    if (runs.length || task !== entry || !root || root.templateName !== task) return runs;
+    return root.type === "Retry" ? statuses.filter((s) => root.children?.includes(s.id)) : [root];
+  };
   return (
     <SpecGraphView
       spec={spec}
-      template={spec.entrypoint ?? workflow.spec.entrypoint}
+      template={entry}
       status={(task) => {
         const runs = runsOf(task);
         return { phase: aggregate(runs), count: runs.filter((r) => r.type === "Pod").length };

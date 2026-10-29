@@ -25,17 +25,19 @@ import type { Component } from "@/api/templates";
 import { Button } from "@/components/ui/button";
 import { KindIcon, KINDS } from "@/graph/kinds";
 import { layoutGraph } from "@/graph/layout";
-import { exitNode, findTemplate, type SpecNode, templateGraph } from "@/graph/spec";
+import { exitNode, findTemplate, type SpecNode, standaloneTemplates, templateGraph } from "@/graph/spec";
 import { canvasNavigation } from "@/graph/viewport";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/stores/theme";
 
-import { addComponentNode, addKindNode, connect, deleteTask, disconnect, moveNodes, positionsOf } from "./ops";
+import { addComponentNode, addKindNode, connect, deleteTask, disconnect, ensureDag, moveNodes, positionsOf } from "./ops";
 import { specOf, useEditor } from "./store";
 
 export const NODE_W = 196;
 export const NODE_H = 56;
 export const DRAG_MIME = "application/x-argonaut-node";
+/** How many standalone templates a row holds before the next row starts. */
+const STANDALONE_COLUMNS = 3;
 
 /** What the palette puts on the drag: a basic kind, or a component in one of the two modes. */
 export type DragPayload = { kind: SpecNode["kind"] } | { component: Component; mode: "ref" | "snapshot" };
@@ -65,6 +67,7 @@ const TaskNode = memo(function TaskNode({ data }: NodeProps) {
   const tags: { label: string; tone: string }[] = [];
   if (d.problems.length) tags.push({ label: t("{{n}} problems", { count: d.problems.length, n: d.problems.length }), tone: "bg-destructive text-white" });
   else {
+    if (node.entry) tags.push({ label: t("Entrypoint"), tone: "bg-muted text-muted-foreground border" });
     if (task.templateRef?.clusterScope) tags.push({ label: t("cluster"), tone: "bg-foreground text-background" });
     else if (task.templateRef) tags.push({ label: "templateRef", tone: "bg-node-ref-bg text-node-ref border border-node-ref/30" });
     if (loop) tags.push({ label: loop, tone: "bg-node-ref-bg text-node-ref border border-node-ref/30" });
@@ -151,6 +154,11 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
   const exit = current === spec.entrypoint ? exitNode(spec) : undefined;
   const saved = positionsOf(obj, current ?? "");
   const isSteps = graph.kind === "steps";
+  // An entry template that is a single step (a container, script, suspend…, as components usually are)
+  // has no tasks to draw. Every template of the spec is shown as a node of its own instead, the entry
+  // first, each edited directly: a component is often a library of step variants used by templateRef.
+  const standalone = useMemo(() => (graph.kind === "none" && current === spec.entrypoint ? standaloneTemplates(spec, current) : []), [graph.kind, current, spec]);
+  const single = standalone.length > 0;
 
   // Tasks without a saved position are placed by ELK; saved positions always win.
   const [auto, setAuto] = useState<Map<string, { x: number; y: number }>>(new Map());
@@ -169,10 +177,30 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
 
   const [dragging, setDragging] = useState<Record<string, { x: number; y: number }>>({});
   const position = (id: string) => dragging[id] ?? (saved[id] ? { x: saved[id][0], y: saved[id][1] } : auto.get(id)) ?? { x: 0, y: 0 };
-  const maxY = Math.max(0, ...graph.nodes.map((n) => position(n.id).y));
-  const selectedId = selection?.kind === "task" && selection.template === current ? selection.id : selection?.kind === "exit" ? `exit:${selection.template}` : undefined;
+  const maxY = Math.max(0, ...graph.nodes.map((n) => position(n.id).y), Math.ceil(standalone.length / STANDALONE_COLUMNS - 1) * (NODE_H + 48));
+  const selectedId =
+    selection?.kind === "task" && selection.template === current
+      ? selection.id
+      : selection?.kind === "exit"
+        ? `exit:${selection.template}`
+        : selection?.kind === "template"
+          ? `template:${selection.template}`
+          : undefined;
 
   const nodes: Node[] = [
+    ...standalone.map((n, i) => {
+      const id = `template:${n.id}`;
+      return {
+        id,
+        type: "task",
+        position: { x: (i % STANDALONE_COLUMNS) * (NODE_W + 48), y: Math.floor(i / STANDALONE_COLUMNS) * (NODE_H + 48) },
+        width: NODE_W, height: NODE_H, style: { width: NODE_W, height: NODE_H },
+        data: { node: n, selected: id === selectedId, problems: problems[id] ?? [], status: status?.(n.id), horizontal: false } satisfies NodeData,
+        draggable: false,
+        connectable: false,
+        deletable: false,
+      };
+    }),
     ...graph.nodes.map((n) => ({
       id: n.id,
       type: "task",
@@ -221,7 +249,7 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
           if (c.dragging) live[c.id] = c.position;
           else moves[c.id] = [c.position.x, c.position.y];
         }
-        if (c.type === "remove" && current) {
+        if (c.type === "remove" && current && !c.id.startsWith("template:")) {
           if (c.id.startsWith("exit:")) apply("delete exit", (draft) => void delete (draft.spec as Record<string, unknown>).onExit);
           else apply("delete task", (draft) => deleteTask(draft, current, c.id));
           if (selectedId === c.id) select(undefined);
@@ -264,10 +292,12 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
     const p = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
     const pos: [number, number] = [p.x - NODE_W / 2, p.y - NODE_H / 2];
     let added = "";
+    let target = current;
     apply("add node", (draft) => {
-      added = "kind" in payload ? addKindNode(draft, current, payload.kind, pos) : addComponentNode(draft, current, (payload.component.cluster ? payload.component.clusterTemplate : payload.component.template)!, !!payload.component.cluster, payload.mode, pos);
+      target = ensureDag(draft, current);
+      added = "kind" in payload ? addKindNode(draft, target, payload.kind, pos) : addComponentNode(draft, target, (payload.component.cluster ? payload.component.clusterTemplate : payload.component.template)!, !!payload.component.cluster, payload.mode, pos);
     });
-    if (added) select({ kind: "task", template: current, id: added });
+    if (added) select({ kind: "task", template: target, id: added });
   };
 
   const relayout = () => {
@@ -314,13 +344,13 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
           </nav>
         )}
         <span className="ml-auto hidden text-xs text-muted-foreground md:inline">
-          {frozen ? t("The YAML does not parse; the canvas is frozen until it does.") : isSteps ? t("Steps template: edit the groups in the panel.") : t("Drag from the palette · connect handles to add a dependency · Delete removes")}
+          {frozen ? t("The YAML does not parse; the canvas is frozen until it does.") : single ? t("Single-step templates: select one to edit it. Adding a node wraps the entry in a DAG.") : isSteps ? t("Steps template: edit the groups in the panel.") : t("Drag from the palette · connect handles to add a dependency · Delete removes")}
         </span>
       </div>
       <div ref={wrapper} className="min-h-0 flex-1" onDragOver={(e) => (e.preventDefault(), (e.dataTransfer.dropEffect = "copy"))} onDrop={onDrop}>
-        {graph.kind === "none" ? (
+        {graph.kind === "none" && !single ? (
           <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
-            {spec.entrypoint ? t("The entry template {{name}} is not a DAG or steps template. Edit it as a node, or change the entrypoint.", { name: spec.entrypoint }) : t("This template has no entrypoint yet.")}
+            {spec.entrypoint ? t("The entry template {{name}} is not defined in this template.", { name: spec.entrypoint }) : t("This template has no entrypoint yet.")}
           </div>
         ) : (
           <ReactFlow
@@ -332,7 +362,13 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onNodeClick={(_e, node) => (node.id.startsWith("exit:") ? select({ kind: "exit", template: node.id.slice(5) }) : current && select({ kind: "task", template: current, id: node.id }))}
+            onNodeClick={(_e, node) =>
+              node.id.startsWith("exit:")
+                ? select({ kind: "exit", template: node.id.slice(5) })
+                : node.id.startsWith("template:")
+                  ? select({ kind: "template", template: node.id.slice(9) })
+                  : current && select({ kind: "task", template: current, id: node.id })
+            }
             onNodeDoubleClick={(_e, node) => {
               const n = (node.data as NodeData).node;
               if ((n.kind === "dag" || n.kind === "steps") && n.task.template) useEditor.getState().openTemplate(n.task.template);
@@ -347,7 +383,7 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
           >
             <Background gap={16} size={1} />
             <Controls position="bottom-left" showInteractive={false} />
-            {graph.nodes.length === 0 && (
+            {graph.nodes.length === 0 && !single && (
               <Panel position="top-center" className="pointer-events-none !mt-24 rounded-lg border border-dashed bg-background/80 px-4 py-3 text-center text-sm text-muted-foreground">
                 {t("Drag a node from the palette, or click one, to start.")}
               </Panel>
