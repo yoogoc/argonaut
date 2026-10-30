@@ -1,0 +1,165 @@
+# A nested DAG, three levels deep:
+#   main     prepare → region-us / region-eu (in parallel) → summary
+#   region   one per region: fetch → clean / validate → load → publish
+#   publish  upload → notify, plus archive, which only runs for eu
+# Each level hands its result back up through outputs.parameters (valueFrom.parameter), so main's
+# summary can read the rows each region loaded. Everything runs on busybox and finishes in under a
+# minute; in the editor, double-click a DAG task to open the template it runs.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: nested-dag-demo
+  namespace: argo
+  annotations:
+    argonaut.io/description: 三层嵌套 DAG：每个地区一个子 DAG，子 DAG 里再嵌一层发布流程，结果逐层向上传递。
+spec:
+  entrypoint: main
+  arguments:
+    parameters:
+      - name: date
+        value: "2026-10-29"
+  templates:
+    # Level 1: one sub-DAG per region, then a summary of what each loaded.
+    - name: main
+      dag:
+        tasks:
+          - name: prepare
+            template: say
+            arguments:
+              parameters:
+                - name: msg
+                  value: "prepare data for {{workflow.parameters.date}}"
+          - name: region-us
+            template: region
+            depends: prepare
+            arguments:
+              parameters:
+                - name: region
+                  value: us
+                - name: rows
+                  value: "120"
+          - name: region-eu
+            template: region
+            depends: prepare
+            arguments:
+              parameters:
+                - name: region
+                  value: eu
+                - name: rows
+                  value: "80"
+          - name: summary
+            template: say
+            depends: region-us && region-eu
+            arguments:
+              parameters:
+                - name: msg
+                  value: "loaded us={{tasks.region-us.outputs.parameters.rows}} eu={{tasks.region-eu.outputs.parameters.rows}}"
+
+    # Level 2: the pipeline for one region. Its output is the row count its load step reported.
+    - name: region
+      inputs:
+        parameters:
+          - name: region
+          - name: rows
+      outputs:
+        parameters:
+          - name: rows
+            valueFrom:
+              parameter: "{{tasks.load.outputs.parameters.rows}}"
+      dag:
+        tasks:
+          - name: fetch
+            template: count
+            arguments:
+              parameters:
+                - name: label
+                  value: "fetch {{inputs.parameters.region}}"
+                - name: rows
+                  value: "{{inputs.parameters.rows}}"
+          - name: clean
+            template: say
+            depends: fetch
+            arguments:
+              parameters:
+                - name: msg
+                  value: "clean {{tasks.fetch.outputs.parameters.rows}} rows of {{inputs.parameters.region}}"
+          - name: validate
+            template: say
+            depends: fetch
+            arguments:
+              parameters:
+                - name: msg
+                  value: "validate {{inputs.parameters.region}}"
+          - name: load
+            template: count
+            depends: clean && validate
+            arguments:
+              parameters:
+                - name: label
+                  value: "load {{inputs.parameters.region}}"
+                - name: rows
+                  value: "{{tasks.fetch.outputs.parameters.rows}}"
+          - name: publish
+            template: publish
+            depends: load
+            arguments:
+              parameters:
+                - name: region
+                  value: "{{inputs.parameters.region}}"
+
+    # Level 3: publishing a region's result. archive is skipped outside eu.
+    - name: publish
+      inputs:
+        parameters:
+          - name: region
+      dag:
+        tasks:
+          - name: upload
+            template: say
+            arguments:
+              parameters:
+                - name: msg
+                  value: "upload {{inputs.parameters.region}} report"
+          - name: notify
+            template: say
+            depends: upload
+            arguments:
+              parameters:
+                - name: msg
+                  value: "notify {{inputs.parameters.region}} subscribers"
+          - name: archive
+            template: say
+            depends: upload
+            when: "'{{inputs.parameters.region}}' == 'eu'"
+            arguments:
+              parameters:
+                - name: msg
+                  value: "archive {{inputs.parameters.region}} report"
+
+    # Leaves.
+    - name: say
+      inputs:
+        parameters:
+          - name: msg
+      container:
+        image: busybox:1.36
+        command: [sh, -c]
+        args: ["echo \"{{inputs.parameters.msg}}\"; sleep 2"]
+
+    - name: count
+      inputs:
+        parameters:
+          - name: label
+          - name: rows
+      outputs:
+        parameters:
+          - name: rows
+            valueFrom:
+              path: /tmp/rows
+      script:
+        image: busybox:1.36
+        command: [sh]
+        source: |
+          echo "{{inputs.parameters.label}}: {{inputs.parameters.rows}} rows"
+          echo "{{inputs.parameters.rows}}" > /tmp/rows
+          sleep 2

@@ -19,8 +19,22 @@ export function DesignOverlay({ workflow, onSelectNode }: { workflow: Workflow; 
   const statuses = useMemo(() => Object.values(workflow.status?.nodes ?? {}), [workflow.status?.nodes]);
   const entry = spec.entrypoint ?? workflow.spec.entrypoint;
   const root = workflow.status?.nodes?.[workflow.metadata.name];
-  const runsOf = (task: string) => {
-    const runs = statuses.filter((s) => s.type !== "TaskGroup" && s.type !== "StepGroup" && s.type !== "Retry" && (s.displayName === task || s.displayName.startsWith(`${task}(`)));
+  const named = (s: NodeStatus, task: string) => s.displayName === task || s.displayName.startsWith(`${task}(`);
+  const leaves = (s: NodeStatus) => s.type !== "TaskGroup" && s.type !== "StepGroup" && s.type !== "Retry";
+  // A task inside an expanded group is found by walking its path: each group's runs are the nodes in
+  // that group's boundary, so region-eu/fetch and region-us/fetch stay apart.
+  const runsAt = (path: string[]): NodeStatus[] => {
+    if (path.length > 1) {
+      let boundary = root?.id;
+      for (const [i, task] of path.entries()) {
+        const here = statuses.filter((s) => s.boundaryID === boundary && named(s, task));
+        if (i === path.length - 1) return here.filter(leaves);
+        boundary = (here.find((s) => s.type === "DAG" || s.type === "Steps") ?? here[0])?.id;
+        if (!boundary) return [];
+      }
+    }
+    const task = path[0];
+    const runs = statuses.filter((s) => leaves(s) && named(s, task));
     // A single-step entry template is drawn as one node named after the template; it ran as the
     // workflow's root node (or, with a retry strategy, as the root Retry node's attempts).
     if (runs.length || task !== entry || !root || root.templateName !== task) return runs;
@@ -30,12 +44,12 @@ export function DesignOverlay({ workflow, onSelectNode }: { workflow: Workflow; 
     <SpecGraphView
       spec={spec}
       template={entry}
-      status={(task) => {
-        const runs = runsOf(task);
+      status={(_task, path) => {
+        const runs = runsAt(path);
         return { phase: aggregate(runs), count: runs.filter((r) => r.type === "Pod").length };
       }}
-      onSelect={(task) => {
-        const last = runsOf(task).sort((a, b) => Date.parse(b.startedAt ?? "") - Date.parse(a.startedAt ?? ""))[0];
+      onSelect={(_task, path) => {
+        const last = runsAt(path).sort((a, b) => Date.parse(b.startedAt ?? "") - Date.parse(a.startedAt ?? ""))[0];
         if (last) onSelectNode(last.id);
       }}
     />

@@ -24,7 +24,9 @@ import { useTranslation } from "react-i18next";
 import type { Component } from "@/api/templates";
 import { Button } from "@/components/ui/button";
 import { KindIcon, KINDS } from "@/graph/kinds";
-import { layoutGraph } from "@/graph/layout";
+import { layoutGraph, type Positioned } from "@/graph/layout";
+import { type NestedGraph, nestedGraph, openUnless } from "@/graph/nested";
+import { ToggleButton } from "@/graph/spec-view";
 import { exitNode, findTemplate, type SpecNode, standaloneTemplates, templateGraph } from "@/graph/spec";
 import { canvasNavigation } from "@/graph/viewport";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,11 @@ type NodeData = {
   problems: string[];
   status?: string;
   horizontal: boolean;
+  /** For a DAG / steps task: how many tasks it has, and how to open or close it in place. */
+  childCount?: number;
+  onToggle?: () => void;
+  /** Inside an expanded group: the template the task belongs to. Not moved or wired on this canvas. */
+  inside?: string;
 };
 
 const statusTone: Record<string, string> = {
@@ -102,9 +109,10 @@ const TaskNode = memo(function TaskNode({ data }: NodeProps) {
         <span className="truncate font-mono text-xs font-semibold">{node.id}</span>
         <span className="truncate text-[11px] text-muted-foreground">
           {t(KINDS[node.kind].label)}
-          {sub ? ` · ${sub}` : ""}
+          {d.childCount ? ` · ${t("{{count}} tasks", { count: d.childCount })}` : sub ? ` · ${sub}` : ""}
         </span>
       </span>
+      {d.childCount && d.onToggle ? <ToggleButton label={t("Expand {{name}}", { name: node.id })} onClick={d.onToggle} className="ml-auto" /> : null}
       {d.status && <span aria-label={t(d.status)} className={cn("absolute -bottom-1.5 -left-1.5 size-3.5 rounded-full border-2 border-card", statusTone[d.status] ?? "bg-phase-pend-solid")} />}
       <Handle type="source" position={d.horizontal ? Position.Right : Position.Bottom} className="!size-2.5 !border-2 !border-card !bg-muted-foreground/60" />
       {/* Where the lines to the task's hook pills start; not for drawing dependencies. */}
@@ -126,7 +134,32 @@ function sublineOf(node: SpecNode): string {
   return node.template?.name ?? "";
 }
 
-const nodeTypes = { task: TaskNode, hook: HookNode, hookAdd: HookAddNode };
+/**
+ * An expanded DAG / steps task: a frame around the tasks of the template it runs. The frame is the task
+ * itself — selecting, moving, wiring and deleting it act on the task; the tasks inside are laid out
+ * automatically and edited in the panel, or on their own canvas (double-click the frame).
+ */
+const TaskGroup = memo(function TaskGroup({ data }: NodeProps) {
+  const { t } = useTranslation();
+  const d = data as NodeData;
+  return (
+    <div className={cn("relative h-full w-full rounded-xl border border-dashed border-node-dag/50 bg-node-dag-bg/25", d.selected && "border-2 border-solid border-primary ring-4 ring-primary/15", d.problems.length > 0 && "border-2 border-destructive")} title={d.problems.join("\n") || undefined}>
+      <Handle type="target" position={Position.Top} className="!size-2.5 !border-2 !border-card !bg-muted-foreground/60" />
+      <div className="absolute top-0 left-0 flex h-7 max-w-[calc(100%-2.5rem)] items-center gap-1.5 rounded-tl-xl rounded-br-lg bg-node-dag-bg px-2.5 text-[11px]">
+        <span className="truncate font-mono font-semibold">{d.node.id}</span>
+        <span className="shrink-0 text-muted-foreground">
+          · {t(KINDS[d.node.kind].label)} {d.node.task.template}
+        </span>
+      </div>
+      {d.status && <span aria-label={t(d.status)} className={cn("absolute top-1.5 right-8 size-3.5 rounded-full border-2 border-card", statusTone[d.status] ?? "bg-phase-pend-solid")} />}
+      {d.onToggle && <ToggleButton label={t("Collapse {{name}}", { name: d.node.id })} open onClick={d.onToggle} className="absolute top-1 right-1.5 bg-card" />}
+      <Handle type="source" position={Position.Bottom} className="!size-2.5 !border-2 !border-card !bg-muted-foreground/60" />
+      <Handle id="hook" type="source" position={Position.Right} isConnectable={false} style={{ top: NODE_H / 2 }} className="!size-1 !border-0 !bg-transparent" />
+    </div>
+  );
+});
+
+const nodeTypes = { task: TaskNode, taskGroup: TaskGroup, hook: HookNode, hookAdd: HookAddNode };
 
 /** ELK boxes: a task with hooks is laid out with room for its pills to its right. */
 function layoutBoxes(nodes: SpecNode[]) {
@@ -134,6 +167,14 @@ function layoutBoxes(nodes: SpecNode[]) {
     const count = hooksOfTask(n).length;
     return { id: n.id, width: count ? NODE_W + HOOK_GAP + HOOK_W : NODE_W, height: Math.max(NODE_H, stackHeight(count)) };
   });
+}
+
+/** ELK's input for the canvas: the template's tasks, and the contents of every open group. */
+function layoutInput(top: SpecNode[], edges: { id: string; source: string; target: string }[], nested?: NestedGraph): Parameters<typeof layoutGraph> {
+  if (!nested) return [layoutBoxes(top), edges];
+  const boxes = new Map(layoutBoxes(top).map((b) => [b.id, b]));
+  const nodes = nested.nodes.map((n) => (n.parent ? { id: n.id, width: NODE_W, height: NODE_H, parent: n.parent } : (boxes.get(n.id) ?? { id: n.id, width: NODE_W, height: NODE_H })));
+  return [nodes, nested.layoutEdges];
 }
 
 /** A task's hooks, in the order the spec lists them. */
@@ -174,21 +215,33 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
   const standalone = useMemo(() => (graph.kind === "none" && current === spec.entrypoint ? standaloneTemplates(spec, current) : []), [graph.kind, current, spec]);
   const single = standalone.length > 0;
 
-  // Tasks without a saved position are placed by ELK; saved positions always win.
-  const [auto, setAuto] = useState<Map<string, { x: number; y: number }>>(new Map());
-  const shape = graph.nodes.map((n) => `${n.id}:${hooksOfTask(n).length}`).join("|") + "#" + graph.edges.map((e) => e.id).join("|");
+  // DAG / steps tasks are shown open in place (graph/nested.ts), as frames around their tasks; the
+  // user closes the ones they don't need. Which are closed is remembered per template on the canvas.
+  const [closedBy, setClosedBy] = useState<{ template?: string; ids: ReadonlySet<string> }>({ ids: new Set() });
+  const closed = useMemo(() => (closedBy.template === current ? closedBy.ids : new Set<string>()), [closedBy, current]);
+  const toggle = useCallback((id: string) => setClosedBy({ template: current, ids: closed.has(id) ? new Set([...closed].filter((x) => x !== id)) : new Set([...closed, id]) }), [closed, current]);
+  const nested = useMemo(() => (graph.kind === "dag" || graph.kind === "steps" ? nestedGraph(spec, current, openUnless(closed)) : undefined), [graph.kind, spec, current, closed]);
+  const groups = useMemo(() => new Set(nested?.nodes.filter((n) => n.group).map((n) => n.id)), [nested]);
+  const inner = useMemo(() => nested?.nodes.filter((n) => n.parent) ?? [], [nested]);
+  const childCounts = useMemo(() => new Map(nested?.nodes.map((n) => [n.id, n.childCount])), [nested]);
+
+  // Tasks without a saved position are placed by ELK; saved positions always win. Open groups are laid
+  // out with their contents, which sizes them; what is inside a group is always placed by ELK.
+  const [auto, setAuto] = useState<Map<string, Positioned>>(new Map());
+  const shape = (nested?.nodes ?? graph.nodes.map((n) => ({ id: n.id, group: false, node: n }))).map((n) => `${n.id}:${n.group ? "g" : ""}${hooksOfTask(n.node).length}`).join("|") + "#" + (nested?.layoutEdges ?? graph.edges).map((e) => e.id).join("|");
   useEffect(() => {
     let cancelled = false;
-    void layoutGraph(layoutBoxes(graph.nodes), graph.edges).then((p) => !cancelled && setAuto(p));
+    void layoutGraph(...layoutInput(graph.nodes, graph.edges, nested)).then((p) => !cancelled && setAuto(p));
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shape]);
+  const sizeOf = (id: string) => (groups.has(id) ? { width: auto.get(id)?.width ?? NODE_W, height: auto.get(id)?.height ?? NODE_H } : { width: NODE_W, height: NODE_H });
 
   const [dragging, setDragging] = useState<Record<string, { x: number; y: number }>>({});
   const position = (id: string) => dragging[id] ?? (saved[id] ? { x: saved[id][0], y: saved[id][1] } : auto.get(id)) ?? { x: 0, y: 0 };
-  const maxY = Math.max(0, ...graph.nodes.map((n) => position(n.id).y), Math.ceil(standalone.length / STANDALONE_COLUMNS - 1) * (NODE_H + 48));
+  const maxY = Math.max(0, ...graph.nodes.map((n) => position(n.id).y + sizeOf(n.id).height - NODE_H), Math.ceil(standalone.length / STANDALONE_COLUMNS - 1) * (NODE_H + 48));
   const selectedId =
     selection?.kind === "task" && selection.template === current
       ? selection.id
@@ -218,10 +271,12 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
     }),
     ...graph.nodes.map((n) => ({
       id: n.id,
-      type: "task",
+      type: groups.has(n.id) ? "taskGroup" : "task",
       position: position(n.id),
-      width: NODE_W, height: NODE_H, style: { width: NODE_W, height: NODE_H },
-      data: { node: n, selected: n.id === selectedId, problems: problems[n.id] ?? [], status: status?.(n.id), horizontal: false } satisfies NodeData,
+      ...sizeOf(n.id),
+      style: sizeOf(n.id),
+      zIndex: groups.has(n.id) ? 0 : 1,
+      data: { node: n, selected: n.id === selectedId, problems: problems[n.id] ?? [], status: status?.(n.id), horizontal: false, childCount: childCounts.get(n.id), onToggle: childCounts.get(n.id) ? () => toggle(n.id) : undefined } satisfies NodeData,
       // React Flow's own selection is what its Delete key acts on, so it follows the editor's.
       selected: n.id === selectedId,
       draggable: !frozen,
@@ -242,6 +297,35 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
         ]
       : []),
   ];
+  // What open groups contain: positioned inside their frame, not moved or wired here.
+  for (const n of inner) {
+    const at = auto.get(n.id);
+    const parent = n.parent ? auto.get(n.parent) : undefined;
+    if (!at || !parent) continue;
+    const size = sizeOf(n.id);
+    nodes.push({
+      id: n.id,
+      type: n.group ? "taskGroup" : "task",
+      parentId: n.parent,
+      position: { x: at.x - parent.x, y: at.y - parent.y },
+      ...size,
+      style: size,
+      zIndex: n.group ? 0 : 1,
+      data: {
+        node: n.node,
+        selected: selection?.kind === "task" && selection.template === n.in && selection.id === n.node.id,
+        problems: [],
+        horizontal: false,
+        childCount: n.childCount,
+        onToggle: n.childCount ? () => toggle(n.id) : undefined,
+        inside: n.in,
+      } satisfies NodeData,
+      draggable: false,
+      connectable: false,
+      deletable: false,
+    });
+  }
+
   // Each task's hooks, stacked to the right of its card and centred on it; the "+" goes under them.
   const hookIndex = new Map<string, { owner: HookOwner; event: string }>();
   const hookEdges: Edge[] = [];
@@ -252,7 +336,7 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
       if (!hooks.length && !showAdd) continue;
       const owner = { template: current, task: n.id };
       const at = position(n.id);
-      const x = at.x + NODE_W + HOOK_GAP;
+      const x = at.x + sizeOf(n.id).width + HOOK_GAP;
       const top = at.y + NODE_H / 2 - stackHeight(Math.max(1, hooks.length)) / 2;
       hooks.forEach(([event, hook], i) => {
         const id = hookNodeId(n.id, event);
@@ -303,6 +387,10 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
     };
   });
 
+  for (const e of nested?.layoutEdges ?? []) {
+    if (!e.source.includes("/")) continue;
+    edges.push({ id: `inner:${e.id}`, source: e.source, target: e.target, label: e.condition, selectable: false, deletable: false, markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "var(--muted-foreground)" }, style: { stroke: "var(--muted-foreground)", strokeOpacity: 0.45, strokeWidth: 1.25 } });
+  }
   edges.push(...hookEdges);
 
   const onNodesChange = useCallback(
@@ -374,9 +462,10 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
 
   const relayout = () => {
     if (!current) return;
-    void layoutGraph(layoutBoxes(graph.nodes), graph.edges).then((p) => {
+    void layoutGraph(...layoutInput(graph.nodes, graph.edges, nested)).then((p) => {
       const moves: Record<string, [number, number]> = {};
-      p.forEach((v, k) => (moves[k] = [v.x, v.y]));
+      // Only this template's own tasks have saved positions; what is inside a group follows its frame.
+      p.forEach((v, k) => !k.includes("/") && (moves[k] = [v.x, v.y]));
       apply("auto layout", (draft) => moveNodes(draft, current, moves));
       requestAnimationFrame(() => void flow.fitView({ duration: 250, padding: 0.2, maxZoom: 1 }));
     });
@@ -437,6 +526,8 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
             onNodeClick={(_e, node) =>
               node.type === "hookAdd"
                 ? undefined
+                : (node.data as NodeData).inside
+                  ? select({ kind: "task", template: (node.data as NodeData).inside!, id: (node.data as NodeData).node.id })
                 : node.type === "hook"
                   ? select({ kind: "hook", template: (node.data as HookNodeData).owner?.template, task: (node.data as HookNodeData).owner?.task, event: (node.data as HookNodeData).event })
                   : node.id.startsWith("exit:")

@@ -28,8 +28,8 @@ export interface Positioned {
 export type Direction = "DOWN" | "RIGHT";
 
 /**
- * Computes positions for a layered graph. Children of a parent are laid out inside it, and the
- * parent is sized to fit them; positions are absolute.
+ * Computes positions for a layered graph. Children of a parent are laid out inside it, in the same
+ * direction, and the parent is sized to fit them; positions are absolute.
  */
 export async function layoutGraph(nodes: LayoutNode[], edges: LayoutEdge[], direction: Direction = "DOWN"): Promise<Map<string, Positioned>> {
   const byId = new Map<string, ElkNode>();
@@ -43,7 +43,7 @@ export async function layoutGraph(nodes: LayoutNode[], edges: LayoutEdge[], dire
       parent.layoutOptions = {
         "elk.padding": "[top=34,left=12,bottom=12,right=12]",
         "elk.algorithm": "layered",
-        "elk.direction": "DOWN",
+        "elk.direction": direction,
         "elk.spacing.nodeNode": "14",
         "elk.layered.spacing.nodeNodeBetweenLayers": "18",
       };
