@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { KindIcon, KINDS } from "@/graph/kinds";
 import { layoutGraph, type Positioned } from "@/graph/layout";
 import { type NestedGraph, nestedGraph, openUnless } from "@/graph/nested";
-import { ToggleButton } from "@/graph/spec-view";
+import { ToggleButton } from "@/graph/toggle-button";
 import { exitNode, findTemplate, type SpecNode, standaloneTemplates, templateGraph } from "@/graph/spec";
 import { canvasNavigation } from "@/graph/viewport";
 import { cn } from "@/lib/utils";
@@ -173,7 +173,7 @@ function layoutBoxes(nodes: SpecNode[]) {
 function layoutInput(top: SpecNode[], edges: { id: string; source: string; target: string }[], nested?: NestedGraph): Parameters<typeof layoutGraph> {
   if (!nested) return [layoutBoxes(top), edges];
   const boxes = new Map(layoutBoxes(top).map((b) => [b.id, b]));
-  const nodes = nested.nodes.map((n) => (n.parent ? { id: n.id, width: NODE_W, height: NODE_H, parent: n.parent } : (boxes.get(n.id) ?? { id: n.id, width: NODE_W, height: NODE_H })));
+  const nodes = nested.nodes.map((n) => (n.parent ? { ...layoutBoxes([n.node])[0], id: n.id, parent: n.parent } : (boxes.get(n.id) ?? { id: n.id, width: NODE_W, height: NODE_H })));
   return [nodes, nested.layoutEdges];
 }
 
@@ -252,8 +252,6 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
           : selection?.kind === "hook" && selection.task && selection.template === current
             ? hookNodeId(selection.task, selection.event)
             : undefined;
-  // The task whose "+" is shown: the selected task, or the owner of the selected hook.
-  const hookTask = selection?.kind === "task" && selection.template === current ? selection.id : selection?.kind === "hook" && selection.template === current ? selection.task : undefined;
 
   const nodes: Node[] = [
     ...standalone.map((n, i) => {
@@ -327,39 +325,53 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
   }
 
   // Each task's hooks, stacked to the right of its card and centred on it; the "+" goes under them.
+  // Tasks inside open groups have theirs too, drawn in the group and owned by the group's template.
   const hookIndex = new Map<string, { owner: HookOwner; event: string }>();
   const hookEdges: Edge[] = [];
   if (current && !single) {
-    for (const n of graph.nodes) {
-      const hooks = hooksOfTask(n);
-      const showAdd = n.id === hookTask && !frozen;
+    const hosts = [
+      ...graph.nodes.map((n) => ({ nodeId: n.id, task: n, template: current, at: position(n.id), width: sizeOf(n.id).width, parent: undefined as string | undefined })),
+      ...inner.flatMap((n) => {
+        const at = auto.get(n.id);
+        const parent = n.parent ? auto.get(n.parent) : undefined;
+        return at && parent ? [{ nodeId: n.id, task: n.node, template: n.in, at: { x: at.x - parent.x, y: at.y - parent.y }, width: sizeOf(n.id).width, parent: n.parent }] : [];
+      }),
+    ];
+    for (const host of hosts) {
+      const hooks = hooksOfTask(host.task);
+      const owner = { template: host.template, task: host.task.id };
+      const mine = (selection?.kind === "task" || selection?.kind === "hook") && selection.template === host.template && (selection.kind === "task" ? selection.id : selection.task) === host.task.id;
+      const showAdd = mine && !frozen;
       if (!hooks.length && !showAdd) continue;
-      const owner = { template: current, task: n.id };
-      const at = position(n.id);
-      const x = at.x + sizeOf(n.id).width + HOOK_GAP;
-      const top = at.y + NODE_H / 2 - stackHeight(Math.max(1, hooks.length)) / 2;
+      const x = host.at.x + host.width + HOOK_GAP;
+      const top = host.at.y + NODE_H / 2 - stackHeight(Math.max(1, hooks.length)) / 2;
       hooks.forEach(([event, hook], i) => {
-        const id = hookNodeId(n.id, event);
+        const id = hookNodeId(host.nodeId, event);
+        const picked = mine && selection?.kind === "hook" && selection.event === event;
         hookIndex.set(id, { owner, event });
         nodes.push({
           id,
           type: "hook",
+          parentId: host.parent,
           position: { x, y: top + i * (HOOK_H + HOOK_STACK_GAP) },
           width: HOOK_W, height: HOOK_H, style: { width: HOOK_W, height: HOOK_H },
-          data: { owner, event, hook, selected: id === selectedId } satisfies HookNodeData,
-          selected: id === selectedId,
+          zIndex: 2,
+          data: { owner, event, hook, selected: picked } satisfies HookNodeData,
+          selected: picked,
           draggable: false,
           connectable: false,
           deletable: !frozen,
         });
-        hookEdges.push({ id: `${id}:edge`, source: n.id, sourceHandle: "hook", target: id, targetHandle: "hook-in", type: "straight", selectable: false, deletable: false, style: { stroke: "var(--muted-foreground)", strokeOpacity: 0.5 } });
+        hookEdges.push({ id: `${id}:edge`, source: host.nodeId, sourceHandle: "hook", target: id, targetHandle: "hook-in", type: "straight", selectable: false, deletable: false, zIndex: 2, style: { stroke: "var(--muted-foreground)", strokeOpacity: 0.5 } });
       });
       if (showAdd) {
         nodes.push({
-          id: `hookadd:${n.id}`,
+          id: `hookadd:${host.nodeId}`,
           type: "hookAdd",
-          position: { x, y: hooks.length ? top + stackHeight(hooks.length) + HOOK_STACK_GAP : at.y + NODE_H / 2 - HOOK_ADD / 2 },
+          parentId: host.parent,
+          position: { x, y: hooks.length ? top + stackHeight(hooks.length) + HOOK_STACK_GAP : host.at.y + NODE_H / 2 - HOOK_ADD / 2 },
           width: HOOK_ADD, height: HOOK_ADD, style: { width: HOOK_ADD, height: HOOK_ADD },
+          zIndex: 2,
           data: { owner } satisfies HookAddData,
           draggable: false,
           connectable: false,

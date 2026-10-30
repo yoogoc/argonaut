@@ -1,7 +1,6 @@
 import "@xyflow/react/dist/style.css";
 
 import { Background, Controls, type Edge, Handle, type Node, type NodeProps, Position, ReactFlow, useReactFlow } from "@xyflow/react";
-import { Minus, Plus } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -14,6 +13,7 @@ import { KindIcon, KINDS } from "./kinds";
 import { layoutGraph } from "./layout";
 import { type NestedEdge, nestedGraph, type NestedNode, openUnless } from "./nested";
 import { type SpecLike, type SpecNode, standaloneTemplates, templateGraph } from "./spec";
+import { ToggleButton } from "./toggle-button";
 import { canvasNavigation } from "./viewport";
 
 type Data = {
@@ -57,25 +57,6 @@ const SpecCard = memo(function SpecCard({ data }: NodeProps) {
     </div>
   );
 });
-
-/** "+" / "−" on a DAG task or group: opens or closes it in place. */
-export function ToggleButton({ label, onClick, open, className }: { label: string; onClick: () => void; open?: boolean; className?: string }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-expanded={!!open}
-      title={label}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      className={cn("nodrag nopan flex size-5 shrink-0 items-center justify-center rounded-md border border-node-dag/40 text-node-dag hover:bg-node-dag-bg", className)}
-    >
-      {open ? <Minus className="size-3" aria-hidden /> : <Plus className="size-3" aria-hidden />}
-    </button>
-  );
-}
 
 /** An expanded DAG / steps task: a frame around the tasks of the template it runs. */
 const SpecGroup = memo(function SpecGroup({ data }: NodeProps) {

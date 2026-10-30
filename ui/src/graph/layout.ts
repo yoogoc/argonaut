@@ -10,6 +10,8 @@ export interface LayoutNode {
   height: number;
   /** Lays this node out inside another (a retry group, an expanded fan-out). */
   parent?: string;
+  /** For a group: the narrowest it may be, so a header wider than its contents still fits. */
+  minWidth?: number;
 }
 
 export interface LayoutEdge {
@@ -40,7 +42,11 @@ export async function layoutGraph(nodes: LayoutNode[], edges: LayoutEdge[], dire
     const parent = n.parent ? byId.get(n.parent) : undefined;
     if (parent) {
       parent.children!.push(elkNode);
+      const min = nodes.find((x) => x.id === n.parent)?.minWidth;
       parent.layoutOptions = {
+        // With a DOWN layout and hierarchy handling, ELK reads a group's minimum size with its axes
+        // swapped (it lays out transposed), so the width goes second there.
+        ...(min ? { "elk.nodeSize.constraints": "[MINIMUM_SIZE]", "elk.nodeSize.minimum": direction === "DOWN" ? `(0, ${min})` : `(${min}, 0)` } : {}),
         "elk.padding": "[top=34,left=12,bottom=12,right=12]",
         "elk.algorithm": "layered",
         "elk.direction": direction,
@@ -73,9 +79,14 @@ export async function layoutGraph(nodes: LayoutNode[], edges: LayoutEdge[], dire
   const result = await elk.layout(graph);
 
   const out = new Map<string, Positioned>();
+  const widened = new Set(nodes.filter((n) => n.minWidth).map((n) => n.id));
   const walk = (node: ElkNode, offsetX: number, offsetY: number) => {
+    // A group made wider than its contents (minWidth) keeps them centred rather than at its left edge.
+    const right = Math.max(0, ...(node.children ?? []).map((c) => (c.x ?? 0) + (c.width ?? 0)));
+    const left = Math.min(...(node.children ?? []).map((c) => c.x ?? 0));
+    const shift = widened.has(node.id) && node.children?.length ? Math.max(0, ((node.width ?? 0) - right - left) / 2) : 0;
     for (const child of node.children ?? []) {
-      const x = offsetX + (child.x ?? 0);
+      const x = offsetX + shift + (child.x ?? 0);
       const y = offsetY + (child.y ?? 0);
       out.set(child.id, { x, y, width: child.width ?? 0, height: child.height ?? 0 });
       walk(child, x, y);

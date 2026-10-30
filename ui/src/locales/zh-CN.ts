@@ -568,6 +568,7 @@ const zhCN: Record<string, string> = {
   "Expand {{name}}": "展开 {{name}}",
   "Collapse {{name}}": "收起 {{name}}",
   Hook: "钩子",
+  "Not triggered": "未触发",
   "The selected hook no longer exists.": "所选钩子已不存在。",
   "Hook on task {{task}}": "任务钩子 · 挂在 {{task}} 上",
   "Workflow hook (spec.hooks)": "工作流钩子（spec.hooks）",

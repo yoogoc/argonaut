@@ -19,13 +19,14 @@ import {
   useStore,
 } from "@xyflow/react";
 import { ArrowDownToLine, ArrowUpFromLine, Database, LogOut, RotateCcw, Zap } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { NodeStatus, Workflow } from "@/api/types";
 import { phaseTone, toneSolid } from "@/components/common/phase-badge";
 import { layoutGraph } from "@/graph/layout";
-import { type ArtifactRef, buildRuntimeGraph, HOOK_GAP, HOOK_HEIGHT, HOOK_STACK_GAP, HOOK_WIDTH, type RuntimeNode, type RuntimeNodeData } from "@/graph/runtime";
+import { type ArtifactRef, buildRuntimeGraph, HOOK_GAP, HOOK_HEIGHT, HOOK_STACK_GAP, type RuntimeNode, type RuntimeNodeData } from "@/graph/runtime";
+import { ToggleButton } from "@/graph/toggle-button";
 import { canvasNavigation } from "@/graph/viewport";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration } from "@/lib/format";
@@ -34,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/stores/theme";
 
 // selectedAttempt: the attempt open in the node panel, when it is drawn inside this collapsed Retry card.
-type FlowData = RuntimeNodeData & { selected: boolean; selectedAttempt?: string; now: number };
+type FlowData = RuntimeNodeData & { selected: boolean; selectedAttempt?: string; now: number; onToggleDag?: (id: string) => void };
 
 /**
  * Where each node's connection points are, declared from its size: top and bottom for the flow, and on
@@ -46,7 +47,8 @@ function handlesFor(kind: RuntimeNodeData["kind"], width: number, height: number
     { type: "target", position: Position.Top, x: width / 2, y: 0, width: 1, height: 1 },
     { type: "source", position: Position.Bottom, x: width / 2, y: height - 1, width: 1, height: 1 },
   ];
-  if (kind === "step" || kind === "group") flow.push({ id: "hook", type: "source", position: Position.Right, x: width - 1, y: kind === "group" ? 16 : height / 2, width: 1, height: 1 });
+  const frame = kind === "group" || kind === "dag";
+  if (kind === "step" || frame) flow.push({ id: "hook", type: "source", position: Position.Right, x: width - 1, y: frame ? 16 : height / 2, width: 1, height: 1 });
   return flow;
 }
 
@@ -80,17 +82,22 @@ const HookNode = memo(function HookNode({ data }: NodeProps) {
     <div
       className={cn(
         "flex h-full w-full items-center gap-1 rounded-full border bg-card/90 pr-2 pl-1 text-[10px] text-muted-foreground shadow-xs",
+        d.planned && "border-dashed bg-card/60 opacity-75 shadow-none",
         s.phase === "Running" && "border-phase-run-solid/60",
         tone === "fail" && "border-phase-fail-solid/50 text-phase-fail",
         d.selected && "border-primary ring-2 ring-primary/20",
       )}
-      title={`${d.event === "exit" ? t("Exit handler") : t("Hook {{event}}", { event: d.event })} — ${t(s.phase ?? "Pending")}`}
+      title={`${d.event === "exit" ? t("Exit handler") : t("Hook {{event}}", { event: d.event })} — ${d.planned ? t("Not triggered") : t(s.phase ?? "Pending")}`}
     >
       <Handle id="hook-in" type="target" position={Position.Left} className="!size-1 !border-0 !bg-transparent" />
       <StatusDot phase={s.phase} className="size-3.5 [&>span:last-child]:size-1.5" />
       <Icon className="size-3 shrink-0" aria-hidden />
       <span className="truncate font-mono font-medium">{d.event}</span>
-      {s.startedAt && <span className="ml-auto shrink-0 font-mono opacity-70">{formatDuration(s.startedAt, s.finishedAt, d.now)}</span>}
+      {d.planned ? (
+        <span className="ml-auto shrink-0 opacity-70">{t("Not triggered")}</span>
+      ) : (
+        s.startedAt && <span className="ml-auto shrink-0 font-mono opacity-70">{formatDuration(s.startedAt, s.finishedAt, d.now)}</span>
+      )}
     </div>
   );
 });
@@ -152,16 +159,19 @@ const StepNode = memo(function StepNode({ data }: NodeProps) {
       {cached && <span className="absolute -top-2.5 right-2 rounded-full bg-node-script-bg px-1.5 text-[10px] font-semibold text-node-script">{t("cache hit")}</span>}
       <StatusDot phase={shown.phase} />
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-mono text-xs font-medium">{s.displayName || s.name}</span>
+        <span className="truncate font-mono text-xs font-medium">{d.exit ? `${t("Exit handler")} · ${s.templateName ?? ""}` : s.displayName || s.name}</span>
         <span className="flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
           {retry && retry.attempts.length > 1 && <AttemptDots attempts={retry.attempts} selected={d.selectedAttempt} />}
-          {retry && retry.attempts.length > 1
+          {d.dag
+            ? `${t(s.type)} · ${t("{{count}} tasks", { count: d.dag.count })}`
+            : retry && retry.attempts.length > 1
             ? t("Attempt {{n}}", { n: selectedIndex >= 0 ? selectedIndex + 1 : retry.attempts.length })
             : shown.phase === "Pending" || !shown.startedAt
               ? t(s.type)
               : `${running ? t("running") + " " : ""}${formatDuration(shown.startedAt, shown.finishedAt, d.now)}`}
         </span>
       </span>
+      {d.dag && d.onToggleDag && <ToggleButton label={t("Expand {{name}}", { name: s.displayName || s.name })} onClick={() => d.onToggleDag!(s.id)} className="ml-auto" />}
       <Handle type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-muted-foreground/50" />
       <Handle id="hook" type="source" position={Position.Right} className="!size-1 !border-0 !bg-transparent" />
     </div>
@@ -219,6 +229,45 @@ const GroupNode = memo(function GroupNode({ data }: NodeProps) {
   );
 });
 
+/** A DAG or steps node of the run, open: a frame around the nodes it ran, with its own state. */
+const DagGroupNode = memo(function DagGroupNode({ data }: NodeProps) {
+  const { t } = useTranslation();
+  const d = data as FlowData & { kind: "dag" };
+  const s = d.status;
+  const running = s.phase === "Running";
+  return (
+    <div
+      className={cn(
+        "h-full w-full rounded-xl border border-dashed border-node-dag/50 bg-node-dag-bg/20",
+        d.exit && "border-muted-foreground/40 bg-muted/40",
+        running && "border-phase-run-solid/60",
+        d.selected && "border-2 border-solid border-primary ring-4 ring-primary/15",
+      )}
+    >
+      <Handle type="target" position={Position.Top} className="!size-1.5 !border-0 !bg-muted-foreground/50" />
+      <div className="flex h-8 items-center gap-1.5 px-2.5 text-xs">
+        <StatusDot phase={s.phase} className="size-4" />
+        {d.exit ? (
+          // The workflow's onExit: its node name is "<workflow>.onExit", which says less than this.
+          <span className="flex min-w-0 items-center gap-1 font-semibold">
+            <LogOut className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="shrink-0 whitespace-nowrap">{t("Exit handler")}</span>
+            {s.templateName && <span className="truncate font-mono font-normal text-muted-foreground">{s.templateName}</span>}
+          </span>
+        ) : (
+          <span className="truncate font-mono font-semibold">{d.label}</span>
+        )}
+        <span className="shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">
+          {t(s.type)} · {s.startedAt ? `${running ? t("running") + " " : ""}${formatDuration(s.startedAt, s.finishedAt, d.now)}` : t(s.phase ?? "Pending")}
+        </span>
+        {d.onToggleDag && <ToggleButton label={t("Collapse {{name}}", { name: d.label })} open onClick={() => d.onToggleDag!(s.id)} className="ml-auto bg-card" />}
+      </div>
+      <Handle type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-muted-foreground/50" />
+      <Handle id="hook" type="source" position={Position.Right} style={{ top: 16 }} className="!size-1 !border-0 !bg-transparent" />
+    </div>
+  );
+});
+
 const ArtifactNode = memo(function ArtifactNode({ data }: NodeProps) {
   const d = data as FlowData & { kind: "artifact" };
   const Icon = d.ref.isInput ? ArrowDownToLine : ArrowUpFromLine;
@@ -259,7 +308,7 @@ function RunEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targe
 }
 
 // "group" is a React Flow built-in type with its own border; ours is named differently to avoid it.
-const nodeTypes = { step: StepNode, attempt: AttemptNode, retryGroup: GroupNode, artifact: ArtifactNode, hook: HookNode };
+const nodeTypes = { step: StepNode, attempt: AttemptNode, retryGroup: GroupNode, dagGroup: DagGroupNode, artifact: ArtifactNode, hook: HookNode };
 const edgeTypes = { run: RunEdge };
 
 /**
@@ -326,17 +375,21 @@ export function RunGraph({
   const running = workflow.status?.phase === "Running";
   const now = useNow(running);
 
+  // Nested DAG / steps nodes are drawn open, as frames; the viewer closes the ones they don't need.
+  const [closedDags, setClosedDags] = useState<ReadonlySet<string>>(new Set());
+  const toggleDag = useCallback((id: string) => setClosedDags((prev) => (prev.has(id) ? new Set([...prev].filter((x) => x !== id)) : new Set([...prev, id]))), []);
   const graph = useMemo(
     () =>
       buildRuntimeGraph(workflow, {
         expandRetries,
         showArtifacts,
+        closedDags,
         retryLimit: (node) => {
           const limit = (resolveTemplate(workflow, node)?.retryStrategy as { limit?: number | string } | undefined)?.limit;
           return limit === undefined ? undefined : Number(limit);
         },
       }),
-    [workflow, expandRetries, showArtifacts],
+    [workflow, expandRetries, showArtifacts, closedDags],
   );
   // Layout depends only on the shape, not on phases, so a running workflow does not re-layout on every
   // status update.
@@ -357,8 +410,12 @@ export function RunGraph({
       laidOut.map((n) => {
         const k = hooksOf.get(n.id)?.length ?? 0;
         // A group's size comes from its children, so only plain cards reserve room for their hooks.
+        // A DAG frame's header (status, name, type, duration, toggle) needs about this much room.
+        if (n.data.kind === "dag") return { id: n.id, width: n.width, height: n.height, parent: n.parent, minWidth: n.data.exit ? 340 : 300 };
         if (!k || n.data.kind === "group") return { id: n.id, width: n.width, height: n.height, parent: n.parent };
-        return { id: n.id, width: n.width + HOOK_GAP + HOOK_WIDTH, height: Math.max(n.height, stackHeight(k)), parent: n.parent };
+        // Room for the widest of its pills: each is as wide as its event name needs.
+        const pills = Math.max(...hooksOf.get(n.id)!.map((h) => h.width));
+        return { id: n.id, width: n.width + HOOK_GAP + pills, height: Math.max(n.height, stackHeight(k)), parent: n.parent };
       }),
       graph.edges.filter((e) => {
         if (e.hook) return false;
@@ -373,13 +430,13 @@ export function RunGraph({
         const box = p.get(owner);
         const card = laidOut.find((n) => n.id === owner);
         if (!box || !card) continue;
-        const isGroup = card.data.kind === "group";
+        const isGroup = card.data.kind === "group" || card.data.kind === "dag";
         const cardHeight = isGroup ? box.height : card.height;
         const top = isGroup ? box.y : box.y + (box.height - cardHeight) / 2;
         if (!isGroup) p.set(owner, { x: box.x, y: top, width: card.width, height: card.height });
         const centre = top + cardHeight / 2;
         const right = box.x + (isGroup ? box.width : card.width) + HOOK_GAP;
-        hooks.forEach((h, i) => p.set(h.id, { x: right, y: centre - stackHeight(hooks.length) / 2 + i * (HOOK_HEIGHT + HOOK_STACK_GAP), width: HOOK_WIDTH, height: HOOK_HEIGHT }));
+        hooks.forEach((h, i) => p.set(h.id, { x: right, y: centre - stackHeight(hooks.length) / 2 + i * (HOOK_HEIGHT + HOOK_STACK_GAP), width: h.width, height: HOOK_HEIGHT }));
       }
       setPositions(p);
     });
@@ -399,14 +456,17 @@ export function RunGraph({
   }, [graph, selectedNodeId]);
   const flowNodes: Node[] = useMemo(() => {
     if (!positions) return [];
-    return graph.nodes
-      .filter((n) => positions.has(n.id))
+    // React Flow needs a frame before the nodes inside it.
+    const depth = (n: RuntimeNode): number => (n.parent ? 1 + depth(graph.nodes.find((x) => x.id === n.parent) ?? { ...n, parent: undefined }) : 0);
+    return [...graph.nodes]
+      .sort((a, b) => depth(a) - depth(b))
+      .filter((n) => positions.has(n.id) && (!n.parent || positions.has(n.parent)))
       .map((n) => {
         const p = positions.get(n.id)!;
         const parent = n.parent ? positions.get(n.parent) : undefined;
         return {
           id: n.id,
-          type: n.data.kind === "group" ? "retryGroup" : n.data.kind,
+          type: n.data.kind === "group" ? "retryGroup" : n.data.kind === "dag" ? "dagGroup" : n.data.kind,
           parentId: n.parent,
           position: parent ? { x: p.x - parent.x, y: p.y - parent.y } : { x: p.x, y: p.y },
           // Explicit dimensions, not just a style: these node objects are rebuilt every second while a run
@@ -422,16 +482,17 @@ export function RunGraph({
           style: { width: p.width, height: p.height },
           draggable: false,
           selectable: true,
-          zIndex: n.data.kind === "group" ? 0 : 1,
+          zIndex: n.data.kind === "group" || n.data.kind === "dag" ? 0 : 1,
           data: {
             ...n.data,
+            onToggleDag: toggleDag,
             selected: n.id === selectedCard.id || n.id === selectedArtifactId,
             selectedAttempt: n.id === selectedCard.id ? selectedCard.attempt : undefined,
             now,
           } as FlowData,
         };
       });
-  }, [graph, positions, selectedCard, selectedArtifactId, now]);
+  }, [graph, positions, selectedCard, selectedArtifactId, now, toggleDag]);
 
   const flowEdges: Edge[] = useMemo(
     () =>
@@ -478,6 +539,11 @@ export function RunGraph({
       onNodeClick={(_e, node) => {
         const data = node.data as FlowData;
         if (data.kind === "artifact") onSelectArtifact(data.ref);
+        else if (data.kind === "hook" && data.planned) {
+          // A hook that never ran has no node of its own: show the task it belongs to.
+          const owner = graph.nodes.find((n) => n.id === data.owner)?.data;
+          if (owner && "status" in owner) onSelectNode(owner.status);
+        }
         else if (data.kind === "step") onSelectNode(data.retry?.attempts.at(-1) ?? data.status);
         else onSelectNode(data.status);
       }}
