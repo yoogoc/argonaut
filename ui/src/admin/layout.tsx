@@ -8,12 +8,12 @@ import { Page, PageHeader } from "@/components/common/page";
 import { AdminTabs } from "./admin-tabs";
 import { StatusBanner } from "./status-banner";
 
-export function AdminLayout({ actions, children }: { actions?: ReactNode; children: ReactNode }) {
+export function AdminLayout({ actions, children, title, description }: { actions?: ReactNode; children: ReactNode; title?: string; description?: string }) {
   const { t } = useTranslation();
   const orphans = useQuery({ queryKey: ["authz", "orphans"], queryFn: listOrphanGrants });
   return (
     <Page>
-      <PageHeader title={t("Permissions")} description={t("Grant users a role on the whole platform, a namespace, a template or a cluster template. Runs and cron workflows inherit the grants of the template they come from.")} actions={actions} />
+      <PageHeader title={title ?? t("Permissions")} description={description ?? t("Grant users a role on the whole platform, a namespace, a template or a cluster template. Runs and cron workflows inherit the grants of the template they come from.")} actions={actions} />
       <StatusBanner />
       <AdminTabs orphanCount={orphans.data?.length} />
       {children}

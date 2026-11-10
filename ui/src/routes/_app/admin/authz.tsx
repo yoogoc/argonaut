@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { deleteGrant, listGrants } from "@/api/authz";
 import type { Grant } from "@/api/types";
@@ -15,15 +16,19 @@ import { EmptyState, ErrorState, errorMessage, Spinner } from "@/components/comm
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/_app/admin/authz")({ component: GrantsPage });
+export const Route = createFileRoute("/_app/admin/authz")({
+  validateSearch: z.object({ subject: z.string().min(1).optional() }),
+  component: GrantsPage,
+});
 
 function GrantsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { subject } = Route.useSearch();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [revoking, setRevoking] = useState<Grant>();
-  const query = useQuery({ queryKey: ["authz", "grants"], queryFn: () => listGrants() });
+  const query = useQuery({ queryKey: ["authz", "grants", subject], queryFn: () => listGrants({ subject }) });
   const revoke = useMutation({
     mutationFn: (g: Grant) => deleteGrant(g.id),
     onSuccess: () => {
@@ -47,6 +52,15 @@ function GrantsPage() {
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Search subject or scope")} className="bg-card pl-9" />
       </label>
+      {subject && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">{t("User")}</span>
+          <span className="break-all rounded bg-muted px-2 py-1 font-mono">{subject}</span>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/admin/authz" search={{}}>{t("Clear filter")}</Link>
+          </Button>
+        </div>
+      )}
       {query.error ? <ErrorState error={query.error} /> : query.isPending ? <Spinner /> : grants.length ? <GrantsTable grants={grants} onRevoke={setRevoking} /> : <EmptyState title={t("No grants")} />}
       <GrantSheet open={open} onOpenChange={setOpen} />
       <ConfirmAction

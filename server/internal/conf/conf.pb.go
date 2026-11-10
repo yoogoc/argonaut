@@ -540,9 +540,8 @@ func (x *Argo) GetInstanceId() string {
 
 type Authz struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// super_admins bootstraps the first administrators, e.g. "user:<oidc-sub>". Without this nobody
-	// could ever grant the first permission. Super admins are decided by configuration alone, so a
-	// database outage cannot lock them out.
+	// super_admins defines optional recovery administrators by OIDC subject, e.g. "user:<oidc-sub>".
+	// These administrators are decided by configuration alone, so a database outage cannot lock them out.
 	SuperAdmins []string `protobuf:"bytes,1,rep,name=super_admins,json=superAdmins,proto3" json:"super_admins,omitempty"`
 	// dev_subject makes the server usable with sso.enabled=false by treating every request as this
 	// subject. Setting it in a deployment hands that subject's permissions to anyone who can reach
@@ -554,7 +553,9 @@ type Authz struct {
 	// cluster_templates_readable lets every signed-in user read ClusterWorkflowTemplates (default true).
 	ClusterTemplatesReadable *bool `protobuf:"varint,5,opt,name=cluster_templates_readable,json=clusterTemplatesReadable,proto3,oneof" json:"cluster_templates_readable,omitempty"`
 	// replica_id names this replica in authz_replicas; defaults to $POD_NAME, then the hostname.
-	ReplicaId     string `protobuf:"bytes,6,opt,name=replica_id,json=replicaId,proto3" json:"replica_id,omitempty"`
+	ReplicaId string `protobuf:"bytes,6,opt,name=replica_id,json=replicaId,proto3" json:"replica_id,omitempty"`
+	// setup_token authorizes creation of the first platform administrator.
+	SetupToken    string `protobuf:"bytes,7,opt,name=setup_token,json=setupToken,proto3" json:"setup_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -620,6 +621,13 @@ func (x *Authz) GetClusterTemplatesReadable() bool {
 func (x *Authz) GetReplicaId() string {
 	if x != nil {
 		return x.ReplicaId
+	}
+	return ""
+}
+
+func (x *Authz) GetSetupToken() string {
+	if x != nil {
+		return x.SetupToken
 	}
 	return ""
 }
@@ -1024,7 +1032,7 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\x14controller_namespace\x18\x01 \x01(\tR\x13controllerNamespace\x121\n" +
 	"\x14controller_configmap\x18\x02 \x01(\tR\x13controllerConfigmap\x12\x1f\n" +
 	"\vinstance_id\x18\x03 \x01(\tR\n" +
-	"instanceId\"\x8c\x02\n" +
+	"instanceId\"\xad\x02\n" +
 	"\x05Authz\x12!\n" +
 	"\fsuper_admins\x18\x01 \x03(\tR\vsuperAdmins\x12\x1f\n" +
 	"\vdev_subject\x18\x04 \x01(\tR\n" +
@@ -1032,7 +1040,9 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\rpoll_interval\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\fpollInterval\x12A\n" +
 	"\x1acluster_templates_readable\x18\x05 \x01(\bH\x00R\x18clusterTemplatesReadable\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"replica_id\x18\x06 \x01(\tR\treplicaIdB\x1d\n" +
+	"replica_id\x18\x06 \x01(\tR\treplicaId\x12\x1f\n" +
+	"\vsetup_token\x18\a \x01(\tR\n" +
+	"setupTokenB\x1d\n" +
 	"\x1b_cluster_templates_readable\"\xb9\x02\n" +
 	"\rClusterSwitch\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x18\n" +

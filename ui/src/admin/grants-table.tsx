@@ -50,7 +50,12 @@ export function GrantsTable({ grants, onRevoke, highlightOrphans }: { grants: Gr
               const [kind, name] = scopeLabel(g, t);
               return (
                 <TableRow key={g.id} className={cn(highlightOrphans && "bg-phase-susp-bg/40")}>
-                  <TableCell className="font-mono text-[13px]">{g.subject}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-[13px]">{g.subject}</span>
+                      {g.subjectType === "email" && <span className="rounded-full bg-phase-susp-bg px-2 py-0.5 text-xs text-phase-susp">{t("Pending sign-in")}</span>}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{kind}</span>

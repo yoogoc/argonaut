@@ -34,30 +34,33 @@ func initServerApp(nameString log.NameString, versionString log.VersionString) (
 	if err != nil {
 		return nil, nil, err
 	}
-	oauth2Service, err := service.NewOauth2Service(logger, discovery, sso, signer, engine)
+	confData := newDataConf(bootstrap)
+	dataData, cleanup, err := data.NewData(confData, logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	context, cleanup := NewAppContext()
+	authzRepo := data.NewAuthzRepo(dataData, sso)
+	auditRepo := data.NewAuditRepo(dataData)
+	context, cleanup2 := NewAppContext()
 	kube := newKubeConf(bootstrap)
 	confArgo := newArgoConf(bootstrap)
 	clusterSwitch := newClusterSwitchConf(bootstrap)
-	argoClusterSwitch, cleanup2, err := argo.NewClusterSwitch(context, kube, confArgo, clusterSwitch, logger)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	confData := newDataConf(bootstrap)
-	dataData, cleanup3, err := data.NewData(confData, logger)
+	argoClusterSwitch, cleanup3, err := argo.NewClusterSwitch(context, kube, confArgo, clusterSwitch, logger)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	authzRepo := data.NewAuthzRepo(dataData)
-	auditRepo := data.NewAuditRepo(dataData)
 	auditor := biz.NewAuditor(auditRepo, argoClusterSwitch, logger)
 	authzUsecase, cleanup4 := biz.NewAuthzUsecase(authzRepo, engine, auditor, argoClusterSwitch, confAuthz, logger)
+	oauth2Service, err := service.NewOauth2Service(logger, discovery, sso, signer, engine, authzUsecase)
+	if err != nil {
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
 	workflowUsecase := biz.NewWorkflowUsecase(argoClusterSwitch, authzUsecase, logger)
 	archiveUsecase := biz.NewArchiveUsecase(argoClusterSwitch, authzUsecase, workflowUsecase, logger)
 	archivedWorkflowService := service.NewArchivedWorkflowService(archiveUsecase, logger)
@@ -70,7 +73,8 @@ func initServerApp(nameString log.NameString, versionString log.VersionString) (
 	clusterWorkflowTemplateService := service.NewClusterWorkflowTemplateService(clusterTemplateUsecase, logger)
 	cronUsecase := biz.NewCronUsecase(argoClusterSwitch, authzUsecase, logger)
 	cronWorkflowService := service.NewCronWorkflowService(cronUsecase, logger)
-	authzService := service.NewAuthzService(authzUsecase, auditor, logger)
+	accounts := biz.NewAccounts(authzUsecase, sso, confAuthz)
+	authzService := service.NewAuthzService(authzUsecase, auditor, accounts, logger)
 	infoService := service.NewInfoService(argoClusterSwitch, logger)
 	artifactHandler := service.NewArtifactHandler(workflowUsecase, archiveUsecase, logger)
 	clusterService := service.NewClusterService(argoClusterSwitch, authzUsecase, logger)

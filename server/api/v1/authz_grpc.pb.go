@@ -22,6 +22,11 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	AuthzService_ListGrants_FullMethodName       = "/api.v1.AuthzService/ListGrants"
 	AuthzService_CreateGrant_FullMethodName      = "/api.v1.AuthzService/CreateGrant"
+	AuthzService_SearchUsers_FullMethodName      = "/api.v1.AuthzService/SearchUsers"
+	AuthzService_ListUsers_FullMethodName        = "/api.v1.AuthzService/ListUsers"
+	AuthzService_CreateUser_FullMethodName       = "/api.v1.AuthzService/CreateUser"
+	AuthzService_SetupStatus_FullMethodName      = "/api.v1.AuthzService/SetupStatus"
+	AuthzService_SetupAdmin_FullMethodName       = "/api.v1.AuthzService/SetupAdmin"
 	AuthzService_DeleteGrant_FullMethodName      = "/api.v1.AuthzService/DeleteGrant"
 	AuthzService_ListRoles_FullMethodName        = "/api.v1.AuthzService/ListRoles"
 	AuthzService_MyPermissions_FullMethodName    = "/api.v1.AuthzService/MyPermissions"
@@ -44,6 +49,13 @@ const (
 type AuthzServiceClient interface {
 	ListGrants(ctx context.Context, in *ListGrantsRequest, opts ...grpc.CallOption) (*ListGrantsReply, error)
 	CreateGrant(ctx context.Context, in *CreateGrantRequest, opts ...grpc.CallOption) (*GrantReply, error)
+	// SearchUsers finds local directory entries for a caller who can grant on the selected scope.
+	SearchUsers(ctx context.Context, in *SearchUsersRequest, opts ...grpc.CallOption) (*SearchUsersReply, error)
+	// ListUsers pages through the local user directory for platform grant administrators.
+	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersReply, error)
+	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*DirectoryUser, error)
+	SetupStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SetupStatusReply, error)
+	SetupAdmin(ctx context.Context, in *SetupAdminRequest, opts ...grpc.CallOption) (*DirectoryUser, error)
 	DeleteGrant(ctx context.Context, in *DeleteGrantRequest, opts ...grpc.CallOption) (*DeleteGrantReply, error)
 	// ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.
 	ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListRolesReply, error)
@@ -86,6 +98,56 @@ func (c *authzServiceClient) CreateGrant(ctx context.Context, in *CreateGrantReq
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GrantReply)
 	err := c.cc.Invoke(ctx, AuthzService_CreateGrant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) SearchUsers(ctx context.Context, in *SearchUsersRequest, opts ...grpc.CallOption) (*SearchUsersReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchUsersReply)
+	err := c.cc.Invoke(ctx, AuthzService_SearchUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListUsersReply)
+	err := c.cc.Invoke(ctx, AuthzService_ListUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*DirectoryUser, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DirectoryUser)
+	err := c.cc.Invoke(ctx, AuthzService_CreateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) SetupStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SetupStatusReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetupStatusReply)
+	err := c.cc.Invoke(ctx, AuthzService_SetupStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authzServiceClient) SetupAdmin(ctx context.Context, in *SetupAdminRequest, opts ...grpc.CallOption) (*DirectoryUser, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DirectoryUser)
+	err := c.cc.Invoke(ctx, AuthzService_SetupAdmin_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +273,13 @@ func (c *authzServiceClient) DeletePolicy(ctx context.Context, in *DeletePolicyR
 type AuthzServiceServer interface {
 	ListGrants(context.Context, *ListGrantsRequest) (*ListGrantsReply, error)
 	CreateGrant(context.Context, *CreateGrantRequest) (*GrantReply, error)
+	// SearchUsers finds local directory entries for a caller who can grant on the selected scope.
+	SearchUsers(context.Context, *SearchUsersRequest) (*SearchUsersReply, error)
+	// ListUsers pages through the local user directory for platform grant administrators.
+	ListUsers(context.Context, *ListUsersRequest) (*ListUsersReply, error)
+	CreateUser(context.Context, *CreateUserRequest) (*DirectoryUser, error)
+	SetupStatus(context.Context, *emptypb.Empty) (*SetupStatusReply, error)
+	SetupAdmin(context.Context, *SetupAdminRequest) (*DirectoryUser, error)
 	DeleteGrant(context.Context, *DeleteGrantRequest) (*DeleteGrantReply, error)
 	// ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.
 	ListRoles(context.Context, *emptypb.Empty) (*ListRolesReply, error)
@@ -244,6 +313,21 @@ func (UnimplementedAuthzServiceServer) ListGrants(context.Context, *ListGrantsRe
 }
 func (UnimplementedAuthzServiceServer) CreateGrant(context.Context, *CreateGrantRequest) (*GrantReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateGrant not implemented")
+}
+func (UnimplementedAuthzServiceServer) SearchUsers(context.Context, *SearchUsersRequest) (*SearchUsersReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchUsers not implemented")
+}
+func (UnimplementedAuthzServiceServer) ListUsers(context.Context, *ListUsersRequest) (*ListUsersReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListUsers not implemented")
+}
+func (UnimplementedAuthzServiceServer) CreateUser(context.Context, *CreateUserRequest) (*DirectoryUser, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateUser not implemented")
+}
+func (UnimplementedAuthzServiceServer) SetupStatus(context.Context, *emptypb.Empty) (*SetupStatusReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetupStatus not implemented")
+}
+func (UnimplementedAuthzServiceServer) SetupAdmin(context.Context, *SetupAdminRequest) (*DirectoryUser, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetupAdmin not implemented")
 }
 func (UnimplementedAuthzServiceServer) DeleteGrant(context.Context, *DeleteGrantRequest) (*DeleteGrantReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteGrant not implemented")
@@ -331,6 +415,96 @@ func _AuthzService_CreateGrant_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthzServiceServer).CreateGrant(ctx, req.(*CreateGrantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_SearchUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).SearchUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_SearchUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).SearchUsers(ctx, req.(*SearchUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_ListUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).ListUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_ListUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).ListUsers(ctx, req.(*ListUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_CreateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).CreateUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_CreateUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).CreateUser(ctx, req.(*CreateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_SetupStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).SetupStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_SetupStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).SetupStatus(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthzService_SetupAdmin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetupAdminRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthzServiceServer).SetupAdmin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthzService_SetupAdmin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthzServiceServer).SetupAdmin(ctx, req.(*SetupAdminRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -547,6 +721,26 @@ var AuthzService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateGrant",
 			Handler:    _AuthzService_CreateGrant_Handler,
+		},
+		{
+			MethodName: "SearchUsers",
+			Handler:    _AuthzService_SearchUsers_Handler,
+		},
+		{
+			MethodName: "ListUsers",
+			Handler:    _AuthzService_ListUsers_Handler,
+		},
+		{
+			MethodName: "CreateUser",
+			Handler:    _AuthzService_CreateUser_Handler,
+		},
+		{
+			MethodName: "SetupStatus",
+			Handler:    _AuthzService_SetupStatus_Handler,
+		},
+		{
+			MethodName: "SetupAdmin",
+			Handler:    _AuthzService_SetupAdmin_Handler,
 		},
 		{
 			MethodName: "DeleteGrant",

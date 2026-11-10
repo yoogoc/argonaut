@@ -1,9 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { LogIn } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
+import { setupStatus } from "@/api/accounts";
 import { getLoginUrl } from "@/api/auth";
 import { Logo } from "@/components/common/logo";
 import { ErrorState } from "@/components/common/states";
@@ -20,6 +22,7 @@ function LoginPage() {
   const { redirect } = Route.useSearch();
   const [error, setError] = useState<unknown>();
   const [pending, setPending] = useState(false);
+  const setup = useQuery(setupStatus);
 
   const signIn = async () => {
     setPending(true);
@@ -32,6 +35,7 @@ function LoginPage() {
     }
   };
 
+  if (setup.data?.required) return <Navigate to="/setup" search={{ redirect }} replace />;
   return (
     <main className="flex min-h-full items-center justify-center p-4">
       <Card className="w-full max-w-sm">
@@ -44,7 +48,7 @@ function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {error !== undefined && <ErrorState error={error} />}
-          <Button className="w-full" onClick={signIn} disabled={pending}>
+          <Button className="w-full" onClick={signIn} disabled={pending || setup.isPending}>
             <LogIn aria-hidden />
             {pending ? t("Redirecting…") : t("Sign in with SSO")}
           </Button>

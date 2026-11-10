@@ -3,7 +3,7 @@ import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query"
 import { http, query } from "@/lib/http";
 import { getRevision } from "@/lib/revision";
 
-import type { AuditEvent, AuthzStatus, Grant, MyPermissions, Policy, ResourceRef, Role, RoleInfo } from "./types";
+import type { AuditEvent, AuthzStatus, DirectoryUser, Grant, MyPermissions, Policy, ResourceRef, Role, RoleInfo } from "./types";
 
 export type { Policy };
 
@@ -13,6 +13,7 @@ export async function listGrants(params: { subject?: string; namespace?: string;
 }
 
 export interface CreateGrantParams {
+  subjectType?: "user" | "email";
   subject: string;
   role: Role;
   resourceType: Grant["resourceType"];
@@ -24,6 +25,16 @@ export interface CreateGrantParams {
 export async function createGrant(params: CreateGrantParams): Promise<Grant> {
   const reply = await http.post("authz/grants", { json: { subjectType: "user", ...params } }).json<{ grant: Grant }>();
   return reply.grant;
+}
+
+export async function searchUsers(text: string, scope: ResourceRef, signal: AbortSignal): Promise<DirectoryUser[]> {
+  const reply = await http.get(`authz/users${query({ query: text, ...scope })}`, { signal }).json<{ users: DirectoryUser[] | null }>();
+  return reply.users ?? [];
+}
+
+export async function listUsers(params: { query: string; limit: number; offset: number }, signal: AbortSignal) {
+  const reply = await http.get(`authz/user-directory${query(params)}`, { signal }).json<{ users?: DirectoryUser[]; hasMore?: boolean; accountCreationAvailable?: boolean }>();
+  return { users: reply.users ?? [], hasMore: !!reply.hasMore, accountCreationAvailable: !!reply.accountCreationAvailable };
 }
 
 export async function deleteGrant(id: string) {

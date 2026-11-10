@@ -138,6 +138,12 @@ export interface CreatePolicyRequest {
   body?: string;
 }
 
+/** (authz.proto) */
+export interface CreateUserRequest {
+  name?: string;
+  email?: string;
+}
+
 /** (workflow.proto) */
 export interface CreateWorkflowRequest {
   namespace?: string;
@@ -218,6 +224,15 @@ export interface DeleteWorkflowTemplateRequest {
   name?: string;
 }
 
+/** (authz.proto) */
+export interface DirectoryUser {
+  subject?: string;
+  name?: string;
+  email?: string;
+  emailVerified?: boolean;
+  lastLoginAt?: string;
+}
+
 /** (workflow.proto) */
 export interface EvaluatedExpression {
   value?: string;
@@ -281,7 +296,7 @@ export interface GetWorkflowTemplateRequest {
 /** Grant binds a subject to a role on a resource scope. (authz.proto) */
 export interface Grant {
   id?: string;
-  /** subjectType is currently always "user" (OIDC `sub`); the field exists so group grants can be added once the IdP is settled without a schema change. */
+  /** "user" binds to an OIDC `sub`. "email" is pending until a verified login binds it. */
   subjectType?: string;
   subject?: string;
   /** resourceType is "template" or "global". */
@@ -427,6 +442,20 @@ export interface ListPoliciesReply {
 /** (authz.proto) */
 export interface ListRolesReply {
   roles?: Role[];
+}
+
+/** (authz.proto) */
+export interface ListUsersReply {
+  users?: DirectoryUser[];
+  hasMore?: boolean;
+  accountCreationAvailable?: boolean;
+}
+
+/** (authz.proto) */
+export interface ListUsersRequest {
+  query?: string;
+  limit?: number;
+  offset?: number;
 }
 
 /** (workflow.proto) */
@@ -613,10 +642,35 @@ export interface RunNowReply {
 }
 
 /** (authz.proto) */
+export interface SearchUsersReply {
+  users?: DirectoryUser[];
+}
+
+/** (authz.proto) */
+export interface SearchUsersRequest {
+  query?: string;
+  namespace?: string;
+  template?: string;
+  clusterTemplate?: string;
+}
+
+/** (authz.proto) */
 export interface SetPolicyEnabledRequest {
   id?: string;
   name?: string;
   enabled?: boolean;
+}
+
+/** (authz.proto) */
+export interface SetupAdminRequest {
+  token?: string;
+  user?: CreateUserRequest;
+}
+
+/** (authz.proto) */
+export interface SetupStatusReply {
+  required?: boolean;
+  available?: boolean;
 }
 
 /** (workflow.proto) */

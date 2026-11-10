@@ -221,6 +221,9 @@ func (e *Engine) Load(s Snapshot) {
 	}
 	bySubject := make(map[string][]Grant)
 	for _, g := range s.Grants {
+		if g.SubjectType != "" && g.SubjectType != SubjectUser {
+			continue
+		}
 		bySubject[g.Subject] = append(bySubject[g.Subject], g)
 	}
 	next := &compiled{
@@ -262,6 +265,10 @@ func (e *Engine) LoadedAt() time.Time {
 func (e *Engine) IsSuperAdmin(subject string) bool {
 	_, ok := e.superAdmins[subject]
 	return ok
+}
+
+func (e *Engine) HasConfiguredAdmins() bool {
+	return len(e.superAdmins) > 0
 }
 
 // Grants returns the loaded grant table.

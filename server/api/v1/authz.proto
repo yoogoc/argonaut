@@ -21,6 +21,35 @@ service AuthzService {
       body: "*"
     };
   };
+  // SearchUsers finds local directory entries for a caller who can grant on the selected scope.
+  rpc SearchUsers (SearchUsersRequest) returns (SearchUsersReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/users"
+    };
+  };
+  // ListUsers pages through the local user directory for platform grant administrators.
+  rpc ListUsers (ListUsersRequest) returns (ListUsersReply) {
+    option (google.api.http) = {
+      get: "/api/v1/authz/user-directory"
+    };
+  };
+  rpc CreateUser (CreateUserRequest) returns (DirectoryUser) {
+    option (google.api.http) = {
+      post: "/api/v1/authz/users"
+      body: "*"
+    };
+  };
+  rpc SetupStatus (google.protobuf.Empty) returns (SetupStatusReply) {
+    option (google.api.http) = {
+      get: "/api/v1/setup"
+    };
+  };
+  rpc SetupAdmin (SetupAdminRequest) returns (DirectoryUser) {
+    option (google.api.http) = {
+      post: "/api/v1/setup"
+      body: "*"
+    };
+  };
   rpc DeleteGrant (DeleteGrantRequest) returns (DeleteGrantReply) {
     option (google.api.http) = {
       delete: "/api/v1/authz/grants/{id}"
@@ -95,6 +124,54 @@ message ActionsRequest {
 message ActionsReply {
   repeated string actions = 1;
   int64 revision = 2;
+}
+
+message SearchUsersRequest {
+  string query = 1;
+  optional string namespace = 2;
+  optional string template = 3;
+  optional string clusterTemplate = 4;
+}
+
+message DirectoryUser {
+  string subject = 1;
+  string name = 2;
+  string email = 3;
+  bool emailVerified = 4;
+  string lastLoginAt = 5;
+}
+
+message SearchUsersReply {
+  repeated DirectoryUser users = 1;
+}
+
+message ListUsersRequest {
+  optional string query = 1;
+  optional int32 limit = 2;
+  optional int32 offset = 3;
+}
+
+message ListUsersReply {
+  repeated DirectoryUser users = 1;
+  bool hasMore = 2;
+  bool accountCreationAvailable = 3;
+}
+
+message CreateUserRequest {
+  reserved 1, 4;
+  reserved "username", "password";
+  string name = 2;
+  string email = 3;
+}
+
+message SetupStatusReply {
+  bool required = 1;
+  bool available = 2;
+}
+
+message SetupAdminRequest {
+  string token = 1;
+  CreateUserRequest user = 2;
 }
 
 message Replica {
@@ -175,8 +252,7 @@ message RevisionReply {
 // Grant binds a subject to a role on a resource scope.
 message Grant {
   string id = 1;
-  // subjectType is currently always "user" (OIDC `sub`); the field exists so group grants can be
-  // added once the IdP is settled without a schema change.
+  // "user" binds to an OIDC `sub`. "email" is pending until a verified login binds it.
   string subjectType = 2;
   string subject = 3;
   // resourceType is "template" or "global".

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { useActions } from "@/api/authz";
 import { cn } from "@/lib/utils";
 
 const tab = "flex h-10 items-center gap-1.5 border-b-2 border-transparent px-1 text-sm text-muted-foreground hover:text-foreground";
@@ -8,8 +9,10 @@ const tab = "flex h-10 items-center gap-1.5 border-b-2 border-transparent px-1 t
 /** Tabs across the permission pages; each is its own route so it can be linked to. */
 export function AdminTabs({ orphanCount }: { orphanCount?: number }) {
   const { t } = useTranslation();
+  const canManageUsers = useActions({}).can("authz:grant");
   const items: { to: string; label: string; count?: number }[] = [
     { to: "/admin/authz", label: t("Grants") },
+    ...(canManageUsers ? [{ to: "/admin/users", label: t("Users") }] : []),
     { to: "/admin/orphans", label: t("Orphan grants"), count: orphanCount },
     { to: "/admin/mine", label: t("My permissions") },
     { to: "/admin/roles", label: t("Roles") },

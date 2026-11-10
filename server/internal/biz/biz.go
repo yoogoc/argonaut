@@ -6,6 +6,7 @@ import "github.com/google/wire"
 var ProviderSet = wire.NewSet(
 	NewAuditor,
 	NewAuthzUsecase,
+	NewAccounts,
 	NewTemplateHistory,
 	NewWorkflowUsecase,
 	NewArchiveUsecase,

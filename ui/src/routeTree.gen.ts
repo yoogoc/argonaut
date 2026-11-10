@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppComponentsRouteImport } from './routes/_app/components'
 import { Route as Oauth2CallbackRouteImport } from './routes/oauth2.callback'
@@ -21,6 +22,7 @@ import { Route as AppAdminMineRouteImport } from './routes/_app/admin/mine'
 import { Route as AppAdminOrphansRouteImport } from './routes/_app/admin/orphans'
 import { Route as AppAdminPoliciesRouteImport } from './routes/_app/admin/policies'
 import { Route as AppAdminRolesRouteImport } from './routes/_app/admin/roles'
+import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppArchivedIndexRouteImport } from './routes/_app/archived/index'
 import { Route as AppArchivedUidRouteImport } from './routes/_app/archived/$uid'
 import { Route as AppClusterTemplatesIndexRouteImport } from './routes/_app/cluster-templates/index'
@@ -43,6 +45,11 @@ const AppRoute = AppRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -93,6 +100,11 @@ const AppAdminPoliciesRoute = AppAdminPoliciesRouteImport.update({
 const AppAdminRolesRoute = AppAdminRolesRouteImport.update({
   id: '/admin/roles',
   path: '/admin/roles',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
   getParentRoute: () => AppRoute,
 } as any)
 const AppArchivedIndexRoute = AppArchivedIndexRouteImport.update({
@@ -174,6 +186,7 @@ const AppTemplatesNamespaceNameEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/setup': typeof SetupRoute
   '/components': typeof AppComponentsRoute
   '/oauth2/callback': typeof Oauth2CallbackRoute
   '/admin/audit': typeof AppAdminAuditRoute
@@ -182,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/admin/orphans': typeof AppAdminOrphansRoute
   '/admin/policies': typeof AppAdminPoliciesRoute
   '/admin/roles': typeof AppAdminRolesRoute
+  '/admin/users': typeof AppAdminUsersRoute
   '/archived/$uid': typeof AppArchivedUidRoute
   '/cluster-templates/$name': typeof AppClusterTemplatesNameRoute
   '/cluster-templates/new': typeof AppClusterTemplatesNewRoute
@@ -200,6 +214,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/setup': typeof SetupRoute
   '/components': typeof AppComponentsRoute
   '/oauth2/callback': typeof Oauth2CallbackRoute
   '/': typeof AppIndexRoute
@@ -209,6 +224,7 @@ export interface FileRoutesByTo {
   '/admin/orphans': typeof AppAdminOrphansRoute
   '/admin/policies': typeof AppAdminPoliciesRoute
   '/admin/roles': typeof AppAdminRolesRoute
+  '/admin/users': typeof AppAdminUsersRoute
   '/archived/$uid': typeof AppArchivedUidRoute
   '/cluster-templates/$name': typeof AppClusterTemplatesNameRoute
   '/cluster-templates/new': typeof AppClusterTemplatesNewRoute
@@ -229,6 +245,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/setup': typeof SetupRoute
   '/_app/components': typeof AppComponentsRoute
   '/oauth2/callback': typeof Oauth2CallbackRoute
   '/_app/': typeof AppIndexRoute
@@ -238,6 +255,7 @@ export interface FileRoutesById {
   '/_app/admin/orphans': typeof AppAdminOrphansRoute
   '/_app/admin/policies': typeof AppAdminPoliciesRoute
   '/_app/admin/roles': typeof AppAdminRolesRoute
+  '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/archived/$uid': typeof AppArchivedUidRoute
   '/_app/cluster-templates/$name': typeof AppClusterTemplatesNameRoute
   '/_app/cluster-templates/new': typeof AppClusterTemplatesNewRoute
@@ -259,6 +277,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/setup'
     | '/components'
     | '/oauth2/callback'
     | '/admin/audit'
@@ -267,6 +286,7 @@ export interface FileRouteTypes {
     | '/admin/orphans'
     | '/admin/policies'
     | '/admin/roles'
+    | '/admin/users'
     | '/archived/$uid'
     | '/cluster-templates/$name'
     | '/cluster-templates/new'
@@ -285,6 +305,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/setup'
     | '/components'
     | '/oauth2/callback'
     | '/'
@@ -294,6 +315,7 @@ export interface FileRouteTypes {
     | '/admin/orphans'
     | '/admin/policies'
     | '/admin/roles'
+    | '/admin/users'
     | '/archived/$uid'
     | '/cluster-templates/$name'
     | '/cluster-templates/new'
@@ -313,6 +335,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/login'
+    | '/setup'
     | '/_app/components'
     | '/oauth2/callback'
     | '/_app/'
@@ -322,6 +345,7 @@ export interface FileRouteTypes {
     | '/_app/admin/orphans'
     | '/_app/admin/policies'
     | '/_app/admin/roles'
+    | '/_app/admin/users'
     | '/_app/archived/$uid'
     | '/_app/cluster-templates/$name'
     | '/_app/cluster-templates/new'
@@ -342,6 +366,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SetupRoute: typeof SetupRoute
   Oauth2CallbackRoute: typeof Oauth2CallbackRoute
 }
 
@@ -359,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -429,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/roles'
       fullPath: '/admin/roles'
       preLoaderRoute: typeof AppAdminRolesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/users': {
+      id: '/_app/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AppAdminUsersRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/archived/': {
@@ -541,6 +580,7 @@ interface AppRouteChildren {
   AppAdminOrphansRoute: typeof AppAdminOrphansRoute
   AppAdminPoliciesRoute: typeof AppAdminPoliciesRoute
   AppAdminRolesRoute: typeof AppAdminRolesRoute
+  AppAdminUsersRoute: typeof AppAdminUsersRoute
   AppArchivedUidRoute: typeof AppArchivedUidRoute
   AppClusterTemplatesNameRoute: typeof AppClusterTemplatesNameRoute
   AppClusterTemplatesNewRoute: typeof AppClusterTemplatesNewRoute
@@ -567,6 +607,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminOrphansRoute: AppAdminOrphansRoute,
   AppAdminPoliciesRoute: AppAdminPoliciesRoute,
   AppAdminRolesRoute: AppAdminRolesRoute,
+  AppAdminUsersRoute: AppAdminUsersRoute,
   AppArchivedUidRoute: AppArchivedUidRoute,
   AppClusterTemplatesNameRoute: AppClusterTemplatesNameRoute,
   AppClusterTemplatesNewRoute: AppClusterTemplatesNewRoute,
@@ -589,6 +630,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  SetupRoute: SetupRoute,
   Oauth2CallbackRoute: Oauth2CallbackRoute,
 }
 export const routeTree = rootRouteImport

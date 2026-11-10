@@ -89,9 +89,8 @@ message Argo {
 }
 
 message Authz {
-  // super_admins bootstraps the first administrators, e.g. "user:<oidc-sub>". Without this nobody
-  // could ever grant the first permission. Super admins are decided by configuration alone, so a
-  // database outage cannot lock them out.
+  // super_admins defines optional recovery administrators by OIDC subject, e.g. "user:<oidc-sub>".
+  // These administrators are decided by configuration alone, so a database outage cannot lock them out.
   repeated string super_admins = 1;
   // dev_subject makes the server usable with sso.enabled=false by treating every request as this
   // subject. Setting it in a deployment hands that subject's permissions to anyone who can reach
@@ -104,6 +103,8 @@ message Authz {
   optional bool cluster_templates_readable = 5;
   // replica_id names this replica in authz_replicas; defaults to $POD_NAME, then the hostname.
   string replica_id = 6;
+  // setup_token authorizes creation of the first platform administrator.
+  string setup_token = 7;
 }
 
 // ClusterSwitch lets one argonaut instance be switched, from the UI, between several clusters; it is

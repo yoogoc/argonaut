@@ -16,13 +16,14 @@ import (
 type AuthzService struct {
 	v1.UnimplementedAuthzServiceServer
 
-	log   *slog.Logger
-	uc    *biz.AuthzUsecase
-	audit *biz.Auditor
+	log      *slog.Logger
+	uc       *biz.AuthzUsecase
+	audit    *biz.Auditor
+	accounts *biz.Accounts
 }
 
-func NewAuthzService(uc *biz.AuthzUsecase, auditor *biz.Auditor, logger *slog.Logger) *AuthzService {
-	return &AuthzService{log: logger.With("module", "service/authz"), uc: uc, audit: auditor}
+func NewAuthzService(uc *biz.AuthzUsecase, auditor *biz.Auditor, accounts *biz.Accounts, logger *slog.Logger) *AuthzService {
+	return &AuthzService{log: logger.With("module", "service/authz"), uc: uc, audit: auditor, accounts: accounts}
 }
 
 func (s *AuthzService) ListGrants(ctx context.Context, req *v1.ListGrantsRequest) (*v1.ListGrantsReply, error) {
@@ -31,6 +32,67 @@ func (s *AuthzService) ListGrants(ctx context.Context, req *v1.ListGrantsRequest
 		return nil, err
 	}
 	return &v1.ListGrantsReply{Grants: toProtoGrants(grants)}, nil
+}
+
+func (s *AuthzService) SearchUsers(ctx context.Context, req *v1.SearchUsersRequest) (*v1.SearchUsersReply, error) {
+	resource := authz.Resource{Namespace: req.GetNamespace(), Template: req.GetTemplate(), ClusterTemplate: req.GetClusterTemplate()}
+	users, err := s.uc.SearchUsers(ctx, req.GetQuery(), resource)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*v1.DirectoryUser, 0, len(users))
+	for _, user := range users {
+		out = append(out, toProtoUser(user))
+	}
+	return &v1.SearchUsersReply{Users: out}, nil
+}
+
+func (s *AuthzService) ListUsers(ctx context.Context, req *v1.ListUsersRequest) (*v1.ListUsersReply, error) {
+	users, more, err := s.uc.ListUsers(ctx, req.GetQuery(), int(req.GetLimit()), int(req.GetOffset()))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*v1.DirectoryUser, 0, len(users))
+	for _, user := range users {
+		entry := toProtoUser(user)
+		if user.LastLoginAt != nil {
+			entry.LastLoginAt = user.LastLoginAt.UTC().Format(timeFormat)
+		}
+		out = append(out, entry)
+	}
+	return &v1.ListUsersReply{Users: out, HasMore: more, AccountCreationAvailable: s.accounts.Available()}, nil
+}
+
+func (s *AuthzService) CreateUser(ctx context.Context, req *v1.CreateUserRequest) (*v1.DirectoryUser, error) {
+	user, err := s.accounts.CreateUser(ctx, fromCreateUser(req))
+	if err != nil {
+		return nil, err
+	}
+	return toProtoUser(user), nil
+}
+
+func (s *AuthzService) SetupStatus(ctx context.Context, _ *emptypb.Empty) (*v1.SetupStatusReply, error) {
+	required, available, err := s.accounts.SetupStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.SetupStatusReply{Required: required, Available: available}, nil
+}
+
+func (s *AuthzService) SetupAdmin(ctx context.Context, req *v1.SetupAdminRequest) (*v1.DirectoryUser, error) {
+	user, err := s.accounts.SetupAdmin(ctx, req.GetToken(), fromCreateUser(req.GetUser()))
+	if err != nil {
+		return nil, err
+	}
+	return toProtoUser(user), nil
+}
+
+func fromCreateUser(req *v1.CreateUserRequest) biz.NewAccount {
+	return biz.NewAccount{Name: req.GetName(), Email: req.GetEmail()}
+}
+
+func toProtoUser(user biz.User) *v1.DirectoryUser {
+	return &v1.DirectoryUser{Subject: user.Subject, Name: user.Name, Email: user.Email, EmailVerified: user.EmailVerified}
 }
 
 func (s *AuthzService) CreateGrant(ctx context.Context, req *v1.CreateGrantRequest) (*v1.GrantReply, error) {

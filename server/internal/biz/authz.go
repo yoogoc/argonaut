@@ -28,10 +28,13 @@ const (
 // write increments the revision, records an audit event and notifies the other replicas, all in one
 // transaction; it returns the revision it produced.
 type AuthzRepo interface {
+	AccountRepo
 	Snapshot(ctx context.Context) (authz.Snapshot, error)
 	Revision(ctx context.Context) (int64, error)
 	GetGrant(ctx context.Context, id string) (authz.Grant, error)
 	CreateGrant(ctx context.Context, g authz.Grant, audit AuditEvent) (authz.Grant, int64, error)
+	RecordLogin(ctx context.Context, user User) (int64, error)
+	FindUsers(ctx context.Context, query string, limit, offset int) ([]User, error)
 	DeleteGrant(ctx context.Context, id string, audit AuditEvent) (int64, error)
 	// DeleteGrantsOn removes every grant on one scope; it returns 0 when there were none.
 	DeleteGrantsOn(ctx context.Context, resourceType, namespace, name string, audit AuditEvent) (int64, error)
@@ -330,7 +333,7 @@ func (uc *AuthzUsecase) ListGrants(ctx context.Context, filterSubject, filterNam
 		if filterName != "" && g.Name != filterName {
 			continue
 		}
-		if g.Subject == subject || uc.engine.Allow(subject, authz.AuthzGrant, GrantResource(g)) {
+		if (g.SubjectType == authz.SubjectUser && g.Subject == subject) || uc.engine.Allow(subject, authz.AuthzGrant, GrantResource(g)) {
 			out = append(out, g)
 		}
 	}
@@ -417,7 +420,7 @@ func (uc *AuthzUsecase) grantAudit(ctx context.Context, action authz.Action, g a
 		Name:         res.Name(),
 		Result:       AuditAllowed,
 		Reason:       fmt.Sprintf("%s → %s on %s", g.Subject, g.Role, authz.DescribeScope(g)),
-		Detail:       mustJSON(map[string]any{"subject": g.Subject, "role": g.Role, "resourceType": g.ResourceType, "namespace": g.Namespace, "name": g.Name}),
+		Detail:       mustJSON(map[string]any{"subjectType": g.SubjectType, "subject": g.Subject, "role": g.Role, "resourceType": g.ResourceType, "namespace": g.Namespace, "name": g.Name}),
 	}
 }
 
@@ -468,7 +471,7 @@ func (uc *AuthzUsecase) OrphanGrants(ctx context.Context) ([]authz.Grant, error)
 		default:
 			continue
 		}
-		if g.Subject == subject || uc.engine.Allow(subject, authz.AuthzGrant, GrantResource(g)) {
+		if (g.SubjectType == authz.SubjectUser && g.Subject == subject) || uc.engine.Allow(subject, authz.AuthzGrant, GrantResource(g)) {
 			out = append(out, g)
 		}
 	}
@@ -483,7 +486,7 @@ func (uc *AuthzUsecase) MyPermissions(ctx context.Context) (string, bool, int64,
 	}
 	var mine []authz.Grant
 	for _, g := range uc.engine.Grants() {
-		if g.Subject == subject {
+		if g.SubjectType == authz.SubjectUser && g.Subject == subject {
 			mine = append(mine, g)
 		}
 	}
@@ -607,10 +610,17 @@ func NormalizeGrant(g *authz.Grant) error {
 	if g.SubjectType == "" {
 		g.SubjectType = authz.SubjectUser
 	}
-	if g.SubjectType != authz.SubjectUser {
-		return errors.BadRequest("invalid_argument", "only user grants are supported in this version")
+	switch g.SubjectType {
+	case authz.SubjectUser:
+		g.Subject = strings.TrimPrefix(strings.TrimSpace(g.Subject), "user:")
+	case authz.SubjectEmail:
+		g.Subject = NormalizeEmail(g.Subject)
+		if g.Subject == "" {
+			return errors.BadRequest("invalid_email", "a valid email address is required")
+		}
+	default:
+		return errors.BadRequest("invalid_argument", "only user and email grants are supported")
 	}
-	g.Subject = strings.TrimPrefix(strings.TrimSpace(g.Subject), "user:")
 	if g.Subject == "" {
 		return errors.BadRequest("invalid_argument", "subject is required")
 	}

@@ -27,6 +27,20 @@ func TestNothingLoadedDeniesEveryoneButSuperAdmins(t *testing.T) {
 	}
 }
 
+func TestPendingEmailGrantCannotAuthorizeAnOIDCSubject(t *testing.T) {
+	e := newTestEngine(t, nil)
+	const email = "alice@example.test"
+	e.Load(Snapshot{Revision: 1, Grants: []Grant{
+		{SubjectType: SubjectEmail, Subject: email, ResourceType: ResourceGlobal, Role: RoleAdmin},
+	}})
+	if e.Allow(email, AuthzGrant, Global()) {
+		t.Fatal("an OIDC subject equal to an email received a pending grant")
+	}
+	if len(e.Grants()) != 1 {
+		t.Fatal("pending grant should still be visible to grant administrators")
+	}
+}
+
 func TestScopesAndRoleNesting(t *testing.T) {
 	e := newTestEngine(t, nil)
 	e.Load(Snapshot{Revision: 7, Grants: []Grant{

@@ -61,10 +61,10 @@ const (
 	ResourceClusterTemplate = "cluster_template"
 )
 
-// SubjectType values. Only users exist in the first version (DESIGN §8); the column leaves room for
-// group grants.
+// SubjectEmail denotes a pending grant that a verified OIDC login can bind to a user.
 const (
 	SubjectUser  = "user"
+	SubjectEmail = "email"
 	SubjectGroup = "group"
 )
 

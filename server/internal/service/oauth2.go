@@ -9,6 +9,7 @@ import (
 
 	v1 "argonaut/api/v1"
 	"argonaut/internal/authz"
+	"argonaut/internal/biz"
 	"argonaut/internal/conf"
 	xoidc "argonaut/internal/oidc"
 	"argonaut/internal/viewer"
@@ -36,6 +37,7 @@ type Oauth2Service struct {
 	sso       *conf.SSO
 	signer    *xoidc.Signer
 	engine    *authz.Engine
+	users     *biz.AuthzUsecase
 }
 
 func NewOauth2Service(
@@ -44,6 +46,7 @@ func NewOauth2Service(
 	ssoConfig *conf.SSO,
 	signer *xoidc.Signer,
 	engine *authz.Engine,
+	users *biz.AuthzUsecase,
 ) (*Oauth2Service, error) {
 	states, err := bigcachelib.New(context.Background(), bigcachelib.DefaultConfig(stateTTL))
 	if err != nil {
@@ -56,6 +59,7 @@ func NewOauth2Service(
 		sso:       ssoConfig,
 		signer:    signer,
 		engine:    engine,
+		users:     users,
 	}, nil
 }
 
@@ -132,6 +136,12 @@ func (s *Oauth2Service) Callback(ctx context.Context, req *v1.Oauth2CallbackRequ
 		Name:             claims.DisplayName(),
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	if err := s.users.RecordLogin(ctx, biz.User{
+		Subject: claims.Subject, Name: claims.DisplayName(), Email: claims.Email, EmailVerified: claims.EmailVerified,
+	}); err != nil {
 		return nil, err
 	}
 

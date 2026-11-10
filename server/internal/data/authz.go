@@ -9,6 +9,7 @@ import (
 
 	"argonaut/internal/authz"
 	"argonaut/internal/biz"
+	"argonaut/internal/conf"
 	"argonaut/pkg/id"
 
 	kerrors "github.com/go-kratos/kratos/v3/errors"
@@ -19,12 +20,17 @@ import (
 const notifyChannel = "argonaut_authz"
 
 type authzRepo struct {
-	data *Data
+	data   *Data
+	issuer string
 }
 
-// NewAuthzRepo returns the grants / policies / revision repository.
-func NewAuthzRepo(data *Data) biz.AuthzRepo {
-	return &authzRepo{data: data}
+// NewAuthzRepo returns the authorization and user directory repository.
+func NewAuthzRepo(data *Data, sso *conf.SSO) biz.AuthzRepo {
+	issuer := sso.GetIssuerAlias()
+	if issuer == "" {
+		issuer = sso.GetIssuer()
+	}
+	return &authzRepo{data: data, issuer: issuer}
 }
 
 func (r *authzRepo) Revision(ctx context.Context) (int64, error) {
@@ -43,7 +49,7 @@ func (r *authzRepo) Snapshot(ctx context.Context) (authz.Snapshot, error) {
 			return err
 		}
 		rows, err := tx.Query(ctx, `SELECT id, subject_type, subject, resource_type, namespace, name, role, created_by, created_at, revision
-			FROM grants ORDER BY created_at, id`)
+			FROM grants WHERE subject_issuer IN ('', $1) ORDER BY created_at, id`, r.issuer)
 		if err != nil {
 			return err
 		}
@@ -87,7 +93,7 @@ func (r *authzRepo) GetGrant(ctx context.Context, idStr string) (authz.Grant, er
 		return authz.Grant{}, err
 	}
 	rows, err := r.data.pool.Query(ctx, `SELECT id, subject_type, subject, resource_type, namespace, name, role, created_by, created_at, revision
-		FROM grants WHERE id = $1`, numeric)
+		FROM grants WHERE id = $1 AND subject_issuer IN ('', $2)`, numeric, r.issuer)
 	if err != nil {
 		return authz.Grant{}, err
 	}
@@ -104,53 +110,84 @@ func (r *authzRepo) GetGrant(ctx context.Context, idStr string) (authz.Grant, er
 func (r *authzRepo) change(ctx context.Context, audit biz.AuditEvent, fn func(tx pgx.Tx, rev int64) error) (int64, error) {
 	var rev int64
 	err := pgx.BeginFunc(ctx, r.data.pool, func(tx pgx.Tx) error {
-		// The row lock also serializes concurrent writers, so revisions are handed out in commit order.
-		if err := tx.QueryRow(ctx, `UPDATE authz_meta SET revision = revision + 1 WHERE id = 1 RETURNING revision`).Scan(&rev); err != nil {
-			return err
-		}
-		if err := fn(tx, rev); err != nil {
-			return err
-		}
-		audit.Revision = rev
-		if err := insertAudit(ctx, tx, audit); err != nil {
-			return err
-		}
-		// NOTIFY is delivered at commit, and not at all if the transaction rolls back.
-		_, err := tx.Exec(ctx, `SELECT pg_notify($1, $2)`, notifyChannel, strconv.FormatInt(rev, 10))
+		var err error
+		rev, err = changeTx(ctx, tx, audit, fn)
 		return err
 	})
 	return rev, err
 }
 
-func (r *authzRepo) CreateGrant(ctx context.Context, g authz.Grant, audit biz.AuditEvent) (authz.Grant, int64, error) {
-	// Granting the same thing twice is a no-op rather than an error, so the UI can be clicked twice.
-	var existingID int64
-	err := r.data.pool.QueryRow(ctx, `SELECT id FROM grants WHERE subject_type=$1 AND subject=$2 AND resource_type=$3 AND namespace=$4 AND name=$5 AND role=$6`,
-		g.SubjectType, g.Subject, g.ResourceType, g.Namespace, storedName(g), g.Role).Scan(&existingID)
-	if err == nil {
-		existing, err := r.GetGrant(ctx, strconv.FormatInt(existingID, 10))
-		if err != nil {
-			return authz.Grant{}, 0, err
-		}
-		rev, err := r.Revision(ctx)
-		return existing, rev, err
+func changeTx(ctx context.Context, tx pgx.Tx, audit biz.AuditEvent, fn func(pgx.Tx, int64) error) (int64, error) {
+	var rev int64
+	// The row lock serializes concurrent writers, so revisions are handed out in commit order.
+	if err := tx.QueryRow(ctx, `UPDATE authz_meta SET revision = revision + 1 WHERE id = 1 RETURNING revision`).Scan(&rev); err != nil {
+		return 0, err
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return authz.Grant{}, 0, err
+	if err := fn(tx, rev); err != nil {
+		return 0, err
+	}
+	audit.Revision = rev
+	if err := insertAudit(ctx, tx, audit); err != nil {
+		return 0, err
+	}
+	// NOTIFY is delivered at commit, and not at all if the transaction rolls back.
+	_, err := tx.Exec(ctx, `SELECT pg_notify($1, $2)`, notifyChannel, strconv.FormatInt(rev, 10))
+	return rev, err
+}
+
+func lockAuthzRevision(ctx context.Context, tx pgx.Tx) error {
+	var revision int64
+	return tx.QueryRow(ctx, `SELECT revision FROM authz_meta WHERE id = 1 FOR UPDATE`).Scan(&revision)
+}
+
+var errGrantExists = errors.New("grant already exists")
+
+func (r *authzRepo) CreateGrant(ctx context.Context, g authz.Grant, audit biz.AuditEvent) (authz.Grant, int64, error) {
+	var issuer string
+	if g.SubjectType == authz.SubjectEmail {
+		issuer = r.issuer
+		if issuer == "" {
+			return authz.Grant{}, 0, kerrors.BadRequest("invalid_argument", "email grants require a configured OIDC issuer")
+		}
 	}
 
-	newID := id.Generate()
+	var created authz.Grant
 	rev, err := r.change(ctx, audit, func(tx pgx.Tx, rev int64) error {
-		_, err := tx.Exec(ctx, `INSERT INTO grants (id, subject_type, subject, resource_type, namespace, name, role, created_by, revision)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			newID, g.SubjectType, g.Subject, g.ResourceType, g.Namespace, storedName(g), g.Role, g.CreatedBy, rev)
-		return err
+		rows, err := tx.Query(ctx, `INSERT INTO grants
+			(id, subject_type, subject, resource_type, namespace, name, role, created_by, revision, subject_issuer)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			ON CONFLICT (subject_type, subject, resource_type, namespace, name, role, subject_issuer) DO NOTHING
+			RETURNING id, subject_type, subject, resource_type, namespace, name, role, created_by, created_at, revision`,
+			id.Generate(), g.SubjectType, g.Subject, g.ResourceType, g.Namespace, storedName(g), g.Role, g.CreatedBy, rev, issuer)
+		if err != nil {
+			return err
+		}
+		created, err = pgx.CollectExactlyOneRow(rows, scanGrant)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		// Roll back the revision bump when the same grant already exists.
+		rows, err = tx.Query(ctx, `SELECT id, subject_type, subject, resource_type, namespace, name, role, created_by, created_at, revision
+			FROM grants WHERE subject_type=$1 AND subject=$2 AND resource_type=$3 AND namespace=$4
+			AND name=$5 AND role=$6 AND subject_issuer=$7`,
+			g.SubjectType, g.Subject, g.ResourceType, g.Namespace, storedName(g), g.Role, issuer)
+		if err != nil {
+			return err
+		}
+		created, err = pgx.CollectExactlyOneRow(rows, scanGrant)
+		if err != nil {
+			return err
+		}
+		return errGrantExists
 	})
+	if errors.Is(err, errGrantExists) {
+		rev, err := r.Revision(ctx)
+		return created, rev, err
+	}
 	if err != nil {
 		return authz.Grant{}, 0, err
 	}
-	created, err := r.GetGrant(ctx, strconv.FormatInt(newID, 10))
-	return created, rev, err
+	return created, rev, nil
 }
 
 // storedName keeps the pre-existing column contract: namespace and global grants store "*".

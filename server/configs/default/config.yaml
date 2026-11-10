@@ -61,9 +61,10 @@ argo:
   instance_id: ""
 
 authz:
-  # Bootstrap administrators by OIDC subject ("user:<sub>"). Without at least one entry nobody can
-  # issue the first grant.
+  # Optional recovery administrators by OIDC subject ("user:<sub>").
   super_admins: []
+  # A random setup secret (at least 32 bytes) enables the first-run wizard.
+  setup_token: "${SETUP_TOKEN:}"
   # Only used when sso.enabled is false: treats every request as this subject so the API can be
   # exercised without an identity provider. Never set it in a real deployment.
   dev_subject: ""

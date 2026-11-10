@@ -261,6 +261,8 @@ export type Role = "viewer" | "operator" | "editor" | "admin";
 
 export type GrantResourceType = "global" | "namespace" | "template" | "cluster_template";
 
+export type DirectoryUser = api.DirectoryUser;
+
 export type Grant = Present<api.Grant, "id" | "subject" | "createdBy" | "createdAt" | "revision"> & {
   role: Role;
   resourceType: GrantResourceType;

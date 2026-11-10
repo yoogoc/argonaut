@@ -29,10 +29,12 @@ import (
 	"github.com/gorilla/handlers"
 )
 
-// Login endpoints must be reachable without a session, since they are how a session is obtained.
+// Login and first-run setup are available before a session exists.
 var skipAuthOperations = []string{
 	v1.OperationOauth2ServiceRedirect,
 	v1.OperationOauth2ServiceCallback,
+	v1.OperationAuthzServiceSetupStatus,
+	v1.OperationAuthzServiceSetupAdmin,
 }
 
 // NewHTTPServer builds the HTTP server. This is the only transport: the UI talks HTTP, and streaming

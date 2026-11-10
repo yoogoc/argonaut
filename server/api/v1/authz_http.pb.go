@@ -21,15 +21,20 @@ const _ = http.SupportPackageIsVersion3
 const OperationAuthzServiceActions = "/api.v1.AuthzService/Actions"
 const OperationAuthzServiceCreateGrant = "/api.v1.AuthzService/CreateGrant"
 const OperationAuthzServiceCreatePolicy = "/api.v1.AuthzService/CreatePolicy"
+const OperationAuthzServiceCreateUser = "/api.v1.AuthzService/CreateUser"
 const OperationAuthzServiceDeleteGrant = "/api.v1.AuthzService/DeleteGrant"
 const OperationAuthzServiceDeletePolicy = "/api.v1.AuthzService/DeletePolicy"
 const OperationAuthzServiceListAudit = "/api.v1.AuthzService/ListAudit"
 const OperationAuthzServiceListGrants = "/api.v1.AuthzService/ListGrants"
 const OperationAuthzServiceListPolicies = "/api.v1.AuthzService/ListPolicies"
 const OperationAuthzServiceListRoles = "/api.v1.AuthzService/ListRoles"
+const OperationAuthzServiceListUsers = "/api.v1.AuthzService/ListUsers"
 const OperationAuthzServiceMyPermissions = "/api.v1.AuthzService/MyPermissions"
 const OperationAuthzServiceOrphanGrants = "/api.v1.AuthzService/OrphanGrants"
+const OperationAuthzServiceSearchUsers = "/api.v1.AuthzService/SearchUsers"
 const OperationAuthzServiceSetPolicyEnabled = "/api.v1.AuthzService/SetPolicyEnabled"
+const OperationAuthzServiceSetupAdmin = "/api.v1.AuthzService/SetupAdmin"
+const OperationAuthzServiceSetupStatus = "/api.v1.AuthzService/SetupStatus"
 const OperationAuthzServiceStatus = "/api.v1.AuthzService/Status"
 
 type AuthzServiceHTTPServer interface {
@@ -38,6 +43,7 @@ type AuthzServiceHTTPServer interface {
 	Actions(context.Context, *ActionsRequest) (*ActionsReply, error)
 	CreateGrant(context.Context, *CreateGrantRequest) (*GrantReply, error)
 	CreatePolicy(context.Context, *CreatePolicyRequest) (*PolicyReply, error)
+	CreateUser(context.Context, *CreateUserRequest) (*DirectoryUser, error)
 	DeleteGrant(context.Context, *DeleteGrantRequest) (*DeleteGrantReply, error)
 	DeletePolicy(context.Context, *DeletePolicyRequest) (*RevisionReply, error)
 	ListAudit(context.Context, *ListAuditRequest) (*ListAuditReply, error)
@@ -45,12 +51,18 @@ type AuthzServiceHTTPServer interface {
 	ListPolicies(context.Context, *emptypb.Empty) (*ListPoliciesReply, error)
 	// ListRoles ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.
 	ListRoles(context.Context, *emptypb.Empty) (*ListRolesReply, error)
+	// ListUsers ListUsers pages through the local user directory for platform grant administrators.
+	ListUsers(context.Context, *ListUsersRequest) (*ListUsersReply, error)
 	// MyPermissions MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
 	// convenience, never the security boundary (every RPC is checked server-side).
 	MyPermissions(context.Context, *emptypb.Empty) (*MyPermissionsReply, error)
 	// OrphanGrants OrphanGrants lists grants on templates that no longer exist.
 	OrphanGrants(context.Context, *emptypb.Empty) (*ListGrantsReply, error)
+	// SearchUsers SearchUsers finds local directory entries for a caller who can grant on the selected scope.
+	SearchUsers(context.Context, *SearchUsersRequest) (*SearchUsersReply, error)
 	SetPolicyEnabled(context.Context, *SetPolicyEnabledRequest) (*RevisionReply, error)
+	SetupAdmin(context.Context, *SetupAdminRequest) (*DirectoryUser, error)
+	SetupStatus(context.Context, *emptypb.Empty) (*SetupStatusReply, error)
 	// Status Status reports the committed revision and which replicas have loaded it.
 	Status(context.Context, *emptypb.Empty) (*AuthzStatusReply, error)
 }
@@ -59,6 +71,11 @@ func RegisterAuthzServiceHTTPServer(s *http.Server, srv AuthzServiceHTTPServer) 
 	r := s.Route("/")
 	r.Handle("GET", "/api/v1/authz/grants", _AuthzService_ListGrants0_HTTP_Handler(srv))
 	r.Handle("POST", "/api/v1/authz/grants", _AuthzService_CreateGrant0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/authz/users", _AuthzService_SearchUsers0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/authz/user-directory", _AuthzService_ListUsers0_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/authz/users", _AuthzService_CreateUser0_HTTP_Handler(srv))
+	r.Handle("GET", "/api/v1/setup", _AuthzService_SetupStatus0_HTTP_Handler(srv))
+	r.Handle("POST", "/api/v1/setup", _AuthzService_SetupAdmin0_HTTP_Handler(srv))
 	r.Handle("DELETE", "/api/v1/authz/grants/{id}", _AuthzService_DeleteGrant0_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/authz/roles", _AuthzService_ListRoles0_HTTP_Handler(srv))
 	r.Handle("GET", "/api/v1/authz/my-permissions", _AuthzService_MyPermissions0_HTTP_Handler(srv))
@@ -106,6 +123,101 @@ func _AuthzService_CreateGrant0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ct
 			return err
 		}
 		reply := out.(*GrantReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_SearchUsers0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SearchUsersRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceSearchUsers)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SearchUsers(ctx, req.(*SearchUsersRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*SearchUsersReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_ListUsers0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ListUsersRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceListUsers)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListUsers(ctx, req.(*ListUsersRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ListUsersReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_CreateUser0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in CreateUserRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceCreateUser)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.CreateUser(ctx, req.(*CreateUserRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*DirectoryUser)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_SetupStatus0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in emptypb.Empty
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceSetupStatus)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SetupStatus(ctx, req.(*emptypb.Empty))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*SetupStatusReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AuthzService_SetupAdmin0_HTTP_Handler(srv AuthzServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SetupAdminRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthzServiceSetupAdmin)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SetupAdmin(ctx, req.(*SetupAdminRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*DirectoryUser)
 		return ctx.Result(200, reply)
 	}
 }
@@ -334,6 +446,7 @@ type AuthzServiceHTTPClient interface {
 	Actions(ctx context.Context, req *ActionsRequest, opts ...http.CallOption) (rsp *ActionsReply, err error)
 	CreateGrant(ctx context.Context, req *CreateGrantRequest, opts ...http.CallOption) (rsp *GrantReply, err error)
 	CreatePolicy(ctx context.Context, req *CreatePolicyRequest, opts ...http.CallOption) (rsp *PolicyReply, err error)
+	CreateUser(ctx context.Context, req *CreateUserRequest, opts ...http.CallOption) (rsp *DirectoryUser, err error)
 	DeleteGrant(ctx context.Context, req *DeleteGrantRequest, opts ...http.CallOption) (rsp *DeleteGrantReply, err error)
 	DeletePolicy(ctx context.Context, req *DeletePolicyRequest, opts ...http.CallOption) (rsp *RevisionReply, err error)
 	ListAudit(ctx context.Context, req *ListAuditRequest, opts ...http.CallOption) (rsp *ListAuditReply, err error)
@@ -341,12 +454,18 @@ type AuthzServiceHTTPClient interface {
 	ListPolicies(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *ListPoliciesReply, err error)
 	// ListRoles ListRoles returns the built-in roles and the actions each contains, so the UI can explain them.
 	ListRoles(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *ListRolesReply, err error)
+	// ListUsers ListUsers pages through the local user directory for platform grant administrators.
+	ListUsers(ctx context.Context, req *ListUsersRequest, opts ...http.CallOption) (rsp *ListUsersReply, err error)
 	// MyPermissions MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
 	// convenience, never the security boundary (every RPC is checked server-side).
 	MyPermissions(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *MyPermissionsReply, err error)
 	// OrphanGrants OrphanGrants lists grants on templates that no longer exist.
 	OrphanGrants(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *ListGrantsReply, err error)
+	// SearchUsers SearchUsers finds local directory entries for a caller who can grant on the selected scope.
+	SearchUsers(ctx context.Context, req *SearchUsersRequest, opts ...http.CallOption) (rsp *SearchUsersReply, err error)
 	SetPolicyEnabled(ctx context.Context, req *SetPolicyEnabledRequest, opts ...http.CallOption) (rsp *RevisionReply, err error)
+	SetupAdmin(ctx context.Context, req *SetupAdminRequest, opts ...http.CallOption) (rsp *DirectoryUser, err error)
+	SetupStatus(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *SetupStatusReply, err error)
 	// Status Status reports the committed revision and which replicas have loaded it.
 	Status(ctx context.Context, req *emptypb.Empty, opts ...http.CallOption) (rsp *AuthzStatusReply, err error)
 }
@@ -402,6 +521,23 @@ func (c *AuthzServiceHTTPClientImpl) CreatePolicy(ctx context.Context, in *Creat
 		http.Accept("application/protojson"),
 		http.ContentType("application/protojson"),
 		http.Operation(OperationAuthzServiceCreatePolicy),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *AuthzServiceHTTPClientImpl) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...http.CallOption) (*DirectoryUser, error) {
+	var out DirectoryUser
+	pattern := "/api/v1/authz/users"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationAuthzServiceCreateUser),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
@@ -508,6 +644,23 @@ func (c *AuthzServiceHTTPClientImpl) ListRoles(ctx context.Context, in *emptypb.
 	return &out, nil
 }
 
+// ListUsers ListUsers pages through the local user directory for platform grant administrators.
+func (c *AuthzServiceHTTPClientImpl) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...http.CallOption) (*ListUsersReply, error) {
+	var out ListUsersReply
+	pattern := "/api/v1/authz/user-directory"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceListUsers),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // MyPermissions MyPermissions returns the caller's effective grants. The UI uses it to hide buttons; it is a
 // convenience, never the security boundary (every RPC is checked server-side).
 func (c *AuthzServiceHTTPClientImpl) MyPermissions(ctx context.Context, in *emptypb.Empty, opts ...http.CallOption) (*MyPermissionsReply, error) {
@@ -543,6 +696,23 @@ func (c *AuthzServiceHTTPClientImpl) OrphanGrants(ctx context.Context, in *empty
 	return &out, nil
 }
 
+// SearchUsers SearchUsers finds local directory entries for a caller who can grant on the selected scope.
+func (c *AuthzServiceHTTPClientImpl) SearchUsers(ctx context.Context, in *SearchUsersRequest, opts ...http.CallOption) (*SearchUsersReply, error) {
+	var out SearchUsersReply
+	pattern := "/api/v1/authz/users"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceSearchUsers),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *AuthzServiceHTTPClientImpl) SetPolicyEnabled(ctx context.Context, in *SetPolicyEnabledRequest, opts ...http.CallOption) (*RevisionReply, error) {
 	var out RevisionReply
 	pattern := "/api/v1/authz/policies/{id}"
@@ -554,6 +724,39 @@ func (c *AuthzServiceHTTPClientImpl) SetPolicyEnabled(ctx context.Context, in *S
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *AuthzServiceHTTPClientImpl) SetupAdmin(ctx context.Context, in *SetupAdminRequest, opts ...http.CallOption) (*DirectoryUser, error) {
+	var out DirectoryUser
+	pattern := "/api/v1/setup"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationAuthzServiceSetupAdmin),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *AuthzServiceHTTPClientImpl) SetupStatus(ctx context.Context, in *emptypb.Empty, opts ...http.CallOption) (*SetupStatusReply, error) {
+	var out SetupStatusReply
+	pattern := "/api/v1/setup"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAuthzServiceSetupStatus),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

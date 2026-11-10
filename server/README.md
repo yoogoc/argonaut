@@ -32,8 +32,8 @@ make wire             # regenerate DI after changing providers
 go run ./cmd server   # start on :4100
 ```
 
-The only persistent state is the `grants` table. Workflows, templates and cron workflows always come
-from Kubernetes, so the database can be rebuilt without losing anything but permissions.
+PostgreSQL stores grants, the user directory, audit events and template revision history.
+Workflows, templates and cron workflows always come from Kubernetes.
 
 ### Configuration
 
@@ -56,7 +56,7 @@ Three settings deserve attention:
   offload) and the configured links are all read from this ConfigMap at runtime, exactly as
   argo-server does. Artifact credentials are never configured here. It is parsed tolerantly, so a
   controller newer than the pinned Argo library does not stop the server from starting.
-- **`authz.super_admins`** — bootstrap at least one OIDC subject, or nobody can issue the first grant.
+- **`authz.super_admins`** — optional recovery administrators identified by OIDC subject.
 
 For local development without an identity provider, set `sso.enabled: false` and
 `authz.dev_subject: <subject>` in `configs/local/config.yaml`; every request is then treated as that
@@ -78,7 +78,24 @@ AWS_PROFILE=your-profile go run ./cmd server
 This only affects running locally against such a context. A deployed server uses its in-cluster
 ServiceAccount and needs no plugin.
 
+### Local users and first-run setup
+
+Configure OIDC sign-in before starting Argonaut. On a fresh database, set `ARGONAUT_SETUP_TOKEN`
+to a random secret of at least 32 bytes, run the migrations and open the login page. The setup
+wizard reserves the global `admin` role for the email entered. Sign in through Logto using an
+account with that verified email to activate the role. The wizard closes after the reservation
+and is skipped when an administrator is already configured. Remove the token after setup.
+
+Global grant administrators can add local users by email under **Permissions → Users**. The
+directory shows them immediately so grants can be prepared before their first sign-in. The first
+verified sign-in for that address binds the profile and grants to the OIDC subject.
+
 ## Authorization
+
+Successful OIDC sign-ins update the local user directory with the account's subject, name, email
+and most recent sign-in time. Grant administrators can search by name or email after choosing a
+scope. For someone who has yet to sign in, create a pending grant by email. The first sign-in with
+that verified email binds the grant to the account's OIDC subject.
 
 Permissions are granted on WorkflowTemplates. A workflow or cron workflow inherits the permissions of
 the template it derives from (via `spec.workflowTemplateRef`, falling back to the
