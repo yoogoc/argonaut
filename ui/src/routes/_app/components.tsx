@@ -17,6 +17,7 @@ import { KindIcon } from "@/graph/kinds";
 import { type SpecLike, templateKind } from "@/graph/spec";
 import { useNamespace } from "@/hooks/use-namespace";
 import { formatRelative } from "@/lib/format";
+import { CopyTemplateButton } from "@/templates/copy-template-button";
 
 export const Route = createFileRoute("/_app/components")({ component: ComponentsPage });
 
@@ -37,7 +38,8 @@ function ComponentsPage() {
   const { t } = useTranslation();
   const { namespace } = useNamespace();
   const query = useQuery(templateQueries.components(namespace));
-  const { can } = useActions({ namespace });
+  const canCreate = useActions({ namespace }).can("template:create");
+  const canCreateCluster = useActions({}).can("template:create");
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("all");
   const components = useMemo(() => query.data ?? [], [query.data]);
@@ -62,7 +64,7 @@ function ComponentsPage() {
           </>
         }
         actions={
-          can("template:create") && (
+          canCreate && (
             <Button asChild>
               <Link to="/templates/new" search={{ component: true }}>
                 <Plus aria-hidden />
@@ -154,6 +156,9 @@ function ComponentsPage() {
                   <Link to="/templates/new" search={{ from: `${c.cluster ? "cluster" : namespace}/${tpl.metadata.name}` }} className="ml-auto text-[13px] font-medium text-primary hover:underline">
                     {t("Use in editor")}
                   </Link>
+                  {(c.cluster ? canCreateCluster : canCreate) && (
+                    <CopyTemplateButton templateRef={c.cluster ? { cluster: true, name: tpl.metadata.name } : { cluster: false, namespace: tpl.metadata.namespace, name: tpl.metadata.name }} component compact />
+                  )}
                 </div>
               </article>
             );

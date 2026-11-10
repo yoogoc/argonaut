@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { stringify } from "yaml";
 
 import { useActions } from "@/api/authz";
-import { COMPONENT_LABEL, createTemplate, getTemplate, lintTemplate, runLabelSelector, type TemplateRef, type TemplateScope, templateQueries, updateTemplate } from "@/api/templates";
+import { COMPONENT_LABEL, createTemplate, getTemplate, lintTemplate, MODIFIED_BY_ANNOTATION, runLabelSelector, type TemplateRef, type TemplateScope, templateQueries, updateTemplate } from "@/api/templates";
 import type { WorkflowTemplate } from "@/api/types";
 import { workflowQueries } from "@/api/workflows";
 import { ErrorState, errorMessage } from "@/components/common/states";
@@ -43,6 +43,22 @@ function editable(tpl: WorkflowTemplate): Json {
   return { metadata, spec: pruneZero(tpl.spec) as Json };
 }
 
+function copyDraft(tpl: WorkflowTemplate): Json {
+  const draft = editable(tpl);
+  const metadata = draft.metadata as Json;
+  const suffix = "-copy";
+  // Leave room for the suffix within Kubernetes' DNS subdomain length limit.
+  metadata.name = tpl.metadata.name.slice(0, 253 - suffix.length).replace(/[.-]+$/, "") + suffix;
+  delete metadata.resourceVersion;
+
+  const annotations = { ...tpl.metadata.annotations };
+  delete annotations[MODIFIED_BY_ANNOTATION];
+  delete annotations["kubectl.kubernetes.io/last-applied-configuration"];
+  if (Object.keys(annotations).length) metadata.annotations = annotations;
+  else delete metadata.annotations;
+  return draft;
+}
+
 function skeleton(scope: TemplateScope, component: boolean): Json {
   const metadata: Json = { name: "" };
   if (!scope.cluster) metadata.namespace = scope.namespace;
@@ -55,28 +71,34 @@ function skeleton(scope: TemplateScope, component: boolean): Json {
  * document. Saving lints against the cluster first, then writes with the resourceVersion the editor
  * loaded; a 409 opens the three-way merge.
  */
-export function EditorPage({ scope, name, component = false, from }: { scope: TemplateScope; name?: string; component?: boolean; from?: string }) {
+export function EditorPage({ scope, name, component = false, from, copy }: { scope: TemplateScope; name?: string; component?: boolean; from?: string; copy?: string }) {
   const { namespace: currentNs } = useNamespace();
-  const ref: TemplateRef | undefined = name ? (scope.cluster ? { cluster: true, name } : { cluster: false, namespace: scope.namespace, name }) : undefined;
+  const ref: TemplateRef | undefined = name ? { ...scope, name } : undefined;
   const detail = useQuery({ ...templateQueries.detail(ref ?? { cluster: true, name: "" }), enabled: !!ref, staleTime: Infinity, refetchOnWindowFocus: false });
   const [fromScope, fromName] = from?.split("/") ?? [];
+  const sourceRef: TemplateRef | undefined = copy ? { ...scope, name: copy } : fromName ? (fromScope === "cluster" ? { cluster: true, name: fromName } : { cluster: false, namespace: fromScope, name: fromName }) : undefined;
+  const sourceOptions = templateQueries.detail(sourceRef ?? { cluster: true, name: "" });
   const source = useQuery({
-    queryKey: ["templates", "detail", "from", from],
-    queryFn: () => getTemplate(fromScope === "cluster" ? { cluster: true, name: fromName } : { cluster: false, namespace: fromScope, name: fromName }),
-    enabled: !!from && !name,
-    staleTime: Infinity,
+    ...sourceOptions,
+    queryKey: [...sourceOptions.queryKey, copy ? "copy-source" : "component-source"],
+    enabled: !!sourceRef && !name,
+    staleTime: copy ? 0 : Infinity,
+    refetchOnWindowFocus: false,
   });
 
   // Load once per template; later refetches must not throw away edits.
   const [loadedKey, setLoadedKey] = useState<string>();
-  const key = `${scope.cluster ? "cluster" : scope.namespace}/${name ?? `new:${from ?? ""}:${component}`}`;
+  const key = `${scope.cluster ? "cluster" : scope.namespace}/${name ?? (copy ? `copy:${copy}` : `new:${from ?? ""}:${component}`)}`;
   useEffect(() => {
     if (loadedKey === key) return;
     if (name) {
       if (!detail.data) return;
       useEditor.getState().load(scope, editable(detail.data));
+    } else if (copy) {
+      if (source.isFetching || source.error || !source.data) return;
+      useEditor.getState().load(scope, copyDraft(source.data));
     } else {
-      if (from && !source.data && !source.error) return;
+      if (fromName && !source.data && !source.error) return;
       const obj = skeleton(scope, component);
       if (source.data) {
         const sourceTpl = source.data;
@@ -86,10 +108,11 @@ export function EditorPage({ scope, name, component = false, from }: { scope: Te
       useEditor.getState().load(scope, obj);
     }
     setLoadedKey(key);
-  }, [loadedKey, key, name, detail.data, from, source.data, source.error, scope, component, fromScope]);
+  }, [loadedKey, key, name, detail.data, copy, fromName, source.data, source.error, source.isFetching, scope, component, fromScope]);
 
   const loaded = loadedKey === key;
   if (detail.error) return <ErrorState error={detail.error} className="m-6" />;
+  if (copy && !loaded && source.error) return <ErrorState error={source.error} className="m-6" />;
   if (!loaded) return <Skeleton className="m-6 h-[70vh]" />;
   return <Editor scope={scope} templateRef={ref} runNamespace={scope.cluster ? currentNs : scope.namespace} />;
 }
@@ -169,6 +192,7 @@ function Editor({ scope, templateRef, runNamespace }: { scope: TemplateScope; te
     void queryClient.invalidateQueries({ queryKey: ["templates", "revisions"] });
     toast.success(t("Saved"));
     if (!templateRef) {
+      void queryClient.invalidateQueries({ queryKey: ["templates", "components"] });
       skipBlock.current = true;
       if (scope.cluster) void navigate({ to: "/cluster-templates/$name/edit", params: { name: saved.metadata.name }, replace: true });
       else void navigate({ to: "/templates/$namespace/$name/edit", params: { namespace: scope.namespace, name: saved.metadata.name }, replace: true });

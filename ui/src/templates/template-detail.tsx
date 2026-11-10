@@ -24,6 +24,7 @@ import { formatDuration, formatRelative } from "@/lib/format";
 import { isSuspended } from "@/lib/workflow";
 import { toYaml } from "@/lib/yaml";
 
+import { CopyTemplateButton } from "./copy-template-button";
 import { Revisions } from "./revisions";
 import { SubmitPanel } from "./submit-panel";
 
@@ -46,6 +47,7 @@ export function TemplateDetail({ templateRef, tab, onTab }: { templateRef: Templ
   const queryClient = useQueryClient();
   const query = useQuery(templateQueries.detail(templateRef));
   const { can } = useActions(templateRef.cluster ? { clusterTemplate: templateRef.name } : { namespace: templateRef.namespace, template: templateRef.name });
+  const createActions = useActions(templateRef.cluster ? {} : { namespace: templateRef.namespace });
   const { namespace: currentNs } = useNamespace();
   // A cluster template's runs live in namespaces; this page shows those of the current one.
   const runNs = templateRef.cluster ? currentNs : templateRef.namespace;
@@ -67,6 +69,7 @@ export function TemplateDetail({ templateRef, tab, onTab }: { templateRef: Templ
   if (query.error) return <ErrorState error={query.error} className="m-6" />;
   const tpl = query.data;
   if (!tpl) return null;
+  const isComponent = tpl.metadata.labels?.[COMPONENT_LABEL] === "true";
 
   const editLink = templateRef.cluster ? (
     <Link to="/cluster-templates/$name/edit" params={{ name: templateRef.name }}>
@@ -102,7 +105,7 @@ export function TemplateDetail({ templateRef, tab, onTab }: { templateRef: Templ
             <>
               <h1 className="font-mono text-xl font-semibold">{tpl.metadata.name}</h1>
               {templateRef.cluster && <span className="rounded-full bg-foreground px-2 py-0.5 text-[11px] font-bold text-background">{t("Cluster")}</span>}
-              {tpl.metadata.labels?.[COMPONENT_LABEL] === "true" && (
+              {isComponent && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-node-ref-bg px-2 py-0.5 text-[11px] font-semibold text-node-ref">
                   <Layers className="size-3" aria-hidden />
                   {t("Component")}
@@ -139,6 +142,7 @@ export function TemplateDetail({ templateRef, tab, onTab }: { templateRef: Templ
               {editLink}
             </Button>
           )}
+          {createActions.can("template:create") && <CopyTemplateButton templateRef={templateRef} component={isComponent} />}
           {can("template:delete") && (
             <Button variant="outline" size="icon" className="text-destructive" aria-label={t("Delete template")} onClick={() => setConfirmDelete(true)}>
               <Trash2 aria-hidden />

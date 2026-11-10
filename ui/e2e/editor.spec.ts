@@ -1,4 +1,4 @@
-import { createTemplate, deleteTemplate, expect, NAMESPACE, test, uniqueName } from "./fixtures";
+import { createTemplate, deleteTemplate, expect, NAMESPACE, templateManifest, test, uniqueName } from "./fixtures";
 
 test.describe("template editor", () => {
   const created: string[] = [];
@@ -107,6 +107,66 @@ test.describe("template editor", () => {
     const container = saved.spec.templates.find((t: { name: string }) => t.name === "echo").container;
     expect(container.command).toEqual(["-c", "sh"]);
     expect(container.args).toEqual(["extra", "echo hello"]);
+  });
+
+  test("copies a pipeline to a new editable template", async ({ page, request }) => {
+    const source = uniqueName("copy-source");
+    const copy = uniqueName("copy-target");
+    created.push(source, copy);
+    const original = await createTemplate(request, source);
+    await page.goto("/templates");
+    await page.getByRole("textbox", { name: "Search by name" }).fill(source);
+    const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: source, exact: true }) });
+    await row.getByRole("link", { name: "Copy template" }).click();
+
+    const name = page.getByRole("textbox", { name: "Template name" });
+    await expect(name).toHaveValue(`${source}-copy`);
+    await name.fill(copy);
+    await page.locator('.react-flow__node[data-id="a"]').click();
+    await page.getByRole("textbox", { name: "Image", exact: true }).fill("busybox:1.37");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/templates/${NAMESPACE}/${copy}/edit$`));
+
+    const saved = (await (await request.get(`/api/v1/workflow-templates/${NAMESPACE}/${copy}`)).json()).template;
+    expect(saved.metadata.uid).not.toBe(original.metadata.uid);
+    expect(saved.spec.templates.find((t: { name: string }) => t.name === "main")).toEqual(original.spec.templates.find((t: { name: string }) => t.name === "main"));
+    expect(saved.spec.templates.find((t: { name: string }) => t.name === "echo").container.image).toBe("busybox:1.37");
+    const unchanged = (await (await request.get(`/api/v1/workflow-templates/${NAMESPACE}/${source}`)).json()).template;
+    expect(unchanged.spec).toEqual(original.spec);
+  });
+
+  test("copies a cluster component with its labels and annotations", async ({ page, request }) => {
+    const source = uniqueName("cluster-component");
+    const copy = `${source}-copy`;
+    const api = "/api/v1/cluster-workflow-templates";
+    const manifest = templateManifest(source).replace(`  namespace: ${NAMESPACE}\n`, `  labels:
+    argonaut.io/component: "true"
+  annotations:
+    argonaut.io/category: Test category
+    argonaut.io/description: Copyable test component
+`);
+    const response = await request.post(api, { data: { manifest } });
+    expect(response.ok(), await response.text()).toBeTruthy();
+
+    try {
+      await page.goto("/components");
+      const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: source, exact: true }) });
+      await card.getByRole("link", { name: "Copy component" }).click();
+      await expect(page.getByRole("textbox", { name: "Template name" })).toHaveValue(copy);
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/cluster-templates/${copy}/edit$`));
+
+      const original = (await response.json()).template;
+      const saved = (await (await request.get(`${api}/${copy}`)).json()).template;
+      expect(saved.metadata.uid).not.toBe(original.metadata.uid);
+      expect(saved.metadata.labels["argonaut.io/component"]).toBe("true");
+      expect(saved.metadata.annotations["argonaut.io/category"]).toBe("Test category");
+      expect(saved.metadata.annotations["argonaut.io/description"]).toBe("Copyable test component");
+      expect(saved.spec).toEqual(original.spec);
+    } finally {
+      await request.delete(`${api}/${copy}`);
+      await request.delete(`${api}/${source}`);
+    }
   });
 
   test("merges a concurrent save through the three-way merge view", async ({ page, request }) => {

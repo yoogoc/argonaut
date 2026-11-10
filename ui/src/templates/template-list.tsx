@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRelative } from "@/lib/format";
 
+import { CopyTemplateButton } from "./copy-template-button";
+
 /** The WorkflowTemplate and ClusterWorkflowTemplate list pages. */
 export function TemplateList({ scope }: { scope: TemplateScope }) {
   const { t } = useTranslation();
@@ -21,6 +23,7 @@ export function TemplateList({ scope }: { scope: TemplateScope }) {
   const query = useQuery(templateQueries.list(scope, { namePattern: q || undefined }));
   // Creating needs template:create on the namespace (cluster templates: globally).
   const { can } = useActions(scope.cluster ? {} : { namespace: scope.namespace });
+  const canCreate = can("template:create");
   const items = query.data?.items ?? [];
 
   return (
@@ -29,7 +32,7 @@ export function TemplateList({ scope }: { scope: TemplateScope }) {
         title={scope.cluster ? t("Cluster templates") : t("Templates")}
         description={scope.cluster ? t("ClusterWorkflowTemplates are shared by every namespace. Runs created from one belong to the namespace they run in.") : t("WorkflowTemplates in this namespace. Permissions are granted on templates; their runs inherit them.")}
         actions={
-          can("template:create") && (
+          canCreate && (
             <Button asChild>
               <Link to={scope.cluster ? "/cluster-templates/new" : "/templates/new"}>
                 <Plus aria-hidden />
@@ -57,13 +60,14 @@ export function TemplateList({ scope }: { scope: TemplateScope }) {
                   <TableHead>{t("Parameters")}</TableHead>
                   <TableHead>{t("Last modified by")}</TableHead>
                   <TableHead>{t("Created")}</TableHead>
+                  {canCreate && <TableHead className="w-12"><span className="sr-only">{t("Actions")}</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {query.isPending &&
                   Array.from({ length: 5 }, (_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={5}>
+                      <TableCell colSpan={canCreate ? 6 : 5}>
                         <Skeleton className="h-5 w-full" />
                       </TableCell>
                     </TableRow>
@@ -93,6 +97,11 @@ export function TemplateList({ scope }: { scope: TemplateScope }) {
                     <TableCell className="font-mono text-xs text-muted-foreground">{(tpl.spec.arguments?.parameters ?? []).map((p) => p.name).join(", ") || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{tpl.metadata.annotations?.[MODIFIED_BY_ANNOTATION] ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{formatRelative(tpl.metadata.creationTimestamp)}</TableCell>
+                    {canCreate && (
+                      <TableCell className="text-right">
+                        <CopyTemplateButton templateRef={scope.cluster ? { cluster: true, name: tpl.metadata.name } : { cluster: false, namespace: tpl.metadata.namespace, name: tpl.metadata.name }} compact />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
