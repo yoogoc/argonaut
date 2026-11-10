@@ -1,5 +1,5 @@
-import { Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
+import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { parse, stringify } from "yaml";
 
@@ -11,9 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+import { getIn, type Path } from "../doc";
 import type { Suggestion } from "../expressions";
+import { useEditor } from "../store";
 
 const UNSET = "__unset__";
 const toYaml = (v: unknown) => (v === undefined ? "" : stringify(v, { lineWidth: 0 }));
@@ -142,44 +145,137 @@ export function ExpressionControl({ value, onChange, placeholder, label, suggest
 }
 
 /** A list of strings: command, args, flags, withItems of scalars. */
-export function ListControl({ value, onChange, label }: { value: unknown; onChange: (v: unknown) => void; label: string }) {
+export function ListControl({ path, label }: { path: Path; label: string }) {
   const { t } = useTranslation();
+  const value = useEditor((s) => getIn(s.obj, path));
+  const frozen = useEditor((s) => !!s.yamlError);
+  const set = useEditor((s) => s.set);
+  const apply = useEditor((s) => s.apply);
   const items = Array.isArray(value) ? (value as unknown[]) : [];
   const [draft, setDraft] = useState("");
+  const [drag, setDrag] = useState<{ from: number; items: unknown[] }>();
+  const [dropSlot, setDropSlot] = useState<number>();
+  const handles = useRef<(HTMLButtonElement | null)[]>([]);
+  const sortable = items.length > 1 && !frozen;
+  const from = sortable && drag?.items === items ? drag.from : undefined;
+  const marker = from === undefined || dropSlot === from || dropSlot === from + 1 ? undefined : dropSlot;
+  const field = `field:${path.join(".")}`;
+  const edit = (index: number, text: string) =>
+    apply(`${field}.${index}`, (obj) => {
+      const list = getIn(obj, path);
+      if (Array.isArray(list)) list[index] = text;
+    });
   const add = () => {
     if (!draft.trim()) return;
-    onChange([...items, draft]);
+    set(field, path, [...items, draft]);
     setDraft("");
+  };
+  const move = (source: number, target: number) => {
+    if (source === target || target < 0 || target >= items.length) return;
+    apply("reorder list items", (obj) => {
+      const list = getIn(obj, path);
+      if (Array.isArray(list)) list.splice(target, 0, ...list.splice(source, 1));
+    });
+  };
+  const endDrag = () => {
+    setDrag(undefined);
+    setDropSlot(undefined);
+  };
+  const slotAt = (event: DragEvent<HTMLLIElement>, index: number) => {
+    const { top, height } = event.currentTarget.getBoundingClientRect();
+    return event.clientY < top + height / 2 ? index : index + 1;
   };
   return (
     <div className="space-y-1.5">
       {items.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {items.map((item, i) => (
-            <span key={i} className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted py-0.5 pr-1 pl-2 font-mono text-xs">
-              <span className="truncate">{typeof item === "string" ? item : JSON.stringify(item)}</span>
-              <button type="button" aria-label={t("Remove {{item}}", { item: String(item) })} onClick={() => onChange(items.filter((_, j) => j !== i))} className="rounded p-0.5 hover:bg-background">
-                <X className="size-3" aria-hidden />
-              </button>
-            </span>
+        <ol
+          aria-label={label}
+          onDragLeave={(event) => {
+            const next = event.relatedTarget;
+            if (!(next instanceof Node) || !event.currentTarget.contains(next)) setDropSlot(undefined);
+          }}
+        >
+          {items.map((item, index) => (
+            <li
+              key={index}
+              className={cn("relative flex items-start gap-1 py-0.75", from === index && "opacity-50")}
+              onDragOver={(event) => {
+                if (from === undefined) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropSlot(slotAt(event, index));
+              }}
+              onDrop={(event) => {
+                if (from === undefined) return;
+                event.preventDefault();
+                const slot = slotAt(event, index);
+                move(from, slot > from ? slot - 1 : slot);
+                endDrag();
+              }}
+            >
+              <Button
+                ref={(handle) => { handles.current[index] = handle; }}
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="h-8 cursor-grab text-muted-foreground active:cursor-grabbing"
+                aria-label={t("Reorder {{label}} item {{index}}", { label, index: index + 1 })}
+                aria-keyshortcuts="ArrowUp ArrowDown"
+                title={t("Drag to reorder, or use ↑ and ↓")}
+                disabled={!sortable}
+                draggable={sortable}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData("application/x-argonaut-list-item", String(index));
+                  event.dataTransfer.effectAllowed = "move";
+                  setDrag({ from: index, items });
+                }}
+                onDragEnd={endDrag}
+                onKeyDown={(event) => {
+                  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                  event.preventDefault();
+                  const target = index + (event.key === "ArrowUp" ? -1 : 1);
+                  move(index, target);
+                  handles.current[target]?.focus();
+                }}
+              >
+                <GripVertical aria-hidden />
+              </Button>
+              {typeof item === "string" ? (
+                <Textarea
+                  aria-label={t("{{label}} item {{index}}", { label, index: index + 1 })}
+                  value={item}
+                  rows={1}
+                  onChange={(e) => edit(index, e.target.value)}
+                  className="min-h-8 min-w-0 max-h-40 flex-1 resize-none py-1.5 font-mono text-xs md:text-xs"
+                />
+              ) : (
+                <span className="min-w-0 flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-xs">{JSON.stringify(item)}</span>
+              )}
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={t("Remove {{item}}", { item: String(item) })} onClick={() => set(field, path, items.filter((_, i) => i !== index))}>
+                <X aria-hidden />
+              </Button>
+              {(marker === index || (marker === items.length && index === items.length - 1)) && (
+                <span aria-hidden className={cn("pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-primary", marker === index ? "top-0" : "bottom-0")} />
+              )}
+            </li>
           ))}
-        </div>
+        </ol>
       )}
-      <div className="flex gap-1.5">
+      <div className={cn("flex gap-1", items.length > 0 && "pl-7")}>
         <Input
           aria-label={t("Add to {{label}}", { label })}
           value={draft}
           placeholder={t("Add, then Enter")}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
               e.preventDefault();
               add();
             }
           }}
           className="h-8 font-mono text-xs"
         />
-        <Button type="button" variant="outline" size="sm" className="h-8" onClick={add} aria-label={t("Add")}>
+        <Button type="button" variant="outline" size="icon-sm" onClick={add} aria-label={t("Add")}>
           <Plus aria-hidden />
         </Button>
       </div>

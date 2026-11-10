@@ -78,15 +78,22 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   apply: (label, recipe) => {
-    const { obj, doc, yamlError, past } = get();
+    const { obj, doc, yamlError, past, savedAt } = get();
     if (yamlError || !doc) return;
     const [next, patches, inverse] = produceWithPatches(obj, recipe);
     if (!patches.length) return;
     applyPatchesToDoc(doc, patches);
     // Typing into one field produces one history entry per keystroke; merge consecutive edits of the
-    // same field so undo steps back a whole value at a time.
+    // same field so undo steps back a whole value at a time. Keep the saved state as a boundary.
     const last = past[past.length - 1];
-    const sameField = last && last.label === label && label.startsWith("field:") && patches.length === 1 && last.patches.length === 1 && JSON.stringify(last.patches[0].path) === JSON.stringify(patches[0].path);
+    const sameField =
+      past.length !== savedAt &&
+      last &&
+      last.label === label &&
+      label.startsWith("field:") &&
+      patches.length === 1 &&
+      last.patches.length === 1 &&
+      JSON.stringify(last.patches[0].path) === JSON.stringify(patches[0].path);
     const entry = sameField ? { label, patches, inverse: last.inverse } : { label, patches, inverse };
     set({ obj: next as Json, yamlText: serialize(doc), past: sameField ? [...past.slice(0, -1), entry] : [...past, entry], future: [] });
   },

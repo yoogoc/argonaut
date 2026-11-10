@@ -328,7 +328,7 @@ function Field({ field, bases, taskName, dagName }: { field: FieldDef; bases: Ba
       control = <ExpressionControl label={t(field.label)} value={value} onChange={write} placeholder={field.placeholder} suggestions={suggestions} />;
       break;
     case "list":
-      control = <ListControl label={t(field.label)} value={value} onChange={write} />;
+      control = <ListControl key={id} label={t(field.label)} path={path} />;
       break;
     case "kv-map":
       control = <KvMapControl value={value} onChange={write} />;
@@ -433,7 +433,7 @@ function LoopControl({ base }: { base: Path }) {
   return (
     <div className="space-y-2">
       <SelectControl label={t("Loop")} value={mode === "none" ? undefined : mode} onChange={(v) => setMode((v as string) ?? "none")} options={["withItems", "withParam", "withSequence"]} />
-      {mode === "withItems" && <ItemsEditor value={task.withItems ?? []} onChange={(v) => useEditor.getState().set("field:withItems", [...base, "withItems"], v)} />}
+      {mode === "withItems" && <ItemsEditor value={task.withItems ?? []} path={[...base, "withItems"]} />}
       {mode === "withParam" && <ExpressionControl label="withParam" value={task.withParam} onChange={(v) => useEditor.getState().set("field:withParam", [...base, "withParam"], v ?? "")} placeholder="{{tasks.list.outputs.result}}" suggestions={[]} />}
       {mode === "withSequence" && (
         <div className="grid grid-cols-4 gap-1.5">
@@ -446,11 +446,11 @@ function LoopControl({ base }: { base: Path }) {
   );
 }
 
-/** withItems may hold scalars (chips) or objects (YAML). */
-function ItemsEditor({ value, onChange }: { value: unknown[]; onChange: (v: unknown) => void }) {
+/** withItems may hold scalars or objects (YAML). */
+function ItemsEditor({ value, path }: { value: unknown[]; path: Path }) {
   const scalar = value.every((v) => typeof v !== "object");
-  if (scalar) return <ListControl label="withItems" value={value} onChange={onChange} />;
-  return <YamlControl value={value} onChange={onChange} path="with-items.yaml" />;
+  if (scalar) return <ListControl key={path.join(".")} label="withItems" path={path} />;
+  return <YamlControl value={value} onChange={(v) => useEditor.getState().set("field:withItems", path, v)} path="with-items.yaml" />;
 }
 
 function TemplateRefControl({ base }: { base: Path }) {
