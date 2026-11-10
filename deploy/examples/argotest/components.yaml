@@ -1,0 +1,262 @@
+# Test components modelled on the xencor ones. They read nothing from workflow.parameters and name
+# no ConfigMap of their own: every value arrives as an input, so the caller decides where it comes
+# from (a literal, an upstream output, or valueFrom.configMapKeyRef in the task's arguments — see
+# workflow.yaml). Only built-in variables such as workflow.name and pod.name are used directly.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: argotest-run-record
+  namespace: argo
+  labels:
+    argonaut.io/component: "true"
+  annotations:
+    argonaut.io/category: 运行记录
+    argonaut.io/description: 测试组件：打印工作流与数据源的开始、结束；run-begin 挂载调用方指定的 ConfigMap。
+spec:
+  entrypoint: run-begin
+  templates:
+  - name: run-begin
+    inputs:
+      parameters:
+      - name: project_id
+      - name: config_map
+        description: ConfigMap holding the handler config file
+      - name: config_key
+        value: config
+    volumes:
+    - name: handler-config
+      configMap:
+        name: "{{inputs.parameters.config_map}}"
+        items:
+        - key: "{{inputs.parameters.config_key}}"
+          path: config.yaml
+    script:
+      image: busybox:1.36
+      command: [sh]
+      source: |
+        echo "run-begin project={{inputs.parameters.project_id}}"
+        echo "workflow={{workflow.name}} namespace={{workflow.namespace}} uid={{workflow.uid}}"
+        echo "started={{workflow.creationTimestamp}}"
+        echo "--- {{inputs.parameters.config_map}}/{{inputs.parameters.config_key}}"
+        cat /data/conf/config.yaml
+      volumeMounts:
+      - name: handler-config
+        mountPath: /data/conf
+  - name: run-end
+    inputs:
+      parameters:
+      - name: project_id
+      - name: status
+      - name: finished
+    script:
+      image: busybox:1.36
+      command: [sh]
+      source: |
+        echo "run-end project={{inputs.parameters.project_id}} workflow={{workflow.name}}"
+        echo "status={{inputs.parameters.status}} finished={{inputs.parameters.finished}}"
+  - name: source-begin
+    inputs:
+      parameters:
+      - name: project_id
+      - name: code
+      - name: type
+    script:
+      image: busybox:1.36
+      command: [sh]
+      source: |
+        echo "source-begin {{inputs.parameters.code}} ({{inputs.parameters.type}}) project={{inputs.parameters.project_id}} workflow={{workflow.name}}"
+  - name: source-end
+    inputs:
+      parameters:
+      - name: project_id
+      - name: code
+      - name: status
+      artifacts:
+      - name: data
+        path: /tmp/data
+        optional: true
+    script:
+      image: busybox:1.36
+      command: [sh]
+      source: |
+        echo "source-end {{inputs.parameters.code}} status={{inputs.parameters.status}} project={{inputs.parameters.project_id}} workflow={{workflow.name}}"
+        if [ -d /tmp/data ]; then find /tmp/data -type f | sort; else echo "no data"; fi
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: argotest-source
+  namespace: argo
+  labels:
+    argonaut.io/component: "true"
+  annotations:
+    argonaut.io/category: 数据源
+    argonaut.io/description: 测试组件：按传入的研究号和表单生成假数据；api 按天缓存到调用方指定的 ConfigMap。
+spec:
+  entrypoint: api
+  templates:
+  - name: api
+    inputs:
+      parameters:
+      - name: study
+      - name: forms
+        description: Comma-separated form codes, e.g. AE,CM
+      - name: cache
+        description: ConfigMap used as the memoize cache
+        value: argotest-memo-cache
+    memoize:
+      key: "{{workflow.creationTimestamp.Y}}-{{workflow.creationTimestamp.m}}-{{workflow.creationTimestamp.d}}-{{inputs.parameters.study}}-{{inputs.parameters.forms}}"
+      maxAge: 1h
+      cache:
+        configMap:
+          name: "{{inputs.parameters.cache}}"
+    script:
+      image: busybox:1.36
+      command: [sh]
+      source: |
+        set -e
+        mkdir -p /output/raw
+        for form in $(echo "{{inputs.parameters.forms}}" | tr ',' ' '); do
+          echo "study,form,row" > /output/raw/$form.csv
+          for i in 1 2 3; do echo "{{inputs.parameters.study}},$form,$i" >> /output/raw/$form.csv; done
+        done
+        find /output -type f | sort
+    outputs:
+      artifacts:
+      - name: api_data
+        path: /output
+      parameters:
+      - name: pod_name
+        value: "{{pod.name}}"
+  - name: web
+    inputs:
+      parameters:
+      - name: study
+      - name: pages
+        value: "1"
+    container:
+      image: busybox:1.36
+      command: [sh, -c]
+      args:
+      - |
+        set -e
+        mkdir -p /output/doc
+        for i in $(seq 1 $PAGES); do
+          echo "$STUDY page $i of $WF_NAME" > /output/doc/page-$i.txt
+        done
+        find /output -type f | sort
+      env:
+      - name: STUDY
+        value: "{{inputs.parameters.study}}"
+      - name: PAGES
+        value: "{{inputs.parameters.pages}}"
+      - name: WF_NAME
+        value: "{{workflow.name}}"
+    outputs:
+      artifacts:
+      - name: web_data
+        path: /output
+      parameters:
+      - name: pod_name
+        value: "{{pod.name}}"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: argotest-process
+  namespace: argo
+  labels:
+    argonaut.io/component: "true"
+  annotations:
+    argonaut.io/category: 处理
+    argonaut.io/description: 测试组件：用传入的镜像合并数据源，产出 zip 和行数。
+spec:
+  entrypoint: transform
+  templates:
+  - name: transform
+    inputs:
+      parameters:
+      - name: image
+        value: busybox:1.36
+      artifacts:
+      - name: api-data
+        path: /tmp/input/raw
+        subPath: raw
+      - name: web-data
+        path: /tmp/input/doc
+        subPath: doc
+        optional: true
+    container:
+      image: "{{inputs.parameters.image}}"
+      command: [sh, -c]
+      args:
+      - |
+        set -e
+        mkdir -p /tmp/output
+        cat /tmp/input/raw/*.csv | grep -v '^study,' > /tmp/output/rows.csv
+        if [ -d /tmp/input/doc ]; then ls /tmp/input/doc > /tmp/output/docs.txt; else echo "no web data"; fi
+        wc -l < /tmp/output/rows.csv | tr -d ' ' > /tmp/rows
+        echo "workflow={{workflow.name}} rows=$(cat /tmp/rows)"
+    outputs:
+      artifacts:
+      - name: result
+        path: /tmp/output
+        archive:
+          zip: {}
+      parameters:
+      - name: pod_name
+        value: "{{pod.name}}"
+      - name: rows
+        valueFrom:
+          path: /tmp/rows
+  - name: summary
+    inputs:
+      parameters:
+      - name: study
+      - name: rows
+    script:
+      image: busybox:1.36
+      command: [sh]
+      source: |
+        echo '{"workflow":"{{workflow.name}}","study":"{{inputs.parameters.study}}","rows":{{inputs.parameters.rows}}}'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: argotest-publish
+  namespace: argo
+  labels:
+    argonaut.io/component: "true"
+  annotations:
+    argonaut.io/category: 输出
+    argonaut.io/description: 测试组件：挂载调用方指定的 ConfigMap 配置，发布报表（仅打印）。
+spec:
+  entrypoint: report
+  templates:
+  - name: report
+    inputs:
+      parameters:
+      - name: bucket
+      - name: result_s3_key
+      - name: summary
+      - name: config_map
+        description: ConfigMap holding the handler config file
+      - name: config_key
+        value: config
+    volumes:
+    - name: handler-config
+      configMap:
+        name: "{{inputs.parameters.config_map}}"
+        items:
+        - key: "{{inputs.parameters.config_key}}"
+          path: config.yaml
+    script:
+      image: busybox:1.36
+      command: [sh]
+      source: |
+        echo "publish s3://{{inputs.parameters.bucket}}/{{inputs.parameters.result_s3_key}}"
+        echo "summary {{inputs.parameters.summary}}"
+        grep -A1 '^report:' /data/conf/config.yaml
+      volumeMounts:
+      - name: handler-config
+        mountPath: /data/conf

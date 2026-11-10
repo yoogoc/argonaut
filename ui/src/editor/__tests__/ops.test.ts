@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseDepends } from "@/graph/spec";
 
-import { addHook, addKindNode, deleteHook, ensureDag, hookTrigger, removeTerm, renameHook, renameTask, setHookTarget, setHookTrigger } from "../ops";
+import { addHook, addKindNode, deleteHook, ensureDag, hookTrigger, removeTerm, renameHook, renameTask, setEdgeCondition, setHookTarget, setHookTrigger } from "../ops";
 
 describe("removeTerm", () => {
   it.each([
@@ -110,5 +110,27 @@ describe("hooks", () => {
     deleteHook(d, renamed, "source-begin");
     deleteHook(d, renamed, "exit");
     expect(hooksOf(d)).toBeUndefined();
+  });
+});
+
+describe("setEdgeCondition", () => {
+  const dag = (task: Record<string, unknown>) => ({ spec: { templates: [{ name: "main", dag: { tasks: [{ name: "a" }, { name: "build-a" }, { name: "b" }, { name: "t", ...task }] } }] } });
+  const dependsOf = (d: ReturnType<typeof dag>) => (d.spec.templates[0].dag.tasks[3] as Record<string, unknown>).depends;
+
+  it("changes only the term the edge stands for", () => {
+    const d = dag({ depends: "a && build-a.Succeeded && (b || a.Failed)" });
+    setEdgeCondition(d, "main", "a", "t", undefined, "Succeeded");
+    expect(dependsOf(d)).toBe("a.Succeeded && build-a.Succeeded && (b || a.Failed)");
+    setEdgeCondition(d, "main", "a", "t", "Failed", "Errored");
+    expect(dependsOf(d)).toBe("a.Succeeded && build-a.Succeeded && (b || a.Errored)");
+    setEdgeCondition(d, "main", "build-a", "t", "Succeeded", undefined);
+    expect(dependsOf(d)).toBe("a.Succeeded && build-a && (b || a.Errored)");
+  });
+
+  it("moves a legacy dependencies list to depends before setting a condition", () => {
+    const d = dag({ dependencies: ["a", "b"] });
+    setEdgeCondition(d, "main", "b", "t", undefined, "Failed");
+    expect(dependsOf(d)).toBe("a && b.Failed");
+    expect((d.spec.templates[0].dag.tasks[3] as Record<string, unknown>).dependencies).toBeUndefined();
   });
 });

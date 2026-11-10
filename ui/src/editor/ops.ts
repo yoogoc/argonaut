@@ -158,6 +158,30 @@ export function disconnect(draft: Json, template: string, source: string, target
   }
 }
 
+/**
+ * The conditions a `depends` term can test (Argo's enhanced depends logic). No condition means the
+ * upstream task completed in any way that lets the flow go on: Succeeded, Skipped or Daemoned.
+ */
+export const DEPEND_CONDITIONS = ["Succeeded", "Failed", "Errored", "Skipped", "Omitted", "Daemoned", "AnySucceeded", "AllFailed"] as const;
+
+/**
+ * Changes the condition of one dependency — the edge `source` → `target` that tests `from` — to `to`,
+ * leaving the rest of the expression as it is. A task still on the legacy `dependencies` list is moved
+ * to `depends` first, since only that can carry a condition.
+ */
+export function setEdgeCondition(draft: Json, template: string, source: string, target: string, from: string | undefined, to: string | undefined) {
+  const task = dagOf(draft, template).dag?.tasks?.find((x) => x.name === target);
+  if (!task) return;
+  if (task.dependencies && !task.depends) {
+    task.depends = task.dependencies.join(" && ");
+    delete task.dependencies;
+  }
+  if (!task.depends) return;
+  const name = source.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const term = new RegExp(`(?<![\\w.-])${name}${from ? `\\.${from}` : ""}(?![\\w.-])`);
+  task.depends = task.depends.replace(term, to ? `${source}.${to}` : source);
+}
+
 /** Removes every occurrence of a task (with any .Condition) from a depends expression. */
 export function removeTerm(expression: string, task: string): string {
   const name = task.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");

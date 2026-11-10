@@ -17,6 +17,8 @@ export type Selection =
   | { kind: "template"; template: string }
   // A lifecycle hook: of a task (template + task) or, with neither, of the workflow (spec.hooks).
   | { kind: "hook"; template?: string; task?: string; event: string }
+  // A dependency edge: target's `depends` term on source, testing `condition` (none: completed).
+  | { kind: "edge"; template: string; source: string; target: string; condition?: string }
   | { kind: "workflow" }
   | undefined;
 

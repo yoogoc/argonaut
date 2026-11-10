@@ -1,0 +1,65 @@
+# Test configuration for the argotest components, laid out like xencor's:
+#   argotest-<env>-config          per-project keys read with configMapKeyRef ("<project_id>-<name>")
+#   argotest-handler-<env>-config  a config.yaml the workflow mounts as a volume
+# Project 2 has no "2-web-pages" key on purpose: the web source falls back to its default.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argotest-uat-config
+  namespace: argo
+data:
+  bucket: my-bucket
+  1-study: STUDY-001-UAT
+  1-forms: AE,CM,DM
+  1-image: busybox:1.36
+  1-web-pages: "3"
+  2-study: STUDY-002-UAT
+  2-forms: AE,LB
+  2-image: busybox:1.36
+  3-study: STUDY-003-UAT
+  3-forms: DM
+  3-image: busybox:1.36
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argotest-dev-config
+  namespace: argo
+data:
+  bucket: my-bucket
+  1-study: STUDY-001-DEV
+  1-forms: AE
+  1-image: busybox:1.36
+  1-web-pages: "1"
+  2-study: STUDY-002-DEV
+  2-forms: AE,CM
+  2-image: busybox:1.36
+  3-study: STUDY-003-DEV
+  3-forms: DM,VS
+  3-image: busybox:1.36
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argotest-handler-uat-config
+  namespace: argo
+data:
+  config: |
+    env: uat
+    db:
+      dsn: postgres://handler@db.uat.local:5432/dashboard
+    report:
+      title: Argotest UAT
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argotest-handler-dev-config
+  namespace: argo
+data:
+  config: |
+    env: dev
+    db:
+      dsn: postgres://handler@db.dev.local:5432/dashboard
+    report:
+      title: Argotest DEV

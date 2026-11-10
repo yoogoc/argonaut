@@ -383,19 +383,26 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
   }
   const workflowHooks = (spec.hooks ?? {}) as Record<string, SpecHook>;
 
+  // A DAG edge is a term of the target's `depends`: selecting it opens the dependency in the panel.
+  const pickedEdge = selection?.kind === "edge" && selection.template === current ? `${selection.source}->${selection.target}${selection.condition ? `.${selection.condition}` : ""}` : undefined;
   const edges: Edge[] = graph.edges.map((e) => {
     const failure = e.condition === "Failed" || e.condition === "Errored" || e.condition === "AllFailed";
+    const picked = e.id === pickedEdge;
+    const colour = picked ? "var(--primary)" : failure ? "var(--phase-fail-solid)" : "var(--muted-foreground)";
     return {
       id: e.id,
       source: e.source,
       target: e.target,
       label: e.condition,
+      selected: picked,
+      selectable: !isSteps,
       deletable: !frozen && !isSteps,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: failure ? "var(--phase-fail-solid)" : "var(--muted-foreground)" },
+      interactionWidth: 18,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: colour },
       labelBgPadding: [5, 2] as [number, number],
       labelBgBorderRadius: 999,
-      labelStyle: { fontSize: 11, fontWeight: 600, fill: failure ? "var(--phase-fail)" : undefined },
-      style: { stroke: failure ? "var(--phase-fail-solid)" : "var(--muted-foreground)", strokeOpacity: failure ? 0.9 : 0.55, strokeWidth: 1.5, strokeDasharray: failure ? "5 4" : undefined },
+      labelStyle: { fontSize: 11, fontWeight: 600, fill: picked ? "var(--primary)" : failure ? "var(--phase-fail)" : undefined },
+      style: { stroke: colour, strokeOpacity: picked || failure ? 0.9 : 0.55, strokeWidth: picked ? 2.5 : 1.5, strokeDasharray: failure && !picked ? "5 4" : undefined },
     };
   });
 
@@ -442,9 +449,10 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
         if (c.type !== "remove" || !current) continue;
         const edge = graph.edges.find((e) => e.id === c.id);
         if (edge) apply("disconnect", (draft) => disconnect(draft, current, edge.source, edge.target));
+        if (edge && edge.id === pickedEdge) select(undefined);
       }
     },
-    [apply, current, graph.edges],
+    [apply, current, graph.edges, pickedEdge, select],
   );
 
   const onConnect = useCallback(
@@ -551,6 +559,10 @@ function CanvasInner({ problems, status }: { problems: Record<string, string[]>;
             onNodeDoubleClick={(_e, node) => {
               const n = (node.data as NodeData).node;
               if ((n.kind === "dag" || n.kind === "steps") && n.task.template) useEditor.getState().openTemplate(n.task.template);
+            }}
+            onEdgeClick={(_e, edge) => {
+              const e = graph.edges.find((x) => x.id === edge.id);
+              if (e && current && !isSteps) select({ kind: "edge", template: current, source: e.source, target: e.target, condition: e.condition });
             }}
             onPaneClick={() => select(undefined)}
             deleteKeyCode={["Delete", "Backspace"]}

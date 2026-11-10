@@ -1,0 +1,169 @@
+# A workflow wiring the argotest components together the way xencor does. It owns every
+# project/env decision: ConfigMap names and keys are built from workflow.parameters here and handed
+# to the components through task arguments (valueFrom.configMapKeyRef, with default for an absent
+# key), so the components themselves stay generic.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: argotest
+  namespace: argo
+spec:
+  entrypoint: root
+  activeDeadlineSeconds: 1800
+  arguments:
+    parameters:
+    - name: project_id
+      value: "1"
+      enum: ["1", "2", "3"]
+    - name: env
+      value: uat
+      enum: [uat, dev]
+  hooks:
+    run-begin:
+      expression: workflow.status == "Running"
+      templateRef:
+        name: argotest-run-record
+        template: run-begin
+      arguments:
+        parameters:
+        - name: project_id
+          value: "{{workflow.parameters.project_id}}"
+        - name: config_map
+          value: argotest-handler-{{workflow.parameters.env}}-config
+  templates:
+  - name: root
+    dag:
+      tasks:
+      - name: main
+        template: main
+        hooks:
+          exit:
+            templateRef:
+              name: argotest-run-record
+              template: run-end
+            arguments:
+              parameters:
+              - name: project_id
+                value: "{{workflow.parameters.project_id}}"
+              - name: status
+                value: "{{tasks.main.status}}"
+              - name: finished
+                value: "{{tasks.main.finishedAt}}"
+  - name: main
+    dag:
+      tasks:
+      - name: api
+        templateRef:
+          name: argotest-source
+          template: api
+        arguments:
+          parameters:
+          - name: study
+            valueFrom:
+              configMapKeyRef:
+                name: argotest-{{workflow.parameters.env}}-config
+                key: "{{workflow.parameters.project_id}}-study"
+          - name: forms
+            valueFrom:
+              configMapKeyRef:
+                name: argotest-{{workflow.parameters.env}}-config
+                key: "{{workflow.parameters.project_id}}-forms"
+          - name: cache
+            value: argotest-{{workflow.parameters.env}}-cache
+        hooks:
+          source-begin:
+            expression: tasks['api'].status == "Running"
+            templateRef:
+              name: argotest-run-record
+              template: source-begin
+            arguments:
+              parameters:
+              - name: project_id
+                value: "{{workflow.parameters.project_id}}"
+              - name: code
+                value: api
+              - name: type
+                value: rave_api
+          exit:
+            templateRef:
+              name: argotest-run-record
+              template: source-end
+            arguments:
+              parameters:
+              - name: project_id
+                value: "{{workflow.parameters.project_id}}"
+              - name: code
+                value: api
+              - name: status
+                value: "{{tasks.api.status}}"
+              artifacts:
+              - name: data
+                from: "{{tasks.api.outputs.artifacts.api_data}}"
+      - name: web
+        when: "{{workflow.parameters.project_id}} != 3"
+        templateRef:
+          name: argotest-source
+          template: web
+        arguments:
+          parameters:
+          - name: study
+            valueFrom:
+              configMapKeyRef:
+                name: argotest-{{workflow.parameters.env}}-config
+                key: "{{workflow.parameters.project_id}}-study"
+          - name: pages
+            valueFrom:
+              default: "2"
+              configMapKeyRef:
+                name: argotest-{{workflow.parameters.env}}-config
+                key: "{{workflow.parameters.project_id}}-web-pages"
+      - name: transform
+        depends: api && (web.Succeeded || web.Skipped)
+        templateRef:
+          name: argotest-process
+          template: transform
+        arguments:
+          parameters:
+          - name: image
+            valueFrom:
+              configMapKeyRef:
+                name: argotest-{{workflow.parameters.env}}-config
+                key: "{{workflow.parameters.project_id}}-image"
+          artifacts:
+          - name: api-data
+            from: "{{tasks.api.outputs.artifacts.api_data}}"
+          - name: web-data
+            from: "{{tasks.web.outputs.artifacts.web_data}}"
+            optional: true
+      - name: summary
+        depends: transform
+        templateRef:
+          name: argotest-process
+          template: summary
+        arguments:
+          parameters:
+          - name: study
+            valueFrom:
+              configMapKeyRef:
+                name: argotest-{{workflow.parameters.env}}-config
+                key: "{{workflow.parameters.project_id}}-study"
+          - name: rows
+            value: "{{tasks.transform.outputs.parameters.rows}}"
+      - name: report
+        depends: summary
+        templateRef:
+          name: argotest-publish
+          template: report
+        arguments:
+          parameters:
+          - name: bucket
+            valueFrom:
+              configMapKeyRef:
+                name: argotest-{{workflow.parameters.env}}-config
+                key: bucket
+          - name: result_s3_key
+            value: "{{workflow.name}}/{{tasks.transform.outputs.parameters.pod_name}}/result.zip"
+          - name: summary
+            value: "{{tasks.summary.outputs.result}}"
+          - name: config_map
+            value: argotest-handler-{{workflow.parameters.env}}-config

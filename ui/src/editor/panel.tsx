@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KindIcon, KINDS } from "@/graph/kinds";
-import { findTemplate, type NodeKind, type SpecTask, taskKind, templateKind } from "@/graph/spec";
+import { findTemplate, type NodeKind, parseDepends, type SpecTask, taskKind, templateKind } from "@/graph/spec";
 import { useNamespace } from "@/hooks/use-namespace";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,7 @@ import {
   uncovered,
   workflowTabs,
 } from "./fields/registry";
-import { deleteHook, type HookOwner, hooksPath, type HookTrigger, hookTrigger, renameHook, renameTask, setHookTarget, setHookTrigger, snapshotRef, type SpecHook } from "./ops";
+import { DEPEND_CONDITIONS, deleteHook, disconnect, type HookOwner, hooksPath, type HookTrigger, hookTrigger, renameHook, renameTask, setEdgeCondition, setHookTarget, setHookTrigger, snapshotRef, type SpecHook } from "./ops";
 import { specOf, taskPath, templateIndex, useEditor } from "./store";
 
 interface Bases {
@@ -101,6 +101,8 @@ export function ConfigPanel() {
       </PanelShell>
     );
   }
+
+  if (selection.kind === "edge") return <EdgePanel selection={selection} query={query} onQuery={setQuery} />;
 
   // A node: a DAG task / step (selection.kind "task"), a lifecycle hook, or the exit handler. A hook has
   // the shape of a task (template or templateRef, arguments), so it is edited through the same bases.
@@ -465,6 +467,113 @@ function TemplateRefControl({ base }: { base: Path }) {
         {t("Cluster template")}
       </label>
     </div>
+  );
+}
+
+/** What each `depends` condition lets through, for the edge panel. Undefined is the bare task name. */
+const CONDITIONS: { id?: (typeof DEPEND_CONDITIONS)[number]; label: string; hint: string }[] = [
+  { label: "Completed (default)", hint: "Runs once the upstream task succeeded, was skipped or started as a daemon." },
+  { id: "Succeeded", label: "Succeeded", hint: "Runs only if the upstream task succeeded." },
+  { id: "Failed", label: "Failed", hint: "Runs only if the upstream task failed: for handling failures." },
+  { id: "Errored", label: "Errored", hint: "Runs if the upstream task errored rather than failed, e.g. its pod was evicted." },
+  { id: "Skipped", label: "Skipped", hint: "Runs if the upstream task was skipped (its when was false)." },
+  { id: "Omitted", label: "Omitted", hint: "Runs if the upstream task was omitted (its own dependencies were not met)." },
+  { id: "Daemoned", label: "Daemoned", hint: "Runs once the upstream task has started as a daemon." },
+  { id: "AnySucceeded", label: "Any succeeded", hint: "For a looping upstream task: runs if any of its items succeeded." },
+  { id: "AllFailed", label: "All failed", hint: "For a looping upstream task: runs only if every item failed." },
+];
+
+/**
+ * A dependency edge: one term of the target task's `depends`. Its condition is chosen here; the full
+ * expression (how it combines with the task's other dependencies) is below, editable as text.
+ */
+function EdgePanel({ selection, query, onQuery }: { selection: { template: string; source: string; target: string; condition?: string }; query: string; onQuery: (q: string) => void }) {
+  const { t } = useTranslation();
+  const obj = useEditor((s) => s.obj);
+  const apply = useEditor((s) => s.apply);
+  const set = useEditor((s) => s.set);
+  const { namespace } = useNamespace();
+  const components = useQuery(templateQueries.components(namespace));
+  const { template, source, target, condition } = selection;
+  const path = taskPath(obj, template, target);
+  const task = (path ? getIn(obj, path) : undefined) as SpecTask | undefined;
+  const exists = !!task && (parseDepends(task.depends).some((d) => d.task === source && d.condition === condition) || (!condition && !!task.dependencies?.includes(source)));
+  const reselect = (next?: string) => useEditor.setState({ selection: { kind: "edge", template, source, target, condition: next } });
+  const current = CONDITIONS.find((c) => c.id === condition);
+  return (
+    <PanelShell
+      icon={
+        <span aria-hidden className="flex size-7 items-center justify-center rounded-[7px] bg-muted">
+          <ArrowRight className="size-4" />
+        </span>
+      }
+      title={`${source} → ${target}`}
+      subtitle={t("Dependency · {{target}}.depends in template {{template}}", { target, template })}
+      query={query}
+      onQuery={onQuery}
+      actions={
+        exists ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive"
+            onClick={() => {
+              apply("disconnect", (draft) => disconnect(draft, template, source, target));
+              useEditor.getState().select({ kind: "task", template, id: target });
+            }}
+          >
+            <Trash2 aria-hidden />
+            {t("Delete dependency")}
+          </Button>
+        ) : null
+      }
+    >
+      {!exists || !path ? (
+        <p className="p-6 text-sm text-muted-foreground">{t("The selected dependency no longer exists.")}</p>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <section className="flex flex-col gap-3 border-b px-5 py-4">
+            <FieldRow label="Condition" path={[]} id="edge-condition" hint={current ? current.hint : undefined}>
+              <div role="radiogroup" aria-label={t("Condition")} className="grid grid-cols-3 gap-1.5">
+                {CONDITIONS.map((c) => (
+                  <button
+                    key={c.id ?? "default"}
+                    type="button"
+                    role="radio"
+                    aria-checked={c.id === condition}
+                    title={t(c.hint)}
+                    onClick={() => {
+                      if (c.id === condition) return;
+                      apply("dependency condition", (draft) => setEdgeCondition(draft, template, source, target, condition, c.id));
+                      reselect(c.id);
+                    }}
+                    className={cn("rounded-md border px-2 py-1.5 text-left text-[11px]", c.id === condition ? "border-primary bg-primary/10 font-semibold text-primary" : "hover:bg-muted")}
+                  >
+                    <span className="block">{t(c.label)}</span>
+                    <span className="block font-mono text-[10px] text-muted-foreground">{c.id ? `${source}.${c.id}` : source}</span>
+                  </button>
+                ))}
+              </div>
+            </FieldRow>
+            {task.dependencies && !task.depends && <p className="rounded-md border border-primary/20 bg-primary/5 p-2.5 text-xs text-muted-foreground">{t("This task lists its dependencies the legacy way (dependencies). Choosing a condition rewrites them as a depends expression.")}</p>}
+          </section>
+          <section className="flex flex-col gap-3 px-5 py-4">
+            <FieldRow label="Depends" path={["depends"]} id="edge-depends" hint="The whole condition for running the task: its dependencies combined with && (all), || (any) and !, grouped with parentheses.">
+              <ExpressionControl
+                label="depends"
+                value={task.depends ?? task.dependencies?.join(" && ")}
+                onChange={(v) => {
+                  set("field:depends", [...path, "depends"], v || undefined);
+                  if (task.dependencies) set("field:dependencies", [...path, "dependencies"], undefined);
+                }}
+                placeholder="a.Succeeded && (b || c.Failed)"
+                suggestions={suggestionsFor(specOf(obj), template, target, components.data ?? [])}
+              />
+            </FieldRow>
+          </section>
+        </div>
+      )}
+    </PanelShell>
   );
 }
 
