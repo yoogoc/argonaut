@@ -3,8 +3,8 @@
 # Set server.http.addr to 0.0.0.0:4100 and leave kube.managed_namespace unset.
 # List the namespaces Argonaut should show and watch in kube.namespaces.
 # Enable SSO when exposing Argonaut through an Ingress. The backend Service is argonaut:80.
-# The Secret named argonaut-secrets supplies ARGONAUT_DATABASE_URL and, for SSO,
-# ARGONAUT_SSO_CLIENT_SECRET and ARGONAUT_JWT_SECRET.
+# Set data.database.source in the ConfigMap. When SSO is enabled, set
+# sso.client_secret and sso.jwt_secret there as well.
 # Apply rbac.yaml before this file to create the argonaut ServiceAccount.
 apiVersion: apps/v1
 kind: Deployment
@@ -35,9 +35,6 @@ spec:
           image: "${VERSION}"
           imagePullPolicy: IfNotPresent
           args: ["migrate", "up", "--config=/data/conf/config.yaml"]
-          envFrom:
-            - secretRef:
-                name: argonaut-secrets
           volumeMounts:
             - name: config
               mountPath: /data/conf
@@ -50,9 +47,6 @@ spec:
           ports:
             - name: http
               containerPort: 4100
-          envFrom:
-            - secretRef:
-                name: argonaut-secrets
           env:
             - name: POD_NAME
               valueFrom:
