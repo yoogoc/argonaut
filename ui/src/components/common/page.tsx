@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 /** The standard content column of a page. */
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  return <main className={cn("mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-5 px-4 py-6 sm:px-6", className)}>{children}</main>;
+  return <main className={cn("mx-auto flex w-full flex-1 flex-col gap-5 px-4 py-6 sm:px-6 2xl:px-10", className)}>{children}</main>;
 }
 
 /**
