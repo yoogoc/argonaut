@@ -1,0 +1,106 @@
+# VERSION is the full Argonaut image reference, including the tag or digest.
+# The ConfigMap named argonaut must provide the key config.
+# Set server.http.addr to 0.0.0.0:4100 and kube.namespaces to [argo] in that config.
+# Enable SSO when exposing Argonaut through an Ingress. The backend Service is argonaut:80.
+# The Secret named argonaut-secrets supplies ARGONAUT_DATABASE_URL and, for SSO,
+# ARGONAUT_SSO_CLIENT_SECRET and ARGONAUT_JWT_SECRET.
+# The Deployment uses the existing argo-workflows-workflow-controller ServiceAccount in argo.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argonaut
+  namespace: argo
+  labels:
+    app: argonaut
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argonaut
+  template:
+    metadata:
+      labels:
+        app: argonaut
+    spec:
+      serviceAccountName: argo-workflows-workflow-controller
+      imagePullSecrets:
+        - name: aliyun-regcred
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+      initContainers:
+        - name: migration
+          image: "${VERSION}"
+          imagePullPolicy: IfNotPresent
+          args: ["migrate", "up", "--config=/data/conf/config.yaml"]
+          envFrom:
+            - secretRef:
+                name: argonaut-secrets
+          volumeMounts:
+            - name: config
+              mountPath: /data/conf
+              readOnly: true
+      containers:
+        - name: main
+          image: "${VERSION}"
+          imagePullPolicy: IfNotPresent
+          args: ["server", "--config=/data/conf/config.yaml"]
+          ports:
+            - name: http
+              containerPort: 4100
+          envFrom:
+            - secretRef:
+                name: argonaut-secrets
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: config
+              mountPath: /data/conf
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: config
+          configMap:
+            name: argonaut
+            items:
+              - key: config
+                path: config.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argonaut
+  namespace: argo
+  labels:
+    app: argonaut
+spec:
+  type: ClusterIP
+  selector:
+    app: argonaut
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
