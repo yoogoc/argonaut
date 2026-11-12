@@ -58,6 +58,14 @@ export interface AuthzStatusReply {
   lastChange?: AuditEvent;
 }
 
+/** (authz.proto) */
+export interface BuiltinPolicies {
+  /** Cedar source embedded in the running server. */
+  source?: string;
+  /** Value of context.clusterTemplatesReadable used during evaluation. */
+  clusterTemplatesReadable?: boolean;
+}
+
 /** ClusterInfo identifies the connected cluster. (cluster.proto) */
 export interface ClusterInfo {
   id?: string;
@@ -437,6 +445,7 @@ export interface ListGrantsRequest {
 /** (authz.proto) */
 export interface ListPoliciesReply {
   policies?: Policy[];
+  builtins?: BuiltinPolicies;
 }
 
 /** (authz.proto) */

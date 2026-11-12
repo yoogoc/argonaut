@@ -1089,16 +1089,71 @@ func (x *Policy) GetError() string {
 	return ""
 }
 
+type BuiltinPolicies struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Cedar source embedded in the running server.
+	Source string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	// Value of context.clusterTemplatesReadable used during evaluation.
+	ClusterTemplatesReadable bool `protobuf:"varint,2,opt,name=clusterTemplatesReadable,proto3" json:"clusterTemplatesReadable,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *BuiltinPolicies) Reset() {
+	*x = BuiltinPolicies{}
+	mi := &file_api_v1_authz_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuiltinPolicies) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuiltinPolicies) ProtoMessage() {}
+
+func (x *BuiltinPolicies) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1_authz_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuiltinPolicies.ProtoReflect.Descriptor instead.
+func (*BuiltinPolicies) Descriptor() ([]byte, []int) {
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *BuiltinPolicies) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *BuiltinPolicies) GetClusterTemplatesReadable() bool {
+	if x != nil {
+		return x.ClusterTemplatesReadable
+	}
+	return false
+}
+
 type ListPoliciesReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Policies      []*Policy              `protobuf:"bytes,1,rep,name=policies,proto3" json:"policies,omitempty"`
+	Builtins      *BuiltinPolicies       `protobuf:"bytes,2,opt,name=builtins,proto3" json:"builtins,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListPoliciesReply) Reset() {
 	*x = ListPoliciesReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[16]
+	mi := &file_api_v1_authz_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1165,7 @@ func (x *ListPoliciesReply) String() string {
 func (*ListPoliciesReply) ProtoMessage() {}
 
 func (x *ListPoliciesReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[16]
+	mi := &file_api_v1_authz_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,12 +1178,19 @@ func (x *ListPoliciesReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPoliciesReply.ProtoReflect.Descriptor instead.
 func (*ListPoliciesReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{16}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListPoliciesReply) GetPolicies() []*Policy {
 	if x != nil {
 		return x.Policies
+	}
+	return nil
+}
+
+func (x *ListPoliciesReply) GetBuiltins() *BuiltinPolicies {
+	if x != nil {
+		return x.Builtins
 	}
 	return nil
 }
@@ -1144,7 +1206,7 @@ type CreatePolicyRequest struct {
 
 func (x *CreatePolicyRequest) Reset() {
 	*x = CreatePolicyRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[17]
+	mi := &file_api_v1_authz_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1156,7 +1218,7 @@ func (x *CreatePolicyRequest) String() string {
 func (*CreatePolicyRequest) ProtoMessage() {}
 
 func (x *CreatePolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[17]
+	mi := &file_api_v1_authz_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1169,7 +1231,7 @@ func (x *CreatePolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePolicyRequest.ProtoReflect.Descriptor instead.
 func (*CreatePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{17}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CreatePolicyRequest) GetName() string {
@@ -1203,7 +1265,7 @@ type PolicyReply struct {
 
 func (x *PolicyReply) Reset() {
 	*x = PolicyReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[18]
+	mi := &file_api_v1_authz_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1215,7 +1277,7 @@ func (x *PolicyReply) String() string {
 func (*PolicyReply) ProtoMessage() {}
 
 func (x *PolicyReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[18]
+	mi := &file_api_v1_authz_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1228,7 +1290,7 @@ func (x *PolicyReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PolicyReply.ProtoReflect.Descriptor instead.
 func (*PolicyReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{18}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PolicyReply) GetPolicy() *Policy {
@@ -1256,7 +1318,7 @@ type SetPolicyEnabledRequest struct {
 
 func (x *SetPolicyEnabledRequest) Reset() {
 	*x = SetPolicyEnabledRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[19]
+	mi := &file_api_v1_authz_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1268,7 +1330,7 @@ func (x *SetPolicyEnabledRequest) String() string {
 func (*SetPolicyEnabledRequest) ProtoMessage() {}
 
 func (x *SetPolicyEnabledRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[19]
+	mi := &file_api_v1_authz_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1281,7 +1343,7 @@ func (x *SetPolicyEnabledRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetPolicyEnabledRequest.ProtoReflect.Descriptor instead.
 func (*SetPolicyEnabledRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{19}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SetPolicyEnabledRequest) GetId() string {
@@ -1315,7 +1377,7 @@ type DeletePolicyRequest struct {
 
 func (x *DeletePolicyRequest) Reset() {
 	*x = DeletePolicyRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[20]
+	mi := &file_api_v1_authz_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1327,7 +1389,7 @@ func (x *DeletePolicyRequest) String() string {
 func (*DeletePolicyRequest) ProtoMessage() {}
 
 func (x *DeletePolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[20]
+	mi := &file_api_v1_authz_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1340,7 +1402,7 @@ func (x *DeletePolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePolicyRequest.ProtoReflect.Descriptor instead.
 func (*DeletePolicyRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{20}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DeletePolicyRequest) GetId() string {
@@ -1366,7 +1428,7 @@ type RevisionReply struct {
 
 func (x *RevisionReply) Reset() {
 	*x = RevisionReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[21]
+	mi := &file_api_v1_authz_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1378,7 +1440,7 @@ func (x *RevisionReply) String() string {
 func (*RevisionReply) ProtoMessage() {}
 
 func (x *RevisionReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[21]
+	mi := &file_api_v1_authz_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1391,7 +1453,7 @@ func (x *RevisionReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevisionReply.ProtoReflect.Descriptor instead.
 func (*RevisionReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{21}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RevisionReply) GetRevision() int64 {
@@ -1425,7 +1487,7 @@ type Grant struct {
 
 func (x *Grant) Reset() {
 	*x = Grant{}
-	mi := &file_api_v1_authz_proto_msgTypes[22]
+	mi := &file_api_v1_authz_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1437,7 +1499,7 @@ func (x *Grant) String() string {
 func (*Grant) ProtoMessage() {}
 
 func (x *Grant) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[22]
+	mi := &file_api_v1_authz_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1450,7 +1512,7 @@ func (x *Grant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Grant.ProtoReflect.Descriptor instead.
 func (*Grant) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{22}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Grant) GetId() string {
@@ -1534,7 +1596,7 @@ type ListGrantsRequest struct {
 
 func (x *ListGrantsRequest) Reset() {
 	*x = ListGrantsRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[23]
+	mi := &file_api_v1_authz_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1546,7 +1608,7 @@ func (x *ListGrantsRequest) String() string {
 func (*ListGrantsRequest) ProtoMessage() {}
 
 func (x *ListGrantsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[23]
+	mi := &file_api_v1_authz_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1559,7 +1621,7 @@ func (x *ListGrantsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGrantsRequest.ProtoReflect.Descriptor instead.
 func (*ListGrantsRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{23}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListGrantsRequest) GetSubject() string {
@@ -1592,7 +1654,7 @@ type ListGrantsReply struct {
 
 func (x *ListGrantsReply) Reset() {
 	*x = ListGrantsReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[24]
+	mi := &file_api_v1_authz_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1604,7 +1666,7 @@ func (x *ListGrantsReply) String() string {
 func (*ListGrantsReply) ProtoMessage() {}
 
 func (x *ListGrantsReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[24]
+	mi := &file_api_v1_authz_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1617,7 +1679,7 @@ func (x *ListGrantsReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGrantsReply.ProtoReflect.Descriptor instead.
 func (*ListGrantsReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{24}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListGrantsReply) GetGrants() []*Grant {
@@ -1641,7 +1703,7 @@ type CreateGrantRequest struct {
 
 func (x *CreateGrantRequest) Reset() {
 	*x = CreateGrantRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[25]
+	mi := &file_api_v1_authz_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1653,7 +1715,7 @@ func (x *CreateGrantRequest) String() string {
 func (*CreateGrantRequest) ProtoMessage() {}
 
 func (x *CreateGrantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[25]
+	mi := &file_api_v1_authz_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1666,7 +1728,7 @@ func (x *CreateGrantRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGrantRequest.ProtoReflect.Descriptor instead.
 func (*CreateGrantRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{25}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CreateGrantRequest) GetSubjectType() string {
@@ -1721,7 +1783,7 @@ type GrantReply struct {
 
 func (x *GrantReply) Reset() {
 	*x = GrantReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[26]
+	mi := &file_api_v1_authz_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1733,7 +1795,7 @@ func (x *GrantReply) String() string {
 func (*GrantReply) ProtoMessage() {}
 
 func (x *GrantReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[26]
+	mi := &file_api_v1_authz_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1746,7 +1808,7 @@ func (x *GrantReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantReply.ProtoReflect.Descriptor instead.
 func (*GrantReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{26}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GrantReply) GetGrant() *Grant {
@@ -1772,7 +1834,7 @@ type DeleteGrantRequest struct {
 
 func (x *DeleteGrantRequest) Reset() {
 	*x = DeleteGrantRequest{}
-	mi := &file_api_v1_authz_proto_msgTypes[27]
+	mi := &file_api_v1_authz_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1784,7 +1846,7 @@ func (x *DeleteGrantRequest) String() string {
 func (*DeleteGrantRequest) ProtoMessage() {}
 
 func (x *DeleteGrantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[27]
+	mi := &file_api_v1_authz_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1797,7 +1859,7 @@ func (x *DeleteGrantRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGrantRequest.ProtoReflect.Descriptor instead.
 func (*DeleteGrantRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{27}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DeleteGrantRequest) GetId() string {
@@ -1816,7 +1878,7 @@ type DeleteGrantReply struct {
 
 func (x *DeleteGrantReply) Reset() {
 	*x = DeleteGrantReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[28]
+	mi := &file_api_v1_authz_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1828,7 +1890,7 @@ func (x *DeleteGrantReply) String() string {
 func (*DeleteGrantReply) ProtoMessage() {}
 
 func (x *DeleteGrantReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[28]
+	mi := &file_api_v1_authz_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1841,7 +1903,7 @@ func (x *DeleteGrantReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGrantReply.ProtoReflect.Descriptor instead.
 func (*DeleteGrantReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{28}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DeleteGrantReply) GetRevision() int64 {
@@ -1862,7 +1924,7 @@ type Role struct {
 
 func (x *Role) Reset() {
 	*x = Role{}
-	mi := &file_api_v1_authz_proto_msgTypes[29]
+	mi := &file_api_v1_authz_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1874,7 +1936,7 @@ func (x *Role) String() string {
 func (*Role) ProtoMessage() {}
 
 func (x *Role) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[29]
+	mi := &file_api_v1_authz_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1887,7 +1949,7 @@ func (x *Role) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Role.ProtoReflect.Descriptor instead.
 func (*Role) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{29}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Role) GetName() string {
@@ -1920,7 +1982,7 @@ type ListRolesReply struct {
 
 func (x *ListRolesReply) Reset() {
 	*x = ListRolesReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[30]
+	mi := &file_api_v1_authz_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1932,7 +1994,7 @@ func (x *ListRolesReply) String() string {
 func (*ListRolesReply) ProtoMessage() {}
 
 func (x *ListRolesReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[30]
+	mi := &file_api_v1_authz_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1945,7 +2007,7 @@ func (x *ListRolesReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesReply.ProtoReflect.Descriptor instead.
 func (*ListRolesReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{30}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListRolesReply) GetRoles() []*Role {
@@ -1967,7 +2029,7 @@ type MyPermissionsReply struct {
 
 func (x *MyPermissionsReply) Reset() {
 	*x = MyPermissionsReply{}
-	mi := &file_api_v1_authz_proto_msgTypes[31]
+	mi := &file_api_v1_authz_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1979,7 +2041,7 @@ func (x *MyPermissionsReply) String() string {
 func (*MyPermissionsReply) ProtoMessage() {}
 
 func (x *MyPermissionsReply) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_authz_proto_msgTypes[31]
+	mi := &file_api_v1_authz_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1992,7 +2054,7 @@ func (x *MyPermissionsReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MyPermissionsReply.ProtoReflect.Descriptor instead.
 func (*MyPermissionsReply) Descriptor() ([]byte, []int) {
-	return file_api_v1_authz_proto_rawDescGZIP(), []int{31}
+	return file_api_v1_authz_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *MyPermissionsReply) GetSubject() string {
@@ -2124,9 +2186,13 @@ const file_api_v1_authz_proto_rawDesc = "" +
 	"\tcreatedBy\x18\x06 \x01(\tR\tcreatedBy\x12\x1c\n" +
 	"\tcreatedAt\x18\a \x01(\tR\tcreatedAt\x12\x1a\n" +
 	"\brevision\x18\b \x01(\x03R\brevision\x12\x14\n" +
-	"\x05error\x18\t \x01(\tR\x05error\"?\n" +
+	"\x05error\x18\t \x01(\tR\x05error\"e\n" +
+	"\x0fBuiltinPolicies\x12\x16\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x12:\n" +
+	"\x18clusterTemplatesReadable\x18\x02 \x01(\bR\x18clusterTemplatesReadable\"t\n" +
 	"\x11ListPoliciesReply\x12*\n" +
-	"\bpolicies\x18\x01 \x03(\v2\x0e.api.v1.PolicyR\bpolicies\"_\n" +
+	"\bpolicies\x18\x01 \x03(\v2\x0e.api.v1.PolicyR\bpolicies\x123\n" +
+	"\bbuiltins\x18\x02 \x01(\v2\x17.api.v1.BuiltinPoliciesR\bbuiltins\"_\n" +
 	"\x13CreatePolicyRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +
@@ -2234,7 +2300,7 @@ func file_api_v1_authz_proto_rawDescGZIP() []byte {
 	return file_api_v1_authz_proto_rawDescData
 }
 
-var file_api_v1_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_api_v1_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_api_v1_authz_proto_goTypes = []any{
 	(*ActionsRequest)(nil),          // 0: api.v1.ActionsRequest
 	(*ActionsReply)(nil),            // 1: api.v1.ActionsReply
@@ -2252,23 +2318,24 @@ var file_api_v1_authz_proto_goTypes = []any{
 	(*ListAuditRequest)(nil),        // 13: api.v1.ListAuditRequest
 	(*ListAuditReply)(nil),          // 14: api.v1.ListAuditReply
 	(*Policy)(nil),                  // 15: api.v1.Policy
-	(*ListPoliciesReply)(nil),       // 16: api.v1.ListPoliciesReply
-	(*CreatePolicyRequest)(nil),     // 17: api.v1.CreatePolicyRequest
-	(*PolicyReply)(nil),             // 18: api.v1.PolicyReply
-	(*SetPolicyEnabledRequest)(nil), // 19: api.v1.SetPolicyEnabledRequest
-	(*DeletePolicyRequest)(nil),     // 20: api.v1.DeletePolicyRequest
-	(*RevisionReply)(nil),           // 21: api.v1.RevisionReply
-	(*Grant)(nil),                   // 22: api.v1.Grant
-	(*ListGrantsRequest)(nil),       // 23: api.v1.ListGrantsRequest
-	(*ListGrantsReply)(nil),         // 24: api.v1.ListGrantsReply
-	(*CreateGrantRequest)(nil),      // 25: api.v1.CreateGrantRequest
-	(*GrantReply)(nil),              // 26: api.v1.GrantReply
-	(*DeleteGrantRequest)(nil),      // 27: api.v1.DeleteGrantRequest
-	(*DeleteGrantReply)(nil),        // 28: api.v1.DeleteGrantReply
-	(*Role)(nil),                    // 29: api.v1.Role
-	(*ListRolesReply)(nil),          // 30: api.v1.ListRolesReply
-	(*MyPermissionsReply)(nil),      // 31: api.v1.MyPermissionsReply
-	(*emptypb.Empty)(nil),           // 32: google.protobuf.Empty
+	(*BuiltinPolicies)(nil),         // 16: api.v1.BuiltinPolicies
+	(*ListPoliciesReply)(nil),       // 17: api.v1.ListPoliciesReply
+	(*CreatePolicyRequest)(nil),     // 18: api.v1.CreatePolicyRequest
+	(*PolicyReply)(nil),             // 19: api.v1.PolicyReply
+	(*SetPolicyEnabledRequest)(nil), // 20: api.v1.SetPolicyEnabledRequest
+	(*DeletePolicyRequest)(nil),     // 21: api.v1.DeletePolicyRequest
+	(*RevisionReply)(nil),           // 22: api.v1.RevisionReply
+	(*Grant)(nil),                   // 23: api.v1.Grant
+	(*ListGrantsRequest)(nil),       // 24: api.v1.ListGrantsRequest
+	(*ListGrantsReply)(nil),         // 25: api.v1.ListGrantsReply
+	(*CreateGrantRequest)(nil),      // 26: api.v1.CreateGrantRequest
+	(*GrantReply)(nil),              // 27: api.v1.GrantReply
+	(*DeleteGrantRequest)(nil),      // 28: api.v1.DeleteGrantRequest
+	(*DeleteGrantReply)(nil),        // 29: api.v1.DeleteGrantReply
+	(*Role)(nil),                    // 30: api.v1.Role
+	(*ListRolesReply)(nil),          // 31: api.v1.ListRolesReply
+	(*MyPermissionsReply)(nil),      // 32: api.v1.MyPermissionsReply
+	(*emptypb.Empty)(nil),           // 33: google.protobuf.Empty
 }
 var file_api_v1_authz_proto_depIdxs = []int32{
 	3,  // 0: api.v1.SearchUsersReply.users:type_name -> api.v1.DirectoryUser
@@ -2278,52 +2345,53 @@ var file_api_v1_authz_proto_depIdxs = []int32{
 	12, // 4: api.v1.AuthzStatusReply.lastChange:type_name -> api.v1.AuditEvent
 	12, // 5: api.v1.ListAuditReply.events:type_name -> api.v1.AuditEvent
 	15, // 6: api.v1.ListPoliciesReply.policies:type_name -> api.v1.Policy
-	15, // 7: api.v1.PolicyReply.policy:type_name -> api.v1.Policy
-	22, // 8: api.v1.ListGrantsReply.grants:type_name -> api.v1.Grant
-	22, // 9: api.v1.GrantReply.grant:type_name -> api.v1.Grant
-	29, // 10: api.v1.ListRolesReply.roles:type_name -> api.v1.Role
-	22, // 11: api.v1.MyPermissionsReply.grants:type_name -> api.v1.Grant
-	23, // 12: api.v1.AuthzService.ListGrants:input_type -> api.v1.ListGrantsRequest
-	25, // 13: api.v1.AuthzService.CreateGrant:input_type -> api.v1.CreateGrantRequest
-	2,  // 14: api.v1.AuthzService.SearchUsers:input_type -> api.v1.SearchUsersRequest
-	5,  // 15: api.v1.AuthzService.ListUsers:input_type -> api.v1.ListUsersRequest
-	7,  // 16: api.v1.AuthzService.CreateUser:input_type -> api.v1.CreateUserRequest
-	32, // 17: api.v1.AuthzService.SetupStatus:input_type -> google.protobuf.Empty
-	9,  // 18: api.v1.AuthzService.SetupAdmin:input_type -> api.v1.SetupAdminRequest
-	27, // 19: api.v1.AuthzService.DeleteGrant:input_type -> api.v1.DeleteGrantRequest
-	32, // 20: api.v1.AuthzService.ListRoles:input_type -> google.protobuf.Empty
-	32, // 21: api.v1.AuthzService.MyPermissions:input_type -> google.protobuf.Empty
-	0,  // 22: api.v1.AuthzService.Actions:input_type -> api.v1.ActionsRequest
-	32, // 23: api.v1.AuthzService.Status:input_type -> google.protobuf.Empty
-	32, // 24: api.v1.AuthzService.OrphanGrants:input_type -> google.protobuf.Empty
-	13, // 25: api.v1.AuthzService.ListAudit:input_type -> api.v1.ListAuditRequest
-	32, // 26: api.v1.AuthzService.ListPolicies:input_type -> google.protobuf.Empty
-	17, // 27: api.v1.AuthzService.CreatePolicy:input_type -> api.v1.CreatePolicyRequest
-	19, // 28: api.v1.AuthzService.SetPolicyEnabled:input_type -> api.v1.SetPolicyEnabledRequest
-	20, // 29: api.v1.AuthzService.DeletePolicy:input_type -> api.v1.DeletePolicyRequest
-	24, // 30: api.v1.AuthzService.ListGrants:output_type -> api.v1.ListGrantsReply
-	26, // 31: api.v1.AuthzService.CreateGrant:output_type -> api.v1.GrantReply
-	4,  // 32: api.v1.AuthzService.SearchUsers:output_type -> api.v1.SearchUsersReply
-	6,  // 33: api.v1.AuthzService.ListUsers:output_type -> api.v1.ListUsersReply
-	3,  // 34: api.v1.AuthzService.CreateUser:output_type -> api.v1.DirectoryUser
-	8,  // 35: api.v1.AuthzService.SetupStatus:output_type -> api.v1.SetupStatusReply
-	3,  // 36: api.v1.AuthzService.SetupAdmin:output_type -> api.v1.DirectoryUser
-	28, // 37: api.v1.AuthzService.DeleteGrant:output_type -> api.v1.DeleteGrantReply
-	30, // 38: api.v1.AuthzService.ListRoles:output_type -> api.v1.ListRolesReply
-	31, // 39: api.v1.AuthzService.MyPermissions:output_type -> api.v1.MyPermissionsReply
-	1,  // 40: api.v1.AuthzService.Actions:output_type -> api.v1.ActionsReply
-	11, // 41: api.v1.AuthzService.Status:output_type -> api.v1.AuthzStatusReply
-	24, // 42: api.v1.AuthzService.OrphanGrants:output_type -> api.v1.ListGrantsReply
-	14, // 43: api.v1.AuthzService.ListAudit:output_type -> api.v1.ListAuditReply
-	16, // 44: api.v1.AuthzService.ListPolicies:output_type -> api.v1.ListPoliciesReply
-	18, // 45: api.v1.AuthzService.CreatePolicy:output_type -> api.v1.PolicyReply
-	21, // 46: api.v1.AuthzService.SetPolicyEnabled:output_type -> api.v1.RevisionReply
-	21, // 47: api.v1.AuthzService.DeletePolicy:output_type -> api.v1.RevisionReply
-	30, // [30:48] is the sub-list for method output_type
-	12, // [12:30] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	16, // 7: api.v1.ListPoliciesReply.builtins:type_name -> api.v1.BuiltinPolicies
+	15, // 8: api.v1.PolicyReply.policy:type_name -> api.v1.Policy
+	23, // 9: api.v1.ListGrantsReply.grants:type_name -> api.v1.Grant
+	23, // 10: api.v1.GrantReply.grant:type_name -> api.v1.Grant
+	30, // 11: api.v1.ListRolesReply.roles:type_name -> api.v1.Role
+	23, // 12: api.v1.MyPermissionsReply.grants:type_name -> api.v1.Grant
+	24, // 13: api.v1.AuthzService.ListGrants:input_type -> api.v1.ListGrantsRequest
+	26, // 14: api.v1.AuthzService.CreateGrant:input_type -> api.v1.CreateGrantRequest
+	2,  // 15: api.v1.AuthzService.SearchUsers:input_type -> api.v1.SearchUsersRequest
+	5,  // 16: api.v1.AuthzService.ListUsers:input_type -> api.v1.ListUsersRequest
+	7,  // 17: api.v1.AuthzService.CreateUser:input_type -> api.v1.CreateUserRequest
+	33, // 18: api.v1.AuthzService.SetupStatus:input_type -> google.protobuf.Empty
+	9,  // 19: api.v1.AuthzService.SetupAdmin:input_type -> api.v1.SetupAdminRequest
+	28, // 20: api.v1.AuthzService.DeleteGrant:input_type -> api.v1.DeleteGrantRequest
+	33, // 21: api.v1.AuthzService.ListRoles:input_type -> google.protobuf.Empty
+	33, // 22: api.v1.AuthzService.MyPermissions:input_type -> google.protobuf.Empty
+	0,  // 23: api.v1.AuthzService.Actions:input_type -> api.v1.ActionsRequest
+	33, // 24: api.v1.AuthzService.Status:input_type -> google.protobuf.Empty
+	33, // 25: api.v1.AuthzService.OrphanGrants:input_type -> google.protobuf.Empty
+	13, // 26: api.v1.AuthzService.ListAudit:input_type -> api.v1.ListAuditRequest
+	33, // 27: api.v1.AuthzService.ListPolicies:input_type -> google.protobuf.Empty
+	18, // 28: api.v1.AuthzService.CreatePolicy:input_type -> api.v1.CreatePolicyRequest
+	20, // 29: api.v1.AuthzService.SetPolicyEnabled:input_type -> api.v1.SetPolicyEnabledRequest
+	21, // 30: api.v1.AuthzService.DeletePolicy:input_type -> api.v1.DeletePolicyRequest
+	25, // 31: api.v1.AuthzService.ListGrants:output_type -> api.v1.ListGrantsReply
+	27, // 32: api.v1.AuthzService.CreateGrant:output_type -> api.v1.GrantReply
+	4,  // 33: api.v1.AuthzService.SearchUsers:output_type -> api.v1.SearchUsersReply
+	6,  // 34: api.v1.AuthzService.ListUsers:output_type -> api.v1.ListUsersReply
+	3,  // 35: api.v1.AuthzService.CreateUser:output_type -> api.v1.DirectoryUser
+	8,  // 36: api.v1.AuthzService.SetupStatus:output_type -> api.v1.SetupStatusReply
+	3,  // 37: api.v1.AuthzService.SetupAdmin:output_type -> api.v1.DirectoryUser
+	29, // 38: api.v1.AuthzService.DeleteGrant:output_type -> api.v1.DeleteGrantReply
+	31, // 39: api.v1.AuthzService.ListRoles:output_type -> api.v1.ListRolesReply
+	32, // 40: api.v1.AuthzService.MyPermissions:output_type -> api.v1.MyPermissionsReply
+	1,  // 41: api.v1.AuthzService.Actions:output_type -> api.v1.ActionsReply
+	11, // 42: api.v1.AuthzService.Status:output_type -> api.v1.AuthzStatusReply
+	25, // 43: api.v1.AuthzService.OrphanGrants:output_type -> api.v1.ListGrantsReply
+	14, // 44: api.v1.AuthzService.ListAudit:output_type -> api.v1.ListAuditReply
+	17, // 45: api.v1.AuthzService.ListPolicies:output_type -> api.v1.ListPoliciesReply
+	19, // 46: api.v1.AuthzService.CreatePolicy:output_type -> api.v1.PolicyReply
+	22, // 47: api.v1.AuthzService.SetPolicyEnabled:output_type -> api.v1.RevisionReply
+	22, // 48: api.v1.AuthzService.DeletePolicy:output_type -> api.v1.RevisionReply
+	31, // [31:49] is the sub-list for method output_type
+	13, // [13:31] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_authz_proto_init() }
@@ -2335,16 +2403,16 @@ func file_api_v1_authz_proto_init() {
 	file_api_v1_authz_proto_msgTypes[2].OneofWrappers = []any{}
 	file_api_v1_authz_proto_msgTypes[5].OneofWrappers = []any{}
 	file_api_v1_authz_proto_msgTypes[13].OneofWrappers = []any{}
-	file_api_v1_authz_proto_msgTypes[20].OneofWrappers = []any{}
-	file_api_v1_authz_proto_msgTypes[23].OneofWrappers = []any{}
-	file_api_v1_authz_proto_msgTypes[25].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[21].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[24].OneofWrappers = []any{}
+	file_api_v1_authz_proto_msgTypes[26].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_authz_proto_rawDesc), len(file_api_v1_authz_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   32,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

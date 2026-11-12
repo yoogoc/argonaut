@@ -3,6 +3,7 @@ import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query"
 import { http, query } from "@/lib/http";
 import { getRevision } from "@/lib/revision";
 
+import type { ListPoliciesReply } from "./gen/api.gen";
 import type { AuditEvent, AuthzStatus, DirectoryUser, Grant, MyPermissions, Policy, ResourceRef, Role, RoleInfo } from "./types";
 
 export type { Policy };
@@ -56,8 +57,9 @@ export async function getAuthzStatus(): Promise<AuthzStatus> {
 }
 
 
-export async function listPolicies(): Promise<Policy[]> {
-  return (await http.get("authz/policies").json<{ policies: Policy[] | null }>()).policies ?? [];
+export async function listPolicies() {
+  const reply = await http.get("authz/policies").json<Omit<ListPoliciesReply, "policies"> & { policies?: Policy[] }>();
+  return { builtins: reply.builtins, policies: reply.policies ?? [] };
 }
 
 export async function createPolicy(p: { name: string; description: string; body: string }) {

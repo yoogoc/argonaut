@@ -224,8 +224,15 @@ message Policy {
   // error is set when the loaded policy failed to compile and is being skipped.
   string error = 9;
 }
+message BuiltinPolicies {
+  // Cedar source embedded in the running server.
+  string source = 1;
+  // Value of context.clusterTemplatesReadable used during evaluation.
+  bool clusterTemplatesReadable = 2;
+}
 message ListPoliciesReply {
   repeated Policy policies = 1;
+  BuiltinPolicies builtins = 2;
 }
 message CreatePolicyRequest {
   string name = 1;

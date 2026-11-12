@@ -210,13 +210,18 @@ func (s *AuthzService) ListAudit(ctx context.Context, req *v1.ListAuditRequest) 
 }
 
 func (s *AuthzService) ListPolicies(ctx context.Context, _ *emptypb.Empty) (*v1.ListPoliciesReply, error) {
-	policies, broken, err := s.uc.ListPolicies(ctx)
+	policies, err := s.uc.ListPolicies(ctx)
 	if err != nil {
 		return nil, err
 	}
-	reply := &v1.ListPoliciesReply{}
-	for _, p := range policies {
-		reply.Policies = append(reply.Policies, toProtoPolicy(p, broken[p.Name]))
+	reply := &v1.ListPoliciesReply{
+		Builtins: &v1.BuiltinPolicies{
+			Source:                   policies.BuiltinSource,
+			ClusterTemplatesReadable: policies.ClusterTemplatesReadable,
+		},
+	}
+	for _, p := range policies.Custom {
+		reply.Policies = append(reply.Policies, toProtoPolicy(p, policies.Broken[p.Name]))
 	}
 	return reply, nil
 }

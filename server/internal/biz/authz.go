@@ -516,17 +516,30 @@ func (uc *AuthzUsecase) Status(ctx context.Context) (AuthzStatus, error) {
 	return AuthzStatus{Revision: rev, Replicas: replicas, LastChange: last}, nil
 }
 
-// ---- custom policies (global admins only) ----
+// ---- policies (global admins only) ----
 
-func (uc *AuthzUsecase) ListPolicies(ctx context.Context) ([]authz.CustomPolicy, map[string]string, error) {
+type PolicyList struct {
+	Custom                   []authz.CustomPolicy
+	Broken                   map[string]string
+	BuiltinSource            string
+	ClusterTemplatesReadable bool
+}
+
+func (uc *AuthzUsecase) ListPolicies(ctx context.Context) (PolicyList, error) {
 	if err := uc.Require(ctx, authz.AuthzGrant, authz.Global()); err != nil {
-		return nil, nil, err
+		return PolicyList{}, err
 	}
 	snap, err := uc.repo.Snapshot(ctx)
 	if err != nil {
-		return nil, nil, err
+		return PolicyList{}, err
 	}
-	return snap.Policies, uc.engine.BrokenPolicies(), nil
+	source, readable := uc.engine.BuiltinPolicies()
+	return PolicyList{
+		Custom:                   snap.Policies,
+		Broken:                   uc.engine.BrokenPolicies(),
+		BuiltinSource:            source,
+		ClusterTemplatesReadable: readable,
+	}, nil
 }
 
 func (uc *AuthzUsecase) CreatePolicy(ctx context.Context, p authz.CustomPolicy) (authz.CustomPolicy, int64, error) {

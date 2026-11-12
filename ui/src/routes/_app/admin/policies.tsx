@@ -8,7 +8,9 @@ import { toast } from "sonner";
 import { createPolicy, deletePolicy, listPolicies, type Policy, setPolicyEnabled } from "@/api/authz";
 import { AdminLayout } from "@/admin/layout";
 import { ConfirmAction } from "@/components/common/confirm-action";
+import { Section } from "@/components/common/page";
 import { EmptyState, ErrorState, errorMessage, Spinner } from "@/components/common/states";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -35,6 +37,7 @@ function PoliciesPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["authz", "policies"], queryFn: listPolicies });
+  const builtins = query.data?.builtins;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({ name: "", description: "", body: EXAMPLE });
   const [deleting, setDeleting] = useState<Policy>();
@@ -62,15 +65,27 @@ function PoliciesPage() {
       <p className="max-w-3xl text-sm text-muted-foreground">
         {t("Cedar policies evaluated together with the built-in role policies. A forbid always wins over a permit. Resources expose kind, namespace, name and labels; the context exposes clusterTemplatesReadable.")}
       </p>
+      {builtins && (
+        <Section title={t("Built-in policies")} description={t("Read only")} bodyClassName="space-y-3 p-4">
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            {t("Default read access to cluster templates")}
+            <Badge variant="outline">{builtins.clusterTemplatesReadable ? t("Enabled") : t("Disabled")}</Badge>
+          </p>
+          <pre aria-label={t("Built-in Cedar policy source")} tabIndex={0} className="max-h-96 overflow-auto rounded-lg bg-zinc-950 p-3 font-mono text-xs leading-relaxed text-zinc-200">
+            <code>{builtins.source}</code>
+          </pre>
+        </Section>
+      )}
+      {query.data && <h2 className="text-sm font-bold">{t("Custom policies")}</h2>}
       {query.error ? (
         <ErrorState error={query.error} />
       ) : query.isPending ? (
         <Spinner />
-      ) : !query.data.length ? (
+      ) : !query.data.policies.length ? (
         <EmptyState title={t("No custom policies")} description={t("Only the built-in role policies apply.")} />
       ) : (
         <div className="space-y-3">
-          {query.data.map((p) => (
+          {query.data.policies.map((p) => (
             <section key={p.id} className="space-y-3 rounded-xl border bg-card p-4">
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="font-mono text-sm font-semibold">{p.name}</h2>

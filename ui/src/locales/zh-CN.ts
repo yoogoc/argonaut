@@ -368,6 +368,11 @@ const zhCN: Record<string, string> = {
 
   // policies, grants, audit
   "New policy": "新建策略",
+  "Built-in policies": "内置策略",
+  "Built-in Cedar policy source": "内置 Cedar 策略源码",
+  "Read only": "只读",
+  "Default read access to cluster templates": "集群模板默认读取权限",
+  "Custom policies": "自定义策略",
   "Cedar policies evaluated together with the built-in role policies. A forbid always wins over a permit. Resources expose kind, namespace, name and labels; the context exposes clusterTemplatesReadable.":
     "与内置角色策略一起评估的 Cedar 策略，forbid 总是优先于 permit。资源提供 kind、namespace、name 和 labels 属性；context 提供 clusterTemplatesReadable。",
   "No custom policies": "暂无自定义策略",

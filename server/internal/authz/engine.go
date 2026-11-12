@@ -283,6 +283,11 @@ func (e *Engine) Grants() []Grant {
 	return append([]Grant(nil), e.current.grants...)
 }
 
+// BuiltinPolicies returns the embedded Cedar source and its runtime context setting.
+func (e *Engine) BuiltinPolicies() (source string, clusterTemplatesReadable bool) {
+	return string(builtinPolicies), e.clusterTplReadable
+}
+
 // BrokenPolicies returns custom policies that failed to compile in the loaded snapshot.
 func (e *Engine) BrokenPolicies() map[string]string {
 	e.mu.RLock()
