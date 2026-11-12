@@ -1,10 +1,11 @@
 # VERSION is the full Argonaut image reference, including the tag or digest.
 # The ConfigMap named argonaut must provide the key config.
-# Set server.http.addr to 0.0.0.0:4100 and kube.namespaces to [argo] in that config.
+# Set server.http.addr to 0.0.0.0:4100 and leave kube.managed_namespace unset.
+# List the namespaces Argonaut should show and watch in kube.namespaces.
 # Enable SSO when exposing Argonaut through an Ingress. The backend Service is argonaut:80.
 # The Secret named argonaut-secrets supplies ARGONAUT_DATABASE_URL and, for SSO,
 # ARGONAUT_SSO_CLIENT_SECRET and ARGONAUT_JWT_SECRET.
-# The Deployment uses the existing argo-workflows-workflow-controller ServiceAccount in argo.
+# Apply rbac.yaml before this file to create the argonaut ServiceAccount.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,7 +23,7 @@ spec:
       labels:
         app: argonaut
     spec:
-      serviceAccountName: argo-workflows-workflow-controller
+      serviceAccountName: argonaut
       imagePullSecrets:
         - name: aliyun-regcred
       securityContext:
