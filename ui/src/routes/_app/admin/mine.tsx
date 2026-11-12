@@ -6,12 +6,16 @@ import { useMyPermissions } from "@/api/authz";
 import { GrantsTable } from "@/admin/grants-table";
 import { AdminLayout } from "@/admin/layout";
 import { EmptyState, ErrorState, Spinner } from "@/components/common/states";
+import { useSession } from "@/stores/session";
 
 export const Route = createFileRoute("/_app/admin/mine")({ component: MinePage });
 
 function MinePage() {
   const { t } = useTranslation();
   const query = useMyPermissions();
+  const user = useSession((s) => s.user);
+  const email = user?.email;
+  const name = user?.name || email;
   return (
     <AdminLayout>
       {query.error ? (
@@ -20,9 +24,10 @@ function MinePage() {
         <Spinner />
       ) : (
         <>
-          <p className="flex items-center gap-2 text-sm">
+          <p className="flex flex-wrap items-center gap-2 text-sm">
             <ShieldCheck className="size-4 text-phase-ok" aria-hidden />
-            {t("Signed in as")} <span className="font-mono">{query.data.subject}</span>
+            {t("Signed in as")} <span className="break-all font-medium">{name || query.data.subject}</span>
+            {email && email !== name && <span className="break-all text-muted-foreground">{email}</span>}
             {query.data.superAdmin && <span className="rounded-full bg-foreground px-2 py-0.5 text-xs font-bold text-background">{t("Super admin (from configuration)")}</span>}
             <span className="text-muted-foreground">· r{query.data.revision ?? 0}</span>
           </p>
