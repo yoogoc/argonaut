@@ -543,9 +543,8 @@ type Authz struct {
 	// super_admins defines optional recovery administrators by OIDC subject, e.g. "user:<oidc-sub>".
 	// These administrators are decided by configuration alone, so a database outage cannot lock them out.
 	SuperAdmins []string `protobuf:"bytes,1,rep,name=super_admins,json=superAdmins,proto3" json:"super_admins,omitempty"`
-	// dev_subject makes the server usable with sso.enabled=false by treating every request as this
-	// subject. Setting it in a deployment hands that subject's permissions to anyone who can reach
-	// the port.
+	// Overrides the default "developer" identity when sso.enabled=false. In this mode all requests
+	// can read and modify workflow data without grants.
 	DevSubject string `protobuf:"bytes,4,opt,name=dev_subject,json=devSubject,proto3" json:"dev_subject,omitempty"`
 	// poll_interval backs up LISTEN/NOTIFY for long-lived streams: replicas re-read the revision this
 	// often even if a notification is lost. Request-time checks never depend on it.

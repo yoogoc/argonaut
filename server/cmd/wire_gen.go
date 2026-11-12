@@ -30,7 +30,7 @@ func initServerApp(nameString log.NameString, versionString log.VersionString) (
 	confAuthz := newAuthzConf(bootstrap)
 	signer := oidc.NewSigner(sso)
 	discovery := oidc.NewDiscovery(sso)
-	engine, err := authz.NewEngine(confAuthz, logger)
+	engine, err := authz.NewEngine(confAuthz, sso, logger)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -12,9 +12,7 @@ import (
 	"github.com/go-kratos/kratos/v3/transport"
 )
 
-// DevAuth injects a fixed identity for local development, where there is no identity provider to log
-// in against. It is only wired up when sso.enabled is false and authz.dev_subject is set, and the
-// server logs a warning on every startup so this cannot be mistaken for a real configuration.
+// DevAuth injects a fixed identity when the server runs with SSO disabled.
 func DevAuth(subject string) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req any) (any, error) {

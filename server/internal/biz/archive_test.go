@@ -66,7 +66,7 @@ func metaUID(i int) k8stypes.UID { return k8stypes.UID(fmt.Sprintf("uid-%03d", i
 func newArchiveTest(t *testing.T, items []wfv1.Workflow, managed string) (*ArchiveUsecase, *fakeArchive) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	engine, err := authz.NewEngine(&conf.Authz{}, logger)
+	engine, err := authz.NewEngine(&conf.Authz{}, &conf.SSO{Enabled: true}, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

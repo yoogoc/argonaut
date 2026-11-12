@@ -112,6 +112,7 @@ type Decision struct {
 type Engine struct {
 	log                *slog.Logger
 	superAdmins        map[string]struct{}
+	devSubject         string
 	clusterTplReadable bool
 	builtins           []namedPolicy
 
@@ -136,9 +137,9 @@ type compiled struct {
 	broken map[string]string
 }
 
-// NewEngine compiles the built-in policies. No snapshot is loaded yet: until Load is called every
-// non-super-admin decision is a denial, and the usecase never decides before loading.
-func NewEngine(authzConf *conf.Authz, logger *slog.Logger) (*Engine, error) {
+// NewEngine compiles the built-in policies. Decisions that rely on Cedar deny access until Load
+// installs a snapshot.
+func NewEngine(authzConf *conf.Authz, sso *conf.SSO, logger *slog.Logger) (*Engine, error) {
 	builtins, err := parsePolicies("roles.cedar", builtinPolicies)
 	if err != nil {
 		return nil, fmt.Errorf("compiling built-in authz policies: %w", err)
@@ -156,6 +157,7 @@ func NewEngine(authzConf *conf.Authz, logger *slog.Logger) (*Engine, error) {
 	e := &Engine{
 		log:                logger.With("module", "authz"),
 		superAdmins:        admins,
+		devSubject:         conf.DevelopmentSubject(sso, authzConf),
 		clusterTplReadable: readable,
 		builtins:           builtins,
 	}
@@ -298,6 +300,9 @@ func (e *Engine) Decide(subject string, action Action, res Resource) Decision {
 	}
 	if e.IsSuperAdmin(subject) {
 		return Decision{Allowed: true, Policies: []string{"super-admin"}, Revision: e.Revision()}
+	}
+	if subject == e.devSubject && isDataAction(action) {
+		return Decision{Allowed: true, Revision: e.Revision()}
 	}
 	e.mu.RLock()
 	snap := e.current

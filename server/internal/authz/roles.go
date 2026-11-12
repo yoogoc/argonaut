@@ -2,7 +2,10 @@
 // table (DESIGN §4.2); nothing in the service layer hard-codes permission logic.
 package authz
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // Action is a "<resource>:<verb>" permission string, used verbatim as the Cedar action id.
 type Action string
@@ -98,6 +101,10 @@ var ownActions = map[string][]Action{
 	RoleOperator: operatorOnly,
 	RoleEditor:   editorOnly,
 	RoleAdmin:    adminOnly,
+}
+
+func isDataAction(action Action) bool {
+	return slices.Contains(viewerActions, action) || slices.Contains(operatorOnly, action) || slices.Contains(editorOnly, action)
 }
 
 // AllActions is the complete vocabulary, in role order.

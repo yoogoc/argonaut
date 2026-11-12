@@ -72,20 +72,13 @@ func NewHTTPServer(
 		}
 		return true
 	}
-	switch {
-	case sso.GetEnabled():
+	devSubject := conf.DevelopmentSubject(sso, authzConf)
+	if devSubject == "" {
 		mws = append(mws, selector.Server(xoidc.Auth(signer)).Match(needsAuth).Build())
-	case authzConf.GetDevSubject() != "":
-		logger.Warn("single sign-on is disabled and a development subject is configured: "+
-			"every request is treated as this user, with all of its permissions",
-			"devSubject", authzConf.GetDevSubject())
-		mws = append(mws, xoidc.DevAuth(authzConf.GetDevSubject()))
-	default:
-		// Authorization is keyed on the caller's subject, so with no way to establish one every
-		// authenticated endpoint will reject requests with 401. Say so plainly, because the symptom
-		// otherwise looks like a broken deployment.
-		logger.Warn("single sign-on is disabled and no authz.dev_subject is set: " +
-			"requests cannot be authenticated, so every API call will be rejected with 401")
+	} else {
+		logger.Warn("single sign-on is disabled: every request uses the development identity and can read and modify workflow data without grants",
+			"devSubject", devSubject)
+		mws = append(mws, xoidc.DevAuth(devSubject))
 	}
 
 	// Runs after authentication so super admins can be recognised and exempted (DESIGN §4.2).
@@ -104,9 +97,14 @@ func NewHTTPServer(
 	if c.GetHttp().GetNetwork() != "" {
 		opts = append(opts, http.Network(c.GetHttp().GetNetwork()))
 	}
-	if c.GetHttp().GetAddr() != "" {
-		opts = append(opts, http.Address(c.GetHttp().GetAddr()))
+	addr := c.GetHttp().GetAddr()
+	if addr == "" {
+		addr = "0.0.0.0:4100"
+		if devSubject != "" {
+			addr = "127.0.0.1:4100"
+		}
 	}
+	opts = append(opts, http.Address(addr))
 	if c.GetHttp().GetTimeout() != nil {
 		// Streaming endpoints must not be cut off by the unary timeout; Kratos applies this per
 		// request, and SSE handlers manage their own lifetime through the request context.
@@ -132,7 +130,7 @@ func NewHTTPServer(
 
 	// Artifact downloads bypass the Kratos codec so the payload can stream. The generated routes
 	// above use fixed paths, so these prefixes cannot collide with them.
-	registerArtifactRoutes(srv, sso, authzConf, signer, authzUC, artifacts, sw)
+	registerArtifactRoutes(srv, devSubject, signer, authzUC, artifacts, sw)
 
 	// Everything else is the UI. Registered last so the API routes above always win.
 	srv.HandlePrefix("/", web.Handler())
@@ -143,40 +141,33 @@ func NewHTTPServer(
 // registerArtifactRoutes mounts the streaming download handlers. They sit outside the Kratos
 // middleware chain, so the same authentication the RPCs get has to be applied explicitly here —
 // forgetting it would leave every artifact readable by anyone who can reach the port.
-func registerArtifactRoutes(srv *http.Server, sso *conf.SSO, authzConf *conf.Authz, signer *xoidc.Signer, authzUC *biz.AuthzUsecase, artifacts *service.ArtifactHandler, sw *pkgargo.ClusterSwitch) {
+func registerArtifactRoutes(srv *http.Server, devSubject string, signer *xoidc.Signer, authzUC *biz.AuthzUsecase, artifacts *service.ArtifactHandler, sw *pkgargo.ClusterSwitch) {
 	routes := map[string]stdhttp.HandlerFunc{
 		"/api/v1/artifacts/":          artifacts.Output,
 		"/api/v1/input-artifacts/":    artifacts.Input,
 		"/api/v1/archived-artifacts/": artifacts.Archived,
 	}
 	for prefix, handler := range routes {
-		srv.HandlePrefix(prefix, withIdentity(sso, authzConf, signer, freshHandler(authzUC, pinClusterHandler(sw, handler))))
+		srv.HandlePrefix(prefix, withIdentity(devSubject, signer, freshHandler(authzUC, pinClusterHandler(sw, handler))))
 	}
 }
 
 // withIdentity resolves the caller the same way the middleware chain does, so these raw handlers
-// authenticate identically to the RPCs under all three authentication modes.
-func withIdentity(sso *conf.SSO, authzConf *conf.Authz, signer *xoidc.Signer, next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	switch {
-	case sso.GetEnabled():
+// authenticate identically to the RPCs.
+func withIdentity(devSubject string, signer *xoidc.Signer, next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	if devSubject != "" {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			user, err := xoidc.UserFromRequest(signer, r)
-			if err != nil {
-				stdhttp.Error(w, err.Error(), stdhttp.StatusUnauthorized)
-				return
-			}
+			user := &viewer.UserViewer{Subject: devSubject, Name: devSubject + " (development)"}
 			next(w, r.WithContext(viewer.NewUserContext(r.Context(), user)))
 		}
-	case authzConf.GetDevSubject() != "":
-		subject := authzConf.GetDevSubject()
-		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			user := &viewer.UserViewer{Subject: subject, Name: subject + " (development)"}
-			next(w, r.WithContext(viewer.NewUserContext(r.Context(), user)))
+	}
+	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		user, err := xoidc.UserFromRequest(signer, r)
+		if err != nil {
+			stdhttp.Error(w, err.Error(), stdhttp.StatusUnauthorized)
+			return
 		}
-	default:
-		// No identity is obtainable, so the usecase will reject the request; pass it through and let
-		// it produce the same 401 the RPCs do.
-		return next
+		next(w, r.WithContext(viewer.NewUserContext(r.Context(), user)))
 	}
 }
 

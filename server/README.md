@@ -39,8 +39,7 @@ Workflows, templates and cron workflows always come from Kubernetes.
 
 Configuration is layered the kratos-scaffold way, later layers winning:
 
-1. `configs/default/config.yaml` — the defaults, compiled into the binary and documented inline. They
-   are deliberately safe: no identity provider and no development identity.
+1. `configs/default/config.yaml` — the defaults, compiled into the binary and documented inline.
 2. `configs/local/` — your own overrides, Git-ignored. Start from `configs/local.example.yaml`.
 3. `--config <file or dir>` — an explicit overlay (the Helm chart mounts one; `configs/dev-archive`
    switches to the local archive setup).
@@ -58,10 +57,11 @@ Three settings deserve attention:
   controller newer than the pinned Argo library does not stop the server from starting.
 - **`authz.super_admins`** — optional recovery administrators identified by OIDC subject.
 
-For local development without an identity provider, set `sso.enabled: false` and
-`authz.dev_subject: <subject>` in `configs/local/config.yaml`; every request is then treated as that
-user. The server logs a warning
-each time it starts in that mode.
+With `sso.enabled: false`, every request uses the `developer` identity and can read and modify
+workflows, templates, and cron workflows without grants or Cedar policies. Set
+`authz.dev_subject` to use a different identity. Managing grants, users, or policies still
+requires the corresponding permissions. The server listens on `127.0.0.1:4100` by default
+in this mode. An explicit `server.http.addr` overrides the default.
 
 ### Kubeconfig contexts that use a credential plugin
 

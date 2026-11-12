@@ -1,10 +1,9 @@
-# Defaults compiled into the binary. They are safe rather than convenient: no identity provider and
-# no development identity, so nothing is reachable until a deployment or configs/local says how
-# users sign in. Load order (later wins): these defaults, configs/local/, then --config. ARGONAUT_*
-# environment variables fill the ${VAR} placeholders below.
+# Defaults compiled into the binary. Load order (later wins): these defaults, configs/local/, then
+# --config. ARGONAUT_* environment variables fill the ${VAR} placeholders below.
 server:
   http:
-    addr: 0.0.0.0:4100
+    # Defaults to 127.0.0.1:4100 with SSO disabled, or 0.0.0.0:4100 with SSO enabled.
+    addr: ""
     # Streaming endpoints (watch, logs) manage their own lifetime through the request context, so
     # this timeout only bounds unary calls.
     timeout: 30s
@@ -65,8 +64,7 @@ authz:
   super_admins: []
   # A random setup secret (at least 32 bytes) enables the first-run wizard.
   setup_token: "${SETUP_TOKEN:}"
-  # Only used when sso.enabled is false: treats every request as this subject so the API can be
-  # exercised without an identity provider. Never set it in a real deployment.
+  # Optional override for the default "developer" identity with SSO disabled.
   dev_subject: ""
   # How often each replica re-checks the authorization revision when it misses a notification.
   poll_interval: 5s

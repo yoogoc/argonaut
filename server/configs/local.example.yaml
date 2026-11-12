@@ -2,11 +2,11 @@
 # adjust. Only the keys you set override the embedded defaults in configs/default/config.yaml. The
 # example lives outside configs/local because every file in that directory is loaded.
 
-# Development without an identity provider: every request acts as dev_subject.
+# Local development without an identity provider uses "developer" by default.
 sso:
   enabled: false
 authz:
-  dev_subject: "developer"
+  # Optional permission to manage authorization and switch clusters as the development identity.
   super_admins:
     - "user:developer"
 

@@ -3,6 +3,7 @@ package authz
 import (
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"argonaut/internal/conf"
@@ -10,7 +11,7 @@ import (
 
 func newTestEngine(t *testing.T, readable *bool) *Engine {
 	t.Helper()
-	e, err := NewEngine(&conf.Authz{SuperAdmins: []string{"user:root"}, ClusterTemplatesReadable: readable}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	e, err := NewEngine(&conf.Authz{SuperAdmins: []string{"user:root"}, ClusterTemplatesReadable: readable}, &conf.SSO{Enabled: true}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,6 +25,45 @@ func TestNothingLoadedDeniesEveryoneButSuperAdmins(t *testing.T) {
 	}
 	if !e.Allow("root", AuthzGrant, Global()) {
 		t.Fatal("super admin denied")
+	}
+}
+
+func TestDevelopmentSubjectAccess(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	res := Resource{Namespace: "argo"}
+	for _, tc := range []struct {
+		name       string
+		ssoEnabled bool
+		devSubject string
+		subject    string
+		wantData   bool
+	}{
+		{name: "default development identity", subject: "developer", wantData: true},
+		{name: "custom development identity", devSubject: "local-user", subject: "local-user", wantData: true},
+		{name: "SSO enabled", ssoEnabled: true, devSubject: "local-user", subject: "local-user"},
+		{name: "SSO enabled without override", ssoEnabled: true, subject: "developer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, err := NewEngine(&conf.Authz{DevSubject: tc.devSubject}, &conf.SSO{Enabled: tc.ssoEnabled}, logger)
+			if err != nil {
+				t.Fatal(err)
+			}
+			e.Load(Snapshot{Revision: 1, Policies: []CustomPolicy{
+				{Name: "no-terminate", Enabled: true, Body: `forbid (principal, action == Action::"workflow:terminate", resource);`},
+			}})
+			actions := e.Actions(tc.subject, res)
+			for _, action := range []Action{WorkflowList, WorkflowGet, WorkflowTerminate, TemplateUpdate, CronRun} {
+				if e.Allow(tc.subject, action, res) != tc.wantData || slices.Contains(actions, action) != tc.wantData {
+					t.Errorf("decision and available actions should report %s as allowed=%t", action, tc.wantData)
+				}
+			}
+			if e.Allow(tc.subject, AuthzGrant, Global()) || slices.Contains(actions, AuthzGrant) {
+				t.Error("development identity received grant administration")
+			}
+			if e.Allow("", WorkflowList, res) || e.Allow("other", WorkflowList, res) {
+				t.Error("data bypass applied to a caller without the development identity")
+			}
+		})
 	}
 }
 
